@@ -175,107 +175,94 @@ router.get("/trademarks/stats", async (req, res): Promise<void> => {
   );
 });
 
-// POST /trademarks/sync — sync from Google Sheets CSV
+// POST /trademarks/sync — sync from Google Sheets API v4
+// Column order (A-K): DATE | CASE NO | APP NAME | TM NO | CLASS | STATUS | SUB STATUS | Duplicate | TM-11 | Notes | City
+// Data starts at row 2 (row 1 is the frozen header).
 router.post("/trademarks/sync", async (req, res): Promise<void> => {
-  const csvUrl =
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vTelzPMvLPhdXugWg7No78vyJXgc3e3h4mKDcQLAAsSvLRWQe36fyqlk7mRwIsQSB7PabmNLqKXG2cz/pub?output=csv";
+  const SPREADSHEET_ID = "1yu27k_3Z6cCJmcnQI52z1dIC52Zi9ZxaKlo9wJiNFiQ";
+  const apiKey = process.env.GOOGLE_SHEETS_API_KEY;
 
-  let csvText: string;
+  if (!apiKey) {
+    res.status(500).json({ error: "GOOGLE_SHEETS_API_KEY not configured" });
+    return;
+  }
+
+  // Fetch data starting from A2 so we skip the header row entirely
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/A2:K?key=${apiKey}`;
+
+  let rows: string[][];
   try {
-    const response = await fetch(csvUrl);
+    const response = await fetch(url);
     if (!response.ok) {
-      throw new Error(`Failed to fetch CSV: ${response.statusText}`);
+      const body = await response.text();
+      logger.error({ status: response.status, body }, "Google Sheets API error");
+      res.status(502).json({ error: `Google Sheets API error: ${response.status}` });
+      return;
     }
-    csvText = await response.text();
+    const json = (await response.json()) as { values?: string[][] };
+    rows = json.values ?? [];
   } catch (err) {
-    logger.error({ err }, "Failed to fetch Google Sheets CSV");
+    logger.error({ err }, "Failed to fetch from Google Sheets API");
     res.status(502).json({ error: "Failed to fetch Google Sheets data" });
     return;
   }
 
-  // Parse CSV
-  const lines = csvText.trim().split("\n");
-  if (lines.length < 2) {
+  if (rows.length === 0) {
     res.json(SyncFromSheetsResponse.parse({ synced: 0, message: "No data rows found" }));
     return;
   }
 
-  // Header row — detect column indices dynamically
-  const headers = lines[0].split(",").map((h) => h.replace(/\r/g, "").trim().toLowerCase());
-
-  const colIdx = (names: string[]): number => {
-    for (const name of names) {
-      const idx = headers.findIndex((h) => h.includes(name));
-      if (idx !== -1) return idx;
-    }
-    return -1;
+  // Column indices (0-based, matching A-K positionally)
+  const COL = {
+    date: 0,      // A – DATE
+    folderNo: 1,  // B – CASE NO
+    appName: 2,   // C – APP NAME
+    tmNo: 3,      // D – TM NO
+    appClass: 4,  // E – CLASS
+    stage: 5,     // F – STATUS
+    subStage: 6,  // G – APPLICATION SUB STATUS
+    isDuplicate: 7, // H – Duplicate
+    isTm11: 8,    // I – TM-11
+    notes: 9,     // J – Notes
+    city: 10,     // K – City
   };
 
-  const dateIdx = colIdx(["date"]);
-  const folderIdx = colIdx(["folder", "case"]);
-  const appNameIdx = colIdx(["app name", "application name", "appname"]);
-  const appClassIdx = colIdx(["class", "application class"]);
-  const tmNoIdx = colIdx(["tm", "trademark no", "trademark"]);
-  const stageIdx = colIdx(["stage"]);
-  const subStageIdx = colIdx(["substage", "sub stage", "sub-stage"]);
-  const duplicateIdx = colIdx(["duplicate"]);
-  const tm11Idx = colIdx(["tm-11", "tm11"]);
-  const notesIdx = colIdx(["note"]);
-  const cityIdx = colIdx(["city"]);
+  const cell = (row: string[], idx: number): string =>
+    (row[idx] ?? "").trim();
+
+  const bool = (val: string): boolean =>
+    ["true", "yes", "1"].includes(val.toLowerCase());
+
+  // Clear all previously synced-from-sheets rows before re-importing
+  // so removed rows in the sheet don't linger in the DB.
+  await db.delete(trademarksTable).where(eq(trademarksTable.source, "sheets"));
 
   let synced = 0;
 
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i].replace(/\r/g, "");
-    if (!line.trim()) continue;
+  for (const row of rows) {
+    const tmNo = cell(row, COL.tmNo);
+    const appName = cell(row, COL.appName);
 
-    // Simple CSV split (handles quoted values naively)
-    const cells = line.split(",").map((c) => c.trim().replace(/^"|"$/g, ""));
-
-    const tmNo = tmNoIdx >= 0 ? toSafeString(cells[tmNoIdx]) : "";
-    const appName = appNameIdx >= 0 ? toSafeString(cells[appNameIdx]) : "";
-
+    // Skip completely empty rows
     if (!tmNo && !appName) continue;
 
-    const isDupRaw = duplicateIdx >= 0 ? toSafeString(cells[duplicateIdx]).toLowerCase() : "";
-    const isTm11Raw = tm11Idx >= 0 ? toSafeString(cells[tm11Idx]).toLowerCase() : "";
-
     const record = {
-      date: dateIdx >= 0 ? toSafeString(cells[dateIdx]) || null : null,
-      folderNo: folderIdx >= 0 ? toSafeString(cells[folderIdx]) || null : null,
+      date: cell(row, COL.date) || null,
+      folderNo: cell(row, COL.folderNo) || null,
       appName: appName || null,
-      appClass: appClassIdx >= 0 ? toSafeString(cells[appClassIdx]) || null : null,
+      appClass: cell(row, COL.appClass) || null,
       tmNo: tmNo || null,
-      stage: stageIdx >= 0 ? toSafeString(cells[stageIdx]) || null : null,
-      subStage: subStageIdx >= 0 ? toSafeString(cells[subStageIdx]) || null : null,
-      isDuplicate: ["true", "yes", "1"].includes(isDupRaw),
-      isTm11: ["true", "yes", "1"].includes(isTm11Raw),
-      notes: notesIdx >= 0 ? toSafeString(cells[notesIdx]) || null : null,
-      city: cityIdx >= 0 ? toSafeString(cells[cityIdx]) || null : null,
+      stage: cell(row, COL.stage) || null,
+      subStage: cell(row, COL.subStage) || null,
+      isDuplicate: bool(cell(row, COL.isDuplicate)),
+      isTm11: bool(cell(row, COL.isTm11)),
+      notes: cell(row, COL.notes) || null,
+      city: cell(row, COL.city) || null,
       source: "sheets" as const,
       updatedAt: new Date(),
     };
 
-    // Upsert by tmNo if present, otherwise insert
-    if (tmNo) {
-      const existing = await db
-        .select()
-        .from(trademarksTable)
-        .where(eq(trademarksTable.tmNo, tmNo))
-        .limit(1);
-
-      if (existing.length > 0) {
-        await db
-          .update(trademarksTable)
-          .set(record)
-          .where(eq(trademarksTable.tmNo, tmNo));
-      } else {
-        await db.insert(trademarksTable).values(record);
-      }
-    } else {
-      await db.insert(trademarksTable).values(record);
-    }
-
+    await db.insert(trademarksTable).values(record);
     synced++;
   }
 
