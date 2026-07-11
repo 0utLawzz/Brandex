@@ -6,18 +6,42 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SearchIcon, FilterX, Edit } from "lucide-react";
 import { Link } from "wouter";
-import { format } from "date-fns";
+import { format, isValid } from "date-fns";
+
+const STAGES: Record<string, string[]> = {
+  "Application Filed": ["Acknowledgement", "Examination"],
+  "Examination": ["Assigned", "Accepted", "Hearing"],
+  "Accepted": ["Assigned", "Hearing"],
+  "Published": ["Oppo: Withdrawn", "Oppo: Filed", "Oppo: Received", "Demand Note Received", "Demand Note Paid"],
+  "Certificate Received": ["Certificate Dispatch", "Hearing"],
+  "Stopped": ["Abandoned", "Note", "Hold", "Refused"],
+  "Copyright": ["Filed", "In Newspapers", "Acknowledgement", "Examination", "Certificate Received", "Certificate Dispatched"],
+};
+
+function safeFormatDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return "-";
+  const d = new Date(dateStr);
+  return isValid(d) ? format(d, "dd MMM yyyy") : dateStr;
+}
 
 export function Search() {
   const [search, setSearch] = useState("");
   const [stage, setStage] = useState("");
+  const [subStageFilter, setSubStageFilter] = useState("");
   const [city, setCity] = useState("");
+
+  const availableSubStages = stage ? (STAGES[stage] ?? []) : [];
 
   const { data: trademarks, isLoading } = useListTrademarks({
     search: search || undefined,
     stage: stage || undefined,
     city: city || undefined,
   });
+
+  // Client-side substage filter (API doesn't have substage param)
+  const filtered = subStageFilter
+    ? (trademarks ?? []).filter((tm) => tm.subStage === subStageFilter)
+    : (trademarks ?? []);
 
   return (
     <div className="min-h-screen bg-[#F0E8D0] flex flex-col">
@@ -55,16 +79,29 @@ export function Search() {
             <select
               className="flex h-12 w-full bg-[#F0E8D0] px-4 py-2 font-mono text-sm nb-border focus:outline-2 focus:outline-offset-2 focus:outline-[#C94A00]"
               value={stage}
-              onChange={(e) => setStage(e.target.value)}
+              onChange={(e) => { setStage(e.target.value); setSubStageFilter(""); }}
             >
               <option value="">ALL STAGES</option>
-              <option value="Filed">FILED</option>
-              <option value="Examination">EXAMINATION</option>
-              <option value="Accepted">ACCEPTED</option>
-              <option value="Advertised">ADVERTISED</option>
-              <option value="Opposed">OPPOSED</option>
-              <option value="Registered">REGISTERED</option>
-              <option value="Abandoned">ABANDONED</option>
+              {Object.keys(STAGES).map((s) => (
+                <option key={s} value={s}>{s.toUpperCase()}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="font-mono text-xs font-bold uppercase tracking-widest">
+              Sub-Stage
+            </label>
+            <select
+              className="flex h-12 w-full bg-[#F0E8D0] px-4 py-2 font-mono text-sm nb-border focus:outline-2 focus:outline-offset-2 focus:outline-[#C94A00] disabled:opacity-40 disabled:cursor-not-allowed"
+              value={subStageFilter}
+              onChange={(e) => setSubStageFilter(e.target.value)}
+              disabled={!availableSubStages.length}
+            >
+              <option value="">ALL SUB-STAGES</option>
+              {availableSubStages.map((s) => (
+                <option key={s} value={s}>{s.toUpperCase()}</option>
+              ))}
             </select>
           </div>
 
@@ -78,10 +115,10 @@ export function Search() {
               onChange={(e) => setCity(e.target.value)}
             >
               <option value="">ALL CITIES</option>
-              <option value="ISB">ISLAMABAD</option>
-              <option value="KHI">KARACHI</option>
-              <option value="LHR">LAHORE</option>
-              <option value="PESH">PESHAWAR</option>
+              <option value="ISB">ISLAMABAD (ISB)</option>
+              <option value="KHI">KARACHI (KHI)</option>
+              <option value="LHR">LAHORE (LHR)</option>
+              <option value="PESH">PESHAWAR (PESH)</option>
             </select>
           </div>
 
@@ -91,6 +128,7 @@ export function Search() {
             onClick={() => {
               setSearch("");
               setStage("");
+              setSubStageFilter("");
               setCity("");
             }}
           >
@@ -132,14 +170,14 @@ export function Search() {
                     LOADING RECORDS...
                   </td>
                 </tr>
-              ) : trademarks?.length === 0 ? (
+              ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="px-4 py-8 text-center font-bold">
                     NO RECORDS FOUND.
                   </td>
                 </tr>
               ) : (
-                trademarks?.map((tm) => (
+                filtered.map((tm) => (
                   <tr
                     key={tm.id}
                     className="hover:bg-[#E8DFC7] transition-colors"
@@ -175,7 +213,7 @@ export function Search() {
                       {tm.folderNo || "-"}
                     </td>
                     <td className="px-4 py-3 border-r-2 border-[#0C0C0C]">
-                      {tm.date ? format(new Date(tm.date), "dd MMM yyyy") : "-"}
+                      {safeFormatDate(tm.date)}
                     </td>
                     <td className="px-4 py-3 border-r-2 border-[#0C0C0C] text-center">
                       {tm.isTm11 ? (

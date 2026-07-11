@@ -6,7 +6,6 @@ import {
   useDeleteTrademark,
 } from "@workspace/api-client-react";
 import { useLocation, useParams } from "wouter";
-import { useForm, Controller } from "react-form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -38,14 +37,14 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-const STAGES = {
-  Filed: ["New Filing", "Renewal"],
-  Examination: ["Official Letter", "Response Due", "Examination Report"],
-  Accepted: ["Acceptance Letter", "Publication"],
-  Advertised: ["Advertisement", "Opposition Period"],
-  Opposed: ["Opposition Filed", "Counter Statement", "Evidence"],
-  Registered: ["Certificate Issued"],
-  Abandoned: ["Lapsed", "Withdrawn"],
+const STAGES: Record<string, string[]> = {
+  "Application Filed": ["Acknowledgement", "Examination"],
+  "Examination": ["Assigned", "Accepted", "Hearing"],
+  "Accepted": ["Assigned", "Hearing"],
+  "Published": ["Oppo: Withdrawn", "Oppo: Filed", "Oppo: Received", "Demand Note Received", "Demand Note Paid"],
+  "Certificate Received": ["Certificate Dispatch", "Hearing"],
+  "Stopped": ["Abandoned", "Note", "Hold", "Refused"],
+  "Copyright": ["Filed", "In Newspapers", "Acknowledgement", "Examination", "Certificate Received", "Certificate Dispatched"],
 };
 
 export function FormPage() {
