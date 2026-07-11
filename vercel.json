@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "installCommand": "pnpm install",
+  "buildCommand": "BASE_PATH=/ pnpm --filter @workspace/tm-tracker run build",
+  "outputDirectory": "artifacts/tm-tracker/dist/public",
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "/api/index" }
+  ],
+  "functions": {
+    "api/index.ts": {
+      "memory": 512,
+      "maxDuration": 30
+    }
+  }
+}

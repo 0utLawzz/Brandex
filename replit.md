@@ -47,11 +47,31 @@ Dashboard with stats (total TMs, TM-11 filed, duplicates, city breakdown, stage 
 
 _Populate as you build — explicit user instructions worth remembering across sessions._
 
+## Deploying to Vercel
+
+The project is configured for Vercel in `vercel.json`:
+- **Frontend** — Vite build output at `artifacts/tm-tracker/dist/public`, served from `/`
+- **API** — Express app wrapped in `api/index.ts`, served at `/api/*` via a serverless function
+
+### Steps
+
+1. Run `vercel login` in the Shell tab and authenticate
+2. Run `vercel` to link the project and trigger a first deploy
+3. In the Vercel dashboard, add these environment variables:
+   - `DATABASE_URL` — your Neon connection string (add `?sslmode=require` if not already present)
+   - `GOOGLE_SHEETS_API_KEY` — your Google Sheets API key
+   - `SESSION_SECRET` — a random secret string
+4. For subsequent deploys: `vercel --prod`
+
+### Neon SSL note
+Neon requires SSL. If you see connection errors in production, ensure `DATABASE_URL` ends with `?sslmode=require` or `?ssl=true`.
+
 ## Gotchas
 
 - Always run `pnpm --filter @workspace/api-spec run codegen` after changing the OpenAPI spec — the client hooks and Zod schemas are generated, not hand-written.
-- `DATABASE_URL` is runtime-managed by Replit; do not set it manually.
+- `DATABASE_URL` is managed as a secret (Neon); update both here and in Vercel dashboard when rotating.
 - After schema changes, run `pnpm --filter @workspace/db run push` to apply to dev DB.
+- Vite build requires `BASE_PATH` env var (defaults to `/` if unset — fine for Vercel/production).
 
 ## Pointers
 
