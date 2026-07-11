@@ -1,0 +1,3 @@
+- [Neon schema migration](neon-schema-migration.md) — switching DATABASE_URL from Replit Postgres to Neon requires re-pushing the Drizzle schema; the table existing on the old provider does not migrate automatically.
+- [Mobile API base URL](mobile-api-base-url.md) — Expo bundles need `setBaseUrl` called at module level using `process.env.EXPO_PUBLIC_DOMAIN` (set by Replit’s Expo workflow), and generated API paths already include `/api` prefix.
+- [Google Sheets sync performance](google-sheets-sync-performance.md) — full-sheet sync is synchronous and takes 60–120 s for 1,000+ rows, causing client timeouts; the server keeps processing in the background, but the UX needs a different pattern for mobile.

@@ -17,7 +17,12 @@ import { setBaseUrl } from '@workspace/api-client-react';
 
 // Configure the API base URL before any component renders.
 // EXPO_PUBLIC_DOMAIN is injected by Replit's Expo environment.
-setBaseUrl(`https://${process.env.EXPO_PUBLIC_DOMAIN ?? ''}`);
+const API_DOMAIN = process.env.EXPO_PUBLIC_DOMAIN;
+if (API_DOMAIN) {
+  setBaseUrl(`https://${API_DOMAIN}`);
+} else if (__DEV__) {
+  console.warn('EXPO_PUBLIC_DOMAIN is not set. API calls may fail.');
+}
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
