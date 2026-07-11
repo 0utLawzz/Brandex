@@ -1,64 +1,43 @@
-import * as React from 'react';
-import { Slot } from '@radix-ui/react-slot';
-import { cn } from '@/lib/utils';
-import { cva, type VariantProps } from 'class-variance-authority';
+import React from "react";
+import { cn } from "@/lib/utils";
 
-const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0' +
-    ' hover-elevate active-elevate-2',
-  {
-    variants: {
-      variant: {
-        default:
-          // @replit: no hover, and add primary border
-          'bg-primary text-primary-foreground border border-primary-border',
-        destructive:
-          'bg-destructive text-destructive-foreground shadow-sm border-destructive-border',
-        outline:
-          // @replit Shows the background color of whatever card / sidebar / accent background it is inside of.
-          // Inherits the current text color. Uses shadow-xs. no shadow on active
-          // No hover state
-          ' border [border-color:var(--button-outline)] shadow-xs active:shadow-none ',
-        secondary:
-          // @replit border, no hover, no shadow, secondary border.
-          'border bg-secondary text-secondary-foreground border border-secondary-border ',
-        // @replit no hover, transparent border
-        ghost: 'border border-transparent',
-        link: 'text-primary underline-offset-4 hover:underline',
-      },
-      size: {
-        // @replit changed sizes
-        default: 'min-h-9 px-4 py-2',
-        sm: 'min-h-8 rounded-md px-3 text-xs',
-        lg: 'min-h-10 rounded-md px-8',
-        icon: 'h-9 w-9',
-      },
-    },
-    defaultVariants: {
-      variant: 'default',
-      size: 'default',
-    },
-  },
-);
-
-export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {
-  asChild?: boolean;
+export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?:
+    "primary" | "secondary" | "accent" | "destructive" | "outline" | "ghost";
+  size?: "sm" | "md" | "lg" | "icon";
 }
 
-const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
-    const Comp = asChild ? Slot : 'button';
+export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ className, variant = "primary", size = "md", ...props }, ref) => {
+    const variants = {
+      primary: "bg-[#C94A00] text-[#F0E8D0]",
+      secondary: "bg-[#0A6B52] text-white",
+      accent: "bg-[#D4A800] text-[#0C0C0C]",
+      destructive: "bg-red-600 text-white",
+      outline: "bg-[#E8DFC7] text-[#0C0C0C]",
+      ghost:
+        "bg-transparent text-[#0C0C0C] nb-shadow-none border-transparent hover:bg-[#E8DFC7]",
+    };
+
+    const sizes = {
+      sm: "px-3 py-1.5 text-sm",
+      md: "px-6 py-2.5 text-base",
+      lg: "px-8 py-4 text-lg font-bold uppercase tracking-wider",
+      icon: "p-2",
+    };
+
     return (
-      <Comp
-        className={cn(buttonVariants({ variant, size, className }))}
+      <button
         ref={ref}
+        className={cn(
+          "inline-flex items-center justify-center rounded-[6px] font-mono font-bold uppercase tracking-widest nb-border nb-shadow nb-button disabled:opacity-50 disabled:pointer-events-none",
+          variants[variant],
+          sizes[size],
+          className,
+        )}
         {...props}
       />
     );
   },
 );
-Button.displayName = 'Button';
-
-export { Button, buttonVariants };
+Button.displayName = "Button";

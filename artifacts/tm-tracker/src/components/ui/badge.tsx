@@ -1,42 +1,42 @@
-import * as React from 'react';
-import { cn } from '@/lib/utils';
-import { cva, type VariantProps } from 'class-variance-authority';
+import React from "react";
+import { cn } from "@/lib/utils";
 
-const badgeVariants = cva(
-  // @replit
-  // Whitespace-nowrap: Badges should never wrap.
-  'whitespace-nowrap inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2' +
-    ' hover-elevate ',
-  {
-    variants: {
-      variant: {
-        default:
-          // @replit shadow-xs instead of shadow, no hover because we use hover-elevate
-          'border-transparent bg-primary text-primary-foreground shadow-xs',
-        secondary:
-          // @replit no hover because we use hover-elevate
-          'border-transparent bg-secondary text-secondary-foreground',
-        destructive:
-          // @replit shadow-xs instead of shadow, no hover because we use hover-elevate
-          'border-transparent bg-destructive text-destructive-foreground shadow-xs',
-        // @replit shadow-xs" - use badge outline variable
-        outline: 'text-foreground border [border-color:var(--badge-outline)]',
-      },
-    },
-    defaultVariants: {
-      variant: 'default',
-    },
-  },
-);
-
-export interface BadgeProps
-  extends React.HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof badgeVariants> {}
-
-function Badge({ className, variant, ...props }: BadgeProps) {
-  return (
-    <div className={cn(badgeVariants({ variant }), className)} {...props} />
-  );
+interface BadgeProps extends React.HTMLAttributes<HTMLDivElement> {
+  variant?:
+    | "filed"
+    | "examination"
+    | "accepted"
+    | "advertised"
+    | "opposed"
+    | "registered"
+    | "abandoned"
+    | "default";
 }
 
-export { Badge, badgeVariants };
+export function Badge({
+  className,
+  variant = "default",
+  ...props
+}: BadgeProps) {
+  const variants = {
+    default: "bg-[#E8DFC7] text-[#0C0C0C]",
+    filed: "bg-[#F0E8D0] border-[#D4A800] text-[#D4A800]",
+    examination: "bg-[#F0E8D0] border-[#C94A00] text-[#C94A00]",
+    accepted: "bg-[#F0E8D0] border-[#0D9970] text-[#0A6B52]",
+    advertised: "bg-[#0D9970] border-[#0A6B52] text-white",
+    opposed: "bg-[#F0E8D0] border-red-600 text-red-600",
+    registered: "bg-[#0A6B52] border-[#0A6B52] text-white",
+    abandoned: "bg-[#E8DFC7] border-gray-500 text-gray-600",
+  };
+
+  return (
+    <div
+      className={cn(
+        "inline-flex items-center rounded-none border-2 px-2.5 py-0.5 font-mono text-xs font-bold uppercase tracking-widest transition-colors",
+        variants[variant],
+        className,
+      )}
+      {...props}
+    />
+  );
+}

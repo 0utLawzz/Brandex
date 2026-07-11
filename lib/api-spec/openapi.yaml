@@ -3,13 +3,15 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Trademark Tracker API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: trademarks
+    description: Trademark record operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,170 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /trademarks:
+    get:
+      operationId: listTrademarks
+      tags: [trademarks]
+      summary: List trademarks with optional search/filter
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Search by TM No, app name, or folder number
+        - name: stage
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by stage
+        - name: city
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by city
+        - name: source
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [local, sheets, all]
+          description: "Data source: local (DB only), sheets (Google Sheets only), all (merged)"
+      responses:
+        "200":
+          description: List of trademarks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Trademark"
+    post:
+      operationId: createTrademark
+      tags: [trademarks]
+      summary: Create a new trademark record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TrademarkInput"
+      responses:
+        "201":
+          description: Created trademark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Trademark"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /trademarks/stats:
+    get:
+      operationId: getTrademarkStats
+      tags: [trademarks]
+      summary: Get trademark statistics
+      responses:
+        "200":
+          description: Statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrademarkStats"
+
+  /trademarks/sync:
+    post:
+      operationId: syncFromSheets
+      tags: [trademarks]
+      summary: Sync trademark data from Google Sheets
+      responses:
+        "200":
+          description: Sync result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncResult"
+
+  /trademarks/{id}:
+    get:
+      operationId: getTrademark
+      tags: [trademarks]
+      summary: Get a trademark by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Trademark record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Trademark"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      operationId: updateTrademark
+      tags: [trademarks]
+      summary: Update a trademark record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TrademarkUpdate"
+      responses:
+        "200":
+          description: Updated trademark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Trademark"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteTrademark
+      tags: [trademarks]
+      summary: Delete a trademark record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted successfully
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +200,164 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    Trademark:
+      type: object
+      properties:
+        id:
+          type: integer
+        date:
+          type: ["string", "null"]
+        folderNo:
+          type: ["string", "null"]
+        appName:
+          type: ["string", "null"]
+        appClass:
+          type: ["string", "null"]
+        tmNo:
+          type: ["string", "null"]
+        stage:
+          type: ["string", "null"]
+        subStage:
+          type: ["string", "null"]
+        isDuplicate:
+          type: boolean
+        isTm11:
+          type: boolean
+        notes:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        source:
+          type: string
+          description: "Origin of the record: local or sheets"
+        createdAt:
+          type: ["string", "null"]
+        updatedAt:
+          type: ["string", "null"]
+      required:
+        - id
+        - isDuplicate
+        - isTm11
+        - source
+
+    TrademarkInput:
+      type: object
+      properties:
+        date:
+          type: ["string", "null"]
+        folderNo:
+          type: ["string", "null"]
+        appName:
+          type: string
+        appClass:
+          type: ["string", "null"]
+        tmNo:
+          type: string
+        stage:
+          type: ["string", "null"]
+        subStage:
+          type: ["string", "null"]
+        isDuplicate:
+          type: boolean
+        isTm11:
+          type: boolean
+        notes:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+      required:
+        - tmNo
+        - appName
+        - isDuplicate
+        - isTm11
+
+    TrademarkUpdate:
+      type: object
+      properties:
+        date:
+          type: ["string", "null"]
+        folderNo:
+          type: ["string", "null"]
+        appName:
+          type: ["string", "null"]
+        appClass:
+          type: ["string", "null"]
+        tmNo:
+          type: ["string", "null"]
+        stage:
+          type: ["string", "null"]
+        subStage:
+          type: ["string", "null"]
+        isDuplicate:
+          type: ["boolean", "null"]
+        isTm11:
+          type: ["boolean", "null"]
+        notes:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+
+    TrademarkStats:
+      type: object
+      properties:
+        total:
+          type: integer
+        byStage:
+          type: array
+          items:
+            $ref: "#/components/schemas/StageCount"
+        byCity:
+          type: array
+          items:
+            $ref: "#/components/schemas/CityCount"
+        duplicates:
+          type: integer
+        tm11Count:
+          type: integer
+      required:
+        - total
+        - byStage
+        - byCity
+        - duplicates
+        - tm11Count
+
+    StageCount:
+      type: object
+      properties:
+        stage:
+          type: string
+        count:
+          type: integer
+      required:
+        - stage
+        - count
+
+    CityCount:
+      type: object
+      properties:
+        city:
+          type: string
+        count:
+          type: integer
+      required:
+        - city
+        - count
+
+    SyncResult:
+      type: object
+      properties:
+        synced:
+          type: integer
+        message:
+          type: string
+      required:
+        - synced
+        - message
