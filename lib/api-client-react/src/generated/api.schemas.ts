@@ -99,12 +99,19 @@ export interface CityCount {
   count: number;
 }
 
+export interface SubStageCount {
+  subStage: string;
+  count: number;
+}
+
 export interface TrademarkStats {
   total: number;
   byStage: StageCount[];
   byCity: CityCount[];
   duplicates: number;
   tm11Count: number;
+  byNumericStage: StageCount[];
+  byAssignedSubStage: SubStageCount[];
 }
 
 export interface SyncResult {

@@ -7,6 +7,7 @@
  */
 import type { CityCount } from './cityCount';
 import type { StageCount } from './stageCount';
+import type { SubStageCount } from './subStageCount';
 
 export interface TrademarkStats {
   total: number;
@@ -14,4 +15,6 @@ export interface TrademarkStats {
   byCity: CityCount[];
   duplicates: number;
   tm11Count: number;
+  byNumericStage: StageCount[];
+  byAssignedSubStage: SubStageCount[];
 }

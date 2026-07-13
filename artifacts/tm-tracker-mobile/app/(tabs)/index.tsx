@@ -52,6 +52,13 @@ export default function DashboardScreen() {
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
 
+  const numericStages = ['STAGE 1', 'STAGE 2', 'STAGE 3', 'STAGE 4'].map((stage) => {
+    const found = stats?.byNumericStage?.find((s) => s.stage === stage);
+    return { stage, count: found?.count ?? 0 };
+  });
+
+  const assignedTotal = (stats?.byAssignedSubStage ?? []).reduce((sum, s) => sum + s.count, 0);
+
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -66,12 +73,15 @@ export default function DashboardScreen() {
     >
       {/* Header */}
       <View style={styles.headerRow}>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={[styles.appTitle, { color: colors.foreground, fontFamily: 'SpaceGrotesk_700Bold' }]}>
-            TM TRACKER
+            BRANDEX LAW
+          </Text>
+          <Text style={[styles.appTitle, { color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold', marginTop: -4 }]}>
+            ASSOICATE
           </Text>
           <Text style={[styles.appSubtitle, { color: colors.mutedForeground, fontFamily: 'SpaceGrotesk_400Regular' }]}>
-            Trademark Registry
+            Trademark Registry Dashboard
           </Text>
         </View>
         <TouchableOpacity
@@ -135,15 +145,76 @@ export default function DashboardScreen() {
               backgroundColor={colors.primary}
               textColor={colors.primaryForeground}
             />
-            <View style={[styles.emptyCard, { borderColor: colors.border }]}>
-              <Text style={[styles.cityTitle, { color: colors.mutedForeground, fontFamily: 'SpaceGrotesk_500Medium' }]}>CITY BREAKDOWN</Text>
-              {(stats?.byCity ?? []).slice(0, 3).map((c) => (
-                <View key={c.city} style={styles.cityRow}>
-                  <Text style={[styles.cityName, { color: colors.foreground, fontFamily: 'SpaceGrotesk_400Regular' }]} numberOfLines={1}>{c.city}</Text>
-                  <Text style={[styles.cityCount, { color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold' }]}>{c.count}</Text>
+            <StatCard
+              title="Assigned"
+              value={assignedTotal}
+              backgroundColor={colors.secondary}
+              textColor={colors.secondaryForeground}
+            />
+          </View>
+
+          {/* Stage 1-4 + Assigned */}
+          <Text style={[styles.sectionLabel, { color: colors.mutedForeground, fontFamily: 'SpaceGrotesk_500Medium', marginTop: 24 }]}>
+            STAGE 1 — 4 & ASSIGNED
+          </Text>
+          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={styles.stageGrid}>
+              {numericStages.map((s) => (
+                <View key={s.stage} style={[styles.stageMini, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                  <Text style={[styles.stageMiniValue, { color: colors.foreground, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                    {s.count}
+                  </Text>
+                  <Text style={[styles.stageMiniLabel, { color: colors.mutedForeground, fontFamily: 'SpaceGrotesk_600SemiBold' }]}>
+                    {s.stage}
+                  </Text>
                 </View>
               ))}
             </View>
+          </View>
+
+          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 10 }]}>
+            <Text style={[styles.boxTitle, { color: colors.mutedForeground, fontFamily: 'SpaceGrotesk_500Medium' }]}>
+              ASSIGNED BY SUB-STATUS
+            </Text>
+            {(stats?.byAssignedSubStage ?? []).length === 0 ? (
+              <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: 'SpaceGrotesk_400Regular' }]}>
+                No assigned records
+              </Text>
+            ) : (
+              (stats?.byAssignedSubStage ?? []).sort((a, b) => b.count - a.count).map((s) => (
+                <View key={s.subStage} style={styles.breakdownRow}>
+                  <Text style={[styles.breakdownLabel, { color: colors.foreground, fontFamily: 'SpaceGrotesk_400Regular' }]} numberOfLines={1}>
+                    {s.subStage || 'UNASSIGNED'}
+                  </Text>
+                  <Text style={[styles.breakdownCount, { color: colors.secondary, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                    {s.count}
+                  </Text>
+                </View>
+              ))
+            )}
+          </View>
+
+          {/* City breakdown */}
+          <Text style={[styles.sectionLabel, { color: colors.mutedForeground, fontFamily: 'SpaceGrotesk_500Medium', marginTop: 24 }]}>
+            CITY BREAKDOWN
+          </Text>
+          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            {(stats?.byCity ?? []).length === 0 ? (
+              <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: 'SpaceGrotesk_400Regular' }]}>
+                No city data
+              </Text>
+            ) : (
+              (stats?.byCity ?? []).sort((a, b) => b.count - a.count).map((c) => (
+                <View key={c.city} style={styles.breakdownRow}>
+                  <Text style={[styles.breakdownLabel, { color: colors.foreground, fontFamily: 'SpaceGrotesk_400Regular' }]} numberOfLines={1}>
+                    {c.city || 'UNASSIGNED'}
+                  </Text>
+                  <Text style={[styles.breakdownCount, { color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                    {c.count}
+                  </Text>
+                </View>
+              ))
+            )}
           </View>
 
           {/* Stage distribution */}
@@ -200,7 +271,7 @@ const styles = StyleSheet.create({
   },
   appSubtitle: {
     fontSize: 13,
-    marginTop: 2,
+    marginTop: 4,
   },
   syncButton: {
     flexDirection: 'row',
@@ -240,31 +311,63 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 16,
   },
-  emptyCard: {
-    flex: 1,
+  card: {
     borderWidth: 2,
     padding: 14,
+    marginHorizontal: 16,
     shadowColor: '#0D0D0D',
     shadowOffset: { width: 3, height: 3 },
     shadowOpacity: 1,
     shadowRadius: 0,
     elevation: 3,
-    minHeight: 90,
-    justifyContent: 'center',
   },
-  cityTitle: {
+  boxTitle: {
     fontSize: 10,
     letterSpacing: 0.8,
-    marginBottom: 6,
+    marginBottom: 10,
   },
-  cityRow: {
+  stageGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  stageMini: {
+    flex: 1,
+    minWidth: '22%',
+    borderWidth: 2,
+    padding: 10,
+    alignItems: 'center',
+  },
+  stageMiniValue: {
+    fontSize: 28,
+    lineHeight: 32,
+  },
+  stageMiniLabel: {
+    fontSize: 10,
+    letterSpacing: 0.5,
+    marginTop: 2,
+  },
+  breakdownRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 2,
+    paddingVertical: 5,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.08)',
   },
-  cityName: { fontSize: 12, flex: 1, marginRight: 4 },
-  cityCount: { fontSize: 13 },
+  breakdownLabel: {
+    fontSize: 13,
+    flex: 1,
+    marginRight: 8,
+  },
+  breakdownCount: {
+    fontSize: 14,
+  },
+  emptyText: {
+    fontSize: 13,
+    textAlign: 'center',
+    paddingVertical: 8,
+  },
   stageContainer: {
     marginHorizontal: 16,
     borderWidth: 2,

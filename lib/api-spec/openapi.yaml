@@ -322,12 +322,22 @@ components:
           type: integer
         tm11Count:
           type: integer
+        byNumericStage:
+          type: array
+          items:
+            $ref: "#/components/schemas/StageCount"
+        byAssignedSubStage:
+          type: array
+          items:
+            $ref: "#/components/schemas/SubStageCount"
       required:
         - total
         - byStage
         - byCity
         - duplicates
         - tm11Count
+        - byNumericStage
+        - byAssignedSubStage
 
     StageCount:
       type: object
@@ -349,6 +359,17 @@ components:
           type: integer
       required:
         - city
+        - count
+
+    SubStageCount:
+      type: object
+      properties:
+        subStage:
+          type: string
+        count:
+          type: integer
+      required:
+        - subStage
         - count
 
     SyncResult:

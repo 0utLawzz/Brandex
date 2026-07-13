@@ -12,6 +12,7 @@ export * from './healthStatus';
 export * from './listTrademarksParams';
 export * from './listTrademarksSource';
 export * from './stageCount';
+export * from './subStageCount';
 export * from './syncResult';
 export * from './trademark';
 export * from './trademarkInput';

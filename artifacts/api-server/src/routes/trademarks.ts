@@ -158,6 +158,24 @@ router.get("/trademarks/stats", async (req, res): Promise<void> => {
     .from(trademarksTable)
     .where(eq(trademarksTable.isTm11, true));
 
+  const byNumericStageResult = await db
+    .select({
+      stage: trademarksTable.stage,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(trademarksTable)
+    .where(sql`${trademarksTable.stage} IN ('STAGE 1', 'STAGE 2', 'STAGE 3', 'STAGE 4')`)
+    .groupBy(trademarksTable.stage);
+
+  const byAssignedSubStageResult = await db
+    .select({
+      subStage: trademarksTable.subStage,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(trademarksTable)
+    .where(sql`LOWER(${trademarksTable.stage}) = 'assigned'`)
+    .groupBy(trademarksTable.subStage);
+
   res.json(
     GetTrademarkStatsResponse.parse({
       total: totalResult?.count ?? 0,
@@ -171,6 +189,14 @@ router.get("/trademarks/stats", async (req, res): Promise<void> => {
       })),
       duplicates: dupsResult?.count ?? 0,
       tm11Count: tm11Result?.count ?? 0,
+      byNumericStage: byNumericStageResult.map((r) => ({
+        stage: r.stage ?? "Unknown",
+        count: r.count,
+      })),
+      byAssignedSubStage: byAssignedSubStageResult.map((r) => ({
+        subStage: r.subStage ?? "Unassigned",
+        count: r.count,
+      })),
     }),
   );
 });

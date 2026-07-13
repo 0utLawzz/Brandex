@@ -97,7 +97,15 @@ export const GetTrademarkStatsResponse = zod.object({
   "count": zod.number()
 })),
   "duplicates": zod.number(),
-  "tm11Count": zod.number()
+  "tm11Count": zod.number(),
+  "byNumericStage": zod.array(zod.object({
+  "stage": zod.string(),
+  "count": zod.number()
+})),
+  "byAssignedSubStage": zod.array(zod.object({
+  "subStage": zod.string(),
+  "count": zod.number()
+}))
 })
 
 

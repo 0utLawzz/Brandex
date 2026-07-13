@@ -37,7 +37,7 @@ export function Navbar() {
             className="w-8 h-8 text-[#C94A00]"
             strokeWidth={2.5}
           />
-          TM TRACKER
+          BRANDEX LAW ASSOICATE
         </div>
 
         <div className="flex items-center space-x-6 flex-1">

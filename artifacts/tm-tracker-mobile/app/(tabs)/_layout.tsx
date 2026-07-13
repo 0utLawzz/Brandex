@@ -17,8 +17,12 @@ function NativeTabLayout() {
         <Label>Dashboard</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="registry" role="search">
-        <Icon sf={{ default: 'magnifyingglass', selected: 'magnifyingglass' }} />
+        <Icon sf={{ default: 'list.bullet', selected: 'list.bullet' }} />
         <Label>Registry</Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="search-tm">
+        <Icon sf={{ default: 'magnifyingglass', selected: 'magnifyingglass' }} />
+        <Label>Search TM</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="new">
         <Icon sf={{ default: 'plus.circle', selected: 'plus.circle.fill' }} />
@@ -84,6 +88,18 @@ function ClassicTabLayout() {
         name="registry"
         options={{
           title: 'Registry',
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="list.bullet" tintColor={color} size={22} />
+            ) : (
+              <Feather name="list" size={21} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="search-tm"
+        options={{
+          title: 'Search TM',
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="magnifyingglass" tintColor={color} size={22} />
