@@ -66,8 +66,11 @@ router.get("/trademarks", async (req, res): Promise<void> => {
           .select()
           .from(trademarksTable)
           .where(and(...conditions))
-          .orderBy(trademarksTable.id)
-      : await db.select().from(trademarksTable).orderBy(trademarksTable.id);
+          .orderBy(sql`COALESCE(${trademarksTable.date}, '') DESC`)
+      : await db
+          .select()
+          .from(trademarksTable)
+          .orderBy(sql`COALESCE(${trademarksTable.date}, '') DESC`);
 
   const result = rows.map((row) =>
     ListTrademarksResponseItem.parse({

@@ -21,6 +21,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { ClassPicker } from '@/components/ClassPicker';
 
 interface FormState {
   tmNo: string;
@@ -182,7 +183,7 @@ export default function NewTrademarkScreen() {
         <Field label="TM Number" value={form.tmNo} onChangeText={set('tmNo')} required placeholder="e.g. 12345678" />
         <Field label="Application Name" value={form.appName} onChangeText={set('appName')} required placeholder="Brand / mark name" />
         <Field label="Folder / Case No" value={form.folderNo} onChangeText={set('folderNo')} placeholder="e.g. A-2024-001" />
-        <Field label="Class" value={form.appClass} onChangeText={set('appClass')} placeholder="e.g. 25" />
+        <ClassPicker value={form.appClass} onChange={(value) => set('appClass')(value)} />
         <Field label="Date" value={form.date} onChangeText={set('date')} placeholder="YYYY-MM-DD" />
       </View>
 

@@ -1,11 +1,8 @@
-import { useGetTrademarkStats, useSyncFromSheets } from "@workspace/api-client-react";
+import { useGetTrademarkStats } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Activity, Copy, FileText, MapPin, Layers, BarChart3, DatabaseZap } from "lucide-react";
+import { Activity, Copy, FileText, MapPin, Layers, BarChart3 } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
-import { useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { getGetTrademarkStatsQueryKey, getListTrademarksQueryKey } from "@workspace/api-client-react";
 
 function StatCard({
   title,
@@ -88,21 +85,6 @@ function BreakdownCard({
 
 export function Dashboard() {
   const { data: stats, isLoading } = useGetTrademarkStats();
-  const sync = useSyncFromSheets();
-  const queryClient = useQueryClient();
-  const [syncing, setSynced] = useState(false);
-
-  const handleSync = () => {
-    setSynced(true);
-    sync.mutate(undefined, {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getGetTrademarkStatsQueryKey() });
-        queryClient.invalidateQueries({ queryKey: getListTrademarksQueryKey() });
-        setTimeout(() => setSynced(false), 2000);
-      },
-      onError: () => setSynced(false),
-    });
-  };
 
   const numericStages = ["STAGE 1", "STAGE 2", "STAGE 3", "STAGE 4"].map((stage) => {
     const found = stats?.byNumericStage?.find((s) => s.stage === stage);
@@ -116,23 +98,13 @@ export function Dashboard() {
       <Navbar />
 
       <main className="flex-1 p-6 md:p-8 max-w-7xl mx-auto w-full">
-        <header className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
-          <div>
-            <h1 className="font-serif text-4xl md:text-6xl text-[#0C0C0C] uppercase tracking-wide">
-              BRANDEX LAW <span className="text-[#C94A00]">ASSOICATE</span>
-            </h1>
-            <p className="font-mono text-[#0C0C0C] mt-2 font-medium">
-              Trademark Registry Dashboard
-            </p>
-          </div>
-          <button
-            onClick={handleSync}
-            disabled={sync.isPending || syncing}
-            className="flex items-center gap-2 bg-[#D4A800] text-[#0C0C0C] border-2 border-[#0C0C0C] px-4 py-2 font-mono font-bold text-sm uppercase tracking-wider rounded-[6px] hover:-translate-y-0.5 hover:shadow-[4px_4px_0_#F0E8D0] active:translate-y-0 active:shadow-none transition-all disabled:opacity-50 self-start md:self-auto"
-          >
-            <DatabaseZap className={`w-4 h-4 ${sync.isPending ? "animate-spin" : ""}`} />
-            {sync.isPending ? "SYNCING..." : syncing ? "SYNCED!" : "SYNC G-SHEETS"}
-          </button>
+        <header className="mb-8">
+          <h1 className="font-serif text-4xl md:text-6xl text-[#0C0C0C] uppercase tracking-wide">
+            BRANDEX LAW <span className="text-[#C94A00]">ASSOICATE</span>
+          </h1>
+          <p className="font-mono text-[#0C0C0C] mt-2 font-medium">
+            Trademark Registry Dashboard
+          </p>
         </header>
 
         {isLoading ? (

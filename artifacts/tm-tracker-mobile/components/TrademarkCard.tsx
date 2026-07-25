@@ -43,9 +43,23 @@ export function TrademarkCard({ item, onPress }: TrademarkCardProps) {
               <Text style={[styles.badgeText, { color: colors.destructiveForeground, fontFamily: 'SpaceGrotesk_700Bold' }]}>DUP</Text>
             </View>
           )}
-          {item.source === 'sheets' && (
-            <Feather name="grid" size={12} color={colors.mutedForeground} />
-          )}
+          <View style={[
+            styles.sourceBadge,
+            {
+              backgroundColor: item.source === 'sheets' ? colors.accent : colors.input,
+              borderColor: colors.border,
+            },
+          ]}>
+            <Text style={[
+              styles.sourceBadgeText,
+              {
+                color: item.source === 'sheets' ? colors.accentForeground : colors.mutedForeground,
+                fontFamily: 'SpaceGrotesk_700Bold',
+              },
+            ]}>
+              {item.source === 'sheets' ? 'SHEET' : 'DB'}
+            </Text>
+          </View>
         </View>
       </View>
 
@@ -109,6 +123,15 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 9,
     letterSpacing: 0.5,
+  },
+  sourceBadge: {
+    borderWidth: 1.5,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+  },
+  sourceBadgeText: {
+    fontSize: 8,
+    letterSpacing: 0.4,
   },
   appName: {
     fontSize: 16,

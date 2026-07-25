@@ -11,9 +11,10 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
+import { StatCard } from '@/components/StatCard';
 import { TrademarkCard } from '@/components/TrademarkCard';
 import { Feather } from '@expo/vector-icons';
-import { useListTrademarks } from '@workspace/api-client-react';
+import { useListTrademarks, useGetTrademarkStats } from '@workspace/api-client-react';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 
@@ -41,6 +42,7 @@ export default function SearchTmScreen() {
   }, [router]);
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
+  const { data: stats } = useGetTrademarkStats();
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -64,6 +66,10 @@ export default function SearchTmScreen() {
               <Feather name="x" size={16} color={colors.mutedForeground} />
             </TouchableOpacity>
           )}
+        </View>
+        <View style={styles.statusRow}>
+          <StatCard title="Total TMs" value={stats?.total ?? 0} backgroundColor={colors.secondary} textColor={colors.secondaryForeground} />
+          <StatCard title="Assigned" value={(stats?.byAssignedSubStage ?? []).reduce((s, x) => s + x.count, 0)} backgroundColor={colors.accent} textColor={colors.accentForeground} />
         </View>
       </View>
 

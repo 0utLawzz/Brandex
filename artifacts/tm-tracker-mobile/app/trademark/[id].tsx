@@ -24,6 +24,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { ClassPicker } from '@/components/ClassPicker';
 import { Feather } from '@expo/vector-icons';
 
 interface FormState {
@@ -250,7 +251,7 @@ export default function TrademarkDetailScreen() {
           <Field label="TM Number" value={form.tmNo} onChangeText={set('tmNo')} />
           <Field label="Application Name" value={form.appName} onChangeText={set('appName')} />
           <Field label="Folder / Case No" value={form.folderNo} onChangeText={set('folderNo')} />
-          <Field label="Class" value={form.appClass} onChangeText={set('appClass')} />
+          <ClassPicker value={form.appClass} onChange={(value) => set('appClass')(value)} />
           <Field label="Date" value={form.date} onChangeText={set('date')} />
         </View>
 

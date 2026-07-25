@@ -52,7 +52,7 @@ export function Navbar() {
             className={`flex items-center gap-2 font-mono font-bold uppercase tracking-widest text-sm py-2 border-b-2 transition-colors ${location.startsWith("/search") ? "border-[#C94A00] text-[#C94A00]" : "border-transparent text-[#E8DFC7] hover:text-white hover:border-white"}`}
           >
             <Search className="w-4 h-4" />
-            Registry
+            Database
           </Link>
           <Link
             href="/new"

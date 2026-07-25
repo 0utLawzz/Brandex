@@ -159,13 +159,15 @@ export default function DashboardScreen() {
           </Text>
           <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.stageGrid}>
-              {numericStages.map((s) => (
+              {numericStages.map((s, i) => (
                 <View key={s.stage} style={[styles.stageMini, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                  <View style={[styles.numberIcon, { backgroundColor: colors.secondary, borderColor: colors.border }]}>
+                    <Text style={[styles.numberIconText, { color: colors.secondaryForeground, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                      {i + 1}
+                    </Text>
+                  </View>
                   <Text style={[styles.stageMiniValue, { color: colors.foreground, fontFamily: 'SpaceGrotesk_700Bold' }]}>
                     {s.count}
-                  </Text>
-                  <Text style={[styles.stageMiniLabel, { color: colors.mutedForeground, fontFamily: 'SpaceGrotesk_600SemiBold' }]}>
-                    {s.stage}
                   </Text>
                 </View>
               ))}
@@ -339,13 +341,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   stageMiniValue: {
-    fontSize: 28,
-    lineHeight: 32,
+    fontSize: 22,
+    lineHeight: 26,
+    marginTop: 6,
   },
-  stageMiniLabel: {
-    fontSize: 10,
-    letterSpacing: 0.5,
-    marginTop: 2,
+  numberIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  numberIconText: {
+    fontSize: 16,
+    lineHeight: 18,
   },
   breakdownRow: {
     flexDirection: 'row',

@@ -1,10 +1,10 @@
 import { Navbar } from "@/components/layout/Navbar";
-import { useListTrademarks } from "@workspace/api-client-react";
+import { useListTrademarks, useGetTrademarkStats } from "@workspace/api-client-react";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { SearchIcon, FilterX, Edit } from "lucide-react";
+import { SearchIcon, FilterX, Edit, Database, Grid3X3 } from "lucide-react";
 import { Link } from "wouter";
 import { format, isValid } from "date-fns";
 
@@ -37,11 +37,15 @@ export function Search() {
     stage: stage || undefined,
     city: city || undefined,
   });
+  const { data: stats } = useGetTrademarkStats();
 
   // Client-side substage filter (API doesn't have substage param)
   const filtered = subStageFilter
     ? (trademarks ?? []).filter((tm) => tm.subStage === subStageFilter)
     : (trademarks ?? []);
+
+  const sheetCount = (trademarks ?? []).filter((tm) => tm.source === "sheets").length;
+  const dbCount = (trademarks ?? []).filter((tm) => tm.source === "local").length;
 
   return (
     <div className="min-h-screen bg-[#F0E8D0] flex flex-col">
@@ -51,8 +55,19 @@ export function Search() {
         <header className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
             <h1 className="font-serif text-5xl md:text-6xl text-[#0C0C0C] uppercase tracking-wide">
-              Trademark <span className="text-[#0A6B52]">Registry</span>
+              Trademark <span className="text-[#0A6B52]">Database</span>
             </h1>
+          </div>
+          <div className="flex gap-3">
+            <div className="flex items-center gap-2 bg-[#0C0C0C] text-[#F0E8D0] border-2 border-[#0C0C0C] px-3 py-1.5 font-mono font-bold text-sm uppercase tracking-wider">
+              <Database className="w-4 h-4" /> {dbCount} DB
+            </div>
+            <div className="flex items-center gap-2 bg-[#D4A800] text-[#0C0C0C] border-2 border-[#0C0C0C] px-3 py-1.5 font-mono font-bold text-sm uppercase tracking-wider">
+              <Grid3X3 className="w-4 h-4" /> {sheetCount} SHEETS
+            </div>
+            <div className="flex items-center gap-2 bg-[#E8DFC7] border-2 border-[#0C0C0C] px-3 py-1.5 font-mono font-bold text-sm uppercase tracking-wider">
+              TOTAL {stats?.total ?? 0}
+            </div>
           </div>
         </header>
 
