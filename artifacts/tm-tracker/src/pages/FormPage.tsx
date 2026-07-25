@@ -210,7 +210,17 @@ export function FormPage() {
 
                 <div className="space-y-2">
                   <Label>Class</Label>
-                  <Input {...form.register("appClass")} className="bg-white" />
+                  <select
+                    {...form.register("appClass")}
+                    className="flex h-12 w-full bg-white px-4 py-2 font-mono text-sm nb-border focus:outline-2 focus:outline-[#C94A00]"
+                  >
+                    <option value="">SELECT CLASS</option>
+                    {Array.from({ length: 45 }, (_, i) => String(i + 1)).map((c) => (
+                      <option key={c} value={c}>
+                        CLASS {c}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="space-y-2">
