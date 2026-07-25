@@ -175,19 +175,22 @@ export function Search() {
                 <th className="px-4 py-4 border-r border-[#0C0C0C]/30 text-center">
                   TM-11
                 </th>
+                <th className="px-4 py-4 border-r border-[#0C0C0C]/30 text-center">
+                  DUP
+                </th>
                 <th className="px-4 py-4 text-center">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y-2 divide-[#0C0C0C]">
               {isLoading ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-8 text-center font-bold">
+                  <td colSpan={10} className="px-4 py-8 text-center font-bold">
                     LOADING RECORDS...
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-8 text-center font-bold">
+                  <td colSpan={10} className="px-4 py-8 text-center font-bold">
                     NO RECORDS FOUND.
                   </td>
                 </tr>
@@ -195,7 +198,7 @@ export function Search() {
                 filtered.map((tm) => (
                   <tr
                     key={tm.id}
-                    className="hover:bg-[#E8DFC7] transition-colors"
+                    className={`transition-colors ${tm.isDuplicate ? "bg-[#FFF0E8] hover:bg-[#FFE4D4]" : "hover:bg-[#E8DFC7]"}`}
                   >
                     <td className="px-4 py-3 border-r-2 border-[#0C0C0C] font-bold">
                       {tm.tmNo || "-"}
@@ -234,6 +237,15 @@ export function Search() {
                       {tm.isTm11 ? (
                         <span className="text-[#C94A00] font-bold text-lg">
                           ★
+                        </span>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
+                    <td className="px-4 py-3 border-r-2 border-[#0C0C0C] text-center">
+                      {tm.isDuplicate ? (
+                        <span className="inline-block bg-[#CC0000] text-white font-mono font-bold text-[10px] tracking-widest px-2 py-0.5 border-2 border-[#0C0C0C]">
+                          DUP
                         </span>
                       ) : (
                         "-"

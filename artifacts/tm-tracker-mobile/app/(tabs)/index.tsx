@@ -153,50 +153,61 @@ export default function DashboardScreen() {
             />
           </View>
 
-          {/* Stage 1-4 + Assigned */}
+          {/* Stage 1-4 — matches web 2x2 grid style */}
           <Text style={[styles.sectionLabel, { color: colors.mutedForeground, fontFamily: 'SpaceGrotesk_500Medium', marginTop: 24 }]}>
-            STAGE 1 — 4 & ASSIGNED
+            STAGE 1 — 4
           </Text>
           <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.stageGrid}>
-              {numericStages.map((s, i) => (
+              {numericStages.map((s) => (
                 <View key={s.stage} style={[styles.stageMini, { borderColor: colors.border, backgroundColor: colors.background }]}>
-                  <View style={[styles.numberIcon, { backgroundColor: colors.secondary, borderColor: colors.border }]}>
-                    <Text style={[styles.numberIconText, { color: colors.secondaryForeground, fontFamily: 'SpaceGrotesk_700Bold' }]}>
-                      {i + 1}
-                    </Text>
-                  </View>
                   <Text style={[styles.stageMiniValue, { color: colors.foreground, fontFamily: 'SpaceGrotesk_700Bold' }]}>
                     {s.count}
                   </Text>
+                  <View style={[styles.stagePill, { borderColor: colors.border }]}>
+                    <Text style={[styles.stagePillText, { color: colors.mutedForeground, fontFamily: 'SpaceGrotesk_500Medium' }]}>
+                      {s.stage}
+                    </Text>
+                  </View>
                 </View>
               ))}
             </View>
           </View>
 
+          {/* Assigned by sub-status — with progress bars matching web */}
           <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 10 }]}>
-            <Text style={[styles.boxTitle, { color: colors.mutedForeground, fontFamily: 'SpaceGrotesk_500Medium' }]}>
-              ASSIGNED BY SUB-STATUS
-            </Text>
+            <View style={styles.boxTitleRow}>
+              <Feather name="bar-chart-2" size={13} color={colors.mutedForeground} />
+              <Text style={[styles.boxTitle, { color: colors.mutedForeground, fontFamily: 'SpaceGrotesk_500Medium' }]}>
+                ASSIGNED BY SUB-STATUS
+              </Text>
+            </View>
             {(stats?.byAssignedSubStage ?? []).length === 0 ? (
               <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: 'SpaceGrotesk_400Regular' }]}>
                 No assigned records
               </Text>
-            ) : (
-              (stats?.byAssignedSubStage ?? []).sort((a, b) => b.count - a.count).map((s) => (
-                <View key={s.subStage} style={styles.breakdownRow}>
-                  <Text style={[styles.breakdownLabel, { color: colors.foreground, fontFamily: 'SpaceGrotesk_400Regular' }]} numberOfLines={1}>
-                    {s.subStage || 'UNASSIGNED'}
-                  </Text>
-                  <Text style={[styles.breakdownCount, { color: colors.secondary, fontFamily: 'SpaceGrotesk_700Bold' }]}>
-                    {s.count}
-                  </Text>
+            ) : (() => {
+              const sorted = [...(stats?.byAssignedSubStage ?? [])].sort((a, b) => b.count - a.count);
+              const max = sorted[0]?.count ?? 1;
+              return sorted.map((s) => (
+                <View key={s.subStage} style={styles.barRow}>
+                  <View style={styles.barLabelRow}>
+                    <Text style={[styles.barLabel, { color: colors.foreground, fontFamily: 'SpaceGrotesk_400Regular' }]} numberOfLines={1}>
+                      {s.subStage || 'UNASSIGNED'}
+                    </Text>
+                    <Text style={[styles.barCount, { color: colors.foreground, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                      {s.count}
+                    </Text>
+                  </View>
+                  <View style={[styles.barTrack, { backgroundColor: colors.border }]}>
+                    <View style={[styles.barFill, { width: `${(s.count / max) * 100}%` as any, backgroundColor: colors.secondary }]} />
+                  </View>
                 </View>
-              ))
-            )}
+              ));
+            })()}
           </View>
 
-          {/* City breakdown */}
+          {/* City breakdown — with progress bars matching web */}
           <Text style={[styles.sectionLabel, { color: colors.mutedForeground, fontFamily: 'SpaceGrotesk_500Medium', marginTop: 24 }]}>
             CITY BREAKDOWN
           </Text>
@@ -205,18 +216,25 @@ export default function DashboardScreen() {
               <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: 'SpaceGrotesk_400Regular' }]}>
                 No city data
               </Text>
-            ) : (
-              (stats?.byCity ?? []).sort((a, b) => b.count - a.count).map((c) => (
-                <View key={c.city} style={styles.breakdownRow}>
-                  <Text style={[styles.breakdownLabel, { color: colors.foreground, fontFamily: 'SpaceGrotesk_400Regular' }]} numberOfLines={1}>
-                    {c.city || 'UNASSIGNED'}
-                  </Text>
-                  <Text style={[styles.breakdownCount, { color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold' }]}>
-                    {c.count}
-                  </Text>
+            ) : (() => {
+              const sorted = [...(stats?.byCity ?? [])].sort((a, b) => b.count - a.count);
+              const max = sorted[0]?.count ?? 1;
+              return sorted.map((c) => (
+                <View key={c.city} style={styles.barRow}>
+                  <View style={styles.barLabelRow}>
+                    <Text style={[styles.barLabel, { color: colors.foreground, fontFamily: 'SpaceGrotesk_400Regular' }]} numberOfLines={1}>
+                      {c.city || 'UNASSIGNED'}
+                    </Text>
+                    <Text style={[styles.barCount, { color: colors.foreground, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                      {c.count}
+                    </Text>
+                  </View>
+                  <View style={[styles.barTrack, { backgroundColor: colors.border }]}>
+                    <View style={[styles.barFill, { width: `${(c.count / max) * 100}%` as any, backgroundColor: colors.primary }]} />
+                  </View>
                 </View>
-              ))
-            )}
+              ));
+            })()}
           </View>
 
           {/* Stage distribution */}
@@ -335,43 +353,57 @@ const styles = StyleSheet.create({
   },
   stageMini: {
     flex: 1,
-    minWidth: '22%',
+    minWidth: '44%',
     borderWidth: 2,
-    padding: 10,
-    alignItems: 'center',
+    padding: 14,
   },
   stageMiniValue: {
-    fontSize: 22,
-    lineHeight: 26,
-    marginTop: 6,
+    fontSize: 32,
+    lineHeight: 36,
+    marginBottom: 8,
   },
-  numberIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 2,
+  stagePill: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  stagePillText: {
+    fontSize: 9,
+    letterSpacing: 0.8,
+  },
+  boxTitleRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 6,
+    marginBottom: 12,
   },
-  numberIconText: {
-    fontSize: 16,
-    lineHeight: 18,
+  boxTitle: {
+    fontSize: 10,
+    letterSpacing: 0.8,
   },
-  breakdownRow: {
+  barRow: {
+    marginBottom: 10,
+  },
+  barLabelRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 5,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.08)',
+    marginBottom: 4,
   },
-  breakdownLabel: {
-    fontSize: 13,
+  barLabel: {
+    fontSize: 12,
     flex: 1,
     marginRight: 8,
   },
-  breakdownCount: {
-    fontSize: 14,
+  barCount: {
+    fontSize: 12,
+  },
+  barTrack: {
+    height: 6,
+    overflow: 'hidden',
+  },
+  barFill: {
+    height: 6,
   },
   emptyText: {
     fontSize: 13,
