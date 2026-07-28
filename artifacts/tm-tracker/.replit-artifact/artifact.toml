@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "Trademark Tracker"
+version = "1.0.0"
+id = "artifacts/tm-tracker"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21939
+
+[services.development]
+run = "pnpm --filter @workspace/tm-tracker run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/tm-tracker", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/tm-tracker/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21939"
+BASE_PATH = "/"

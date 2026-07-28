@@ -1,0 +1,1 @@
+- [Trademark Tracker stack](tm-tracker-stack.md) — neo-brutalist design, pnpm workspace, Express + Drizzle + Postgres, Google Sheets sync feature needs GOOGLE_SHEETS_API_KEY
