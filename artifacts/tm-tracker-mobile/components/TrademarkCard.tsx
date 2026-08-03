@@ -20,7 +20,7 @@ const STAGE_COLORS: Record<string, string> = {
 
 export function TrademarkCard({ item, onPress }: TrademarkCardProps) {
   const colors = useColors();
-  const stageColor = item.stage ? (STAGE_COLORS[item.stage] ?? colors.mutedForeground) : colors.mutedForeground;
+  const stageColor = item.stage ? (STAGE_COLORS[item.stage] ?? colors.primary) : colors.mutedForeground;
 
   return (
     <TouchableOpacity
@@ -30,19 +30,11 @@ export function TrademarkCard({ item, onPress }: TrademarkCardProps) {
     >
       <View style={styles.header}>
         <Text style={[styles.tmNo, { color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold' }]} numberOfLines={1}>
-          {item.tmNo ?? '—'}
+          ADD TM#: {item.tmNo ?? '—'}
         </Text>
         <View style={styles.badges}>
-          {item.isTm11 && (
-            <View style={[styles.badge, { backgroundColor: colors.accent, borderColor: colors.border }]}>
-              <Text style={[styles.badgeText, { color: colors.accentForeground, fontFamily: 'SpaceGrotesk_700Bold' }]}>TM-11</Text>
-            </View>
-          )}
-          {item.isDuplicate && (
-            <View style={[styles.badge, { backgroundColor: colors.destructive, borderColor: colors.border }]}>
-              <Text style={[styles.badgeText, { color: colors.destructiveForeground, fontFamily: 'SpaceGrotesk_700Bold' }]}>DUP</Text>
-            </View>
-          )}
+          <View style={styles.lightItem}><View style={[styles.light, { backgroundColor: item.isDuplicate ? '#18A558' : '#777' }]} /><Text style={[styles.lightText, { color: colors.mutedForeground }]}>DUP</Text></View>
+          <View style={styles.lightItem}><View style={[styles.light, { backgroundColor: item.isTm11 ? '#18A558' : '#777' }]} /><Text style={[styles.lightText, { color: colors.mutedForeground }]}>TM-11</Text></View>
           <View style={[
             styles.sourceBadge,
             {
@@ -67,23 +59,16 @@ export function TrademarkCard({ item, onPress }: TrademarkCardProps) {
         {item.appName ?? '—'}
       </Text>
 
-      <View style={styles.footer}>
-        <View style={[styles.stagePill, { borderColor: stageColor }]}>
-          <Text style={[styles.stageText, { color: stageColor, fontFamily: 'SpaceGrotesk_500Medium' }]}>
+      <View style={[styles.stageRow, { backgroundColor: stageColor }]}>
+          <Text style={[styles.stageText, { color: '#FFF7E6', fontFamily: 'SpaceGrotesk_700Bold' }]}>
             {item.stage ?? 'No Stage'}
           </Text>
-        </View>
-        {item.city ? (
-          <Text style={[styles.city, { color: colors.mutedForeground, fontFamily: 'SpaceGrotesk_400Regular' }]}>
-            {item.city}
-          </Text>
-        ) : null}
-        {item.folderNo ? (
-          <Text style={[styles.folder, { color: colors.mutedForeground, fontFamily: 'SpaceGrotesk_400Regular' }]}>
-            #{item.folderNo}
-          </Text>
-        ) : null}
       </View>
+      <View style={styles.metaRow}>
+        <Text style={[styles.date, { color: colors.mutedForeground }]}>DATE: {item.date || '—'}</Text>
+        <Text style={[styles.folder, { color: colors.mutedForeground }]}>FOLDER / CASE NO: {item.folderNo || '—'}</Text>
+      </View>
+      <Text style={[styles.subStage, { color: colors.mutedForeground }]}>SUB STAGE: {item.subStage || '—'}</Text>
     </TouchableOpacity>
   );
 }
@@ -137,25 +122,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 10,
   },
-  footer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flexWrap: 'wrap',
-  },
-  stagePill: {
-    borderWidth: 1.5,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
+  stageRow: { paddingHorizontal: 10, paddingVertical: 6, marginBottom: 8 },
   stageText: {
     fontSize: 11,
     letterSpacing: 0.5,
   },
-  city: {
-    fontSize: 12,
-  },
-  folder: {
-    fontSize: 12,
-  },
+  metaRow: { gap: 4 },
+  date: { fontSize: 11 },
+  folder: { fontSize: 11 },
+  subStage: { fontSize: 11, marginTop: 4 },
+  lightItem: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  light: { width: 10, height: 10, borderRadius: 5, borderWidth: 1, borderColor: '#222' },
+  lightText: { fontSize: 8, fontFamily: 'SpaceGrotesk_700Bold' },
 });

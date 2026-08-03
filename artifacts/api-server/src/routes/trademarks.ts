@@ -66,11 +66,11 @@ router.get("/trademarks", async (req, res): Promise<void> => {
           .select()
           .from(trademarksTable)
           .where(and(...conditions))
-          .orderBy(sql`COALESCE(${trademarksTable.date}, '') DESC`)
+          .orderBy(sql`TO_DATE(NULLIF(TRIM(${trademarksTable.date}), ''), 'DD-Mon-YYYY') DESC NULLS LAST`)
       : await db
           .select()
           .from(trademarksTable)
-          .orderBy(sql`COALESCE(${trademarksTable.date}, '') DESC`);
+          .orderBy(sql`TO_DATE(NULLIF(TRIM(${trademarksTable.date}), ''), 'DD-Mon-YYYY') DESC NULLS LAST`);
 
   const result = rows.map((row) =>
     ListTrademarksResponseItem.parse({
@@ -133,7 +133,8 @@ router.post("/trademarks", async (req, res): Promise<void> => {
 router.get("/trademarks/stats", async (req, res): Promise<void> => {
   const [totalResult] = await db
     .select({ count: sql<number>`count(*)::int` })
-    .from(trademarksTable);
+    .from(trademarksTable)
+    .where(sql`NULLIF(TRIM(COALESCE(${trademarksTable.tmNo}, '')), '') IS NOT NULL`);
 
   const byStageResult = await db
     .select({
@@ -141,25 +142,18 @@ router.get("/trademarks/stats", async (req, res): Promise<void> => {
       count: sql<number>`count(*)::int`,
     })
     .from(trademarksTable)
+    .where(sql`NULLIF(TRIM(COALESCE(${trademarksTable.stage}, '')), '') IS NOT NULL`)
     .groupBy(trademarksTable.stage);
-
-  const byCityResult = await db
-    .select({
-      city: trademarksTable.city,
-      count: sql<number>`count(*)::int`,
-    })
-    .from(trademarksTable)
-    .groupBy(trademarksTable.city);
 
   const [dupsResult] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(trademarksTable)
-    .where(eq(trademarksTable.isDuplicate, true));
+    .where(sql`${trademarksTable.isDuplicate} = true AND NULLIF(TRIM(COALESCE(${trademarksTable.tmNo}, '')), '') IS NOT NULL`);
 
   const [tm11Result] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(trademarksTable)
-    .where(eq(trademarksTable.isTm11, true));
+    .where(sql`${trademarksTable.isTm11} = true AND NULLIF(TRIM(COALESCE(${trademarksTable.tmNo}, '')), '') IS NOT NULL`);
 
   const byNumericStageResult = await db
     .select({
@@ -167,7 +161,7 @@ router.get("/trademarks/stats", async (req, res): Promise<void> => {
       count: sql<number>`count(*)::int`,
     })
     .from(trademarksTable)
-    .where(sql`${trademarksTable.stage} IN ('STAGE 1', 'STAGE 2', 'STAGE 3', 'STAGE 4')`)
+    .where(sql`${trademarksTable.stage} IN ('STAGE 1', 'STAGE 2', 'STAGE 3', 'STAGE 4') AND NULLIF(TRIM(COALESCE(${trademarksTable.tmNo}, '')), '') IS NOT NULL`)
     .groupBy(trademarksTable.stage);
 
   const byAssignedSubStageResult = await db
@@ -176,7 +170,7 @@ router.get("/trademarks/stats", async (req, res): Promise<void> => {
       count: sql<number>`count(*)::int`,
     })
     .from(trademarksTable)
-    .where(sql`LOWER(${trademarksTable.stage}) = 'assigned'`)
+    .where(sql`LOWER(${trademarksTable.stage}) = 'assigned' AND NULLIF(TRIM(COALESCE(${trademarksTable.subStage}, '')), '') IS NOT NULL`)
     .groupBy(trademarksTable.subStage);
 
   res.json(
@@ -186,10 +180,8 @@ router.get("/trademarks/stats", async (req, res): Promise<void> => {
         stage: r.stage ?? "Unknown",
         count: r.count,
       })),
-      byCity: byCityResult.map((r) => ({
-        city: r.city ?? "Unknown",
-        count: r.count,
-      })),
+      // Kept as an empty array for backwards-compatible mobile/web clients.
+      byCity: [],
       duplicates: dupsResult?.count ?? 0,
       tm11Count: tm11Result?.count ?? 0,
       byNumericStage: byNumericStageResult.map((r) => ({
@@ -385,6 +377,55 @@ router.put("/trademarks/:id", async (req, res): Promise<void> => {
 
   if (!row) {
     res.status(404).json({ error: "Trademark not found" });
+    return;
+  }
+
+  const sheetsWritebackUrl = process.env.GOOGLE_SHEETS_APPS_SCRIPT_URL;
+  if (!sheetsWritebackUrl) {
+    res.status(503).json({
+      error:
+        "Database updated, but Google Sheets write-back is not configured. Set GOOGLE_SHEETS_APPS_SCRIPT_URL.",
+    });
+    return;
+  }
+
+  try {
+    const writeback = await fetch(sheetsWritebackUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "updateTrademark",
+        trademark: {
+          id: row.id,
+          tmNo: row.tmNo,
+          appName: row.appName,
+          folderNo: row.folderNo,
+          appClass: row.appClass,
+          date: row.date,
+          stage: row.stage,
+          subStage: row.subStage,
+          city: row.city,
+          isDuplicate: row.isDuplicate,
+          isTm11: row.isTm11,
+          notes: row.notes,
+        },
+        auditLog: {
+          trademarkId: row.id,
+          tmNo: row.tmNo,
+          updatedAt: row.updatedAt?.toISOString() ?? new Date().toISOString(),
+          changes: bodyParsed.data,
+        },
+      }),
+    });
+    const result = (await writeback.json()) as { ok?: boolean; error?: string };
+    if (!writeback.ok || result.ok !== true) {
+      logger.error({ status: writeback.status, result }, "Google Sheets write-back failed");
+      res.status(502).json({ error: result.error ?? "Google Sheets write-back failed" });
+      return;
+    }
+  } catch (err) {
+    logger.error({ err }, "Google Sheets write-back request failed");
+    res.status(502).json({ error: "Google Sheets write-back request failed" });
     return;
   }
 

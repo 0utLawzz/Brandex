@@ -207,36 +207,6 @@ export default function DashboardScreen() {
             })()}
           </View>
 
-          {/* City breakdown — with progress bars matching web */}
-          <Text style={[styles.sectionLabel, { color: colors.mutedForeground, fontFamily: 'SpaceGrotesk_500Medium', marginTop: 24 }]}>
-            CITY BREAKDOWN
-          </Text>
-          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            {(stats?.byCity ?? []).length === 0 ? (
-              <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: 'SpaceGrotesk_400Regular' }]}>
-                No city data
-              </Text>
-            ) : (() => {
-              const sorted = [...(stats?.byCity ?? [])].sort((a, b) => b.count - a.count);
-              const max = sorted[0]?.count ?? 1;
-              return sorted.map((c) => (
-                <View key={c.city} style={styles.barRow}>
-                  <View style={styles.barLabelRow}>
-                    <Text style={[styles.barLabel, { color: colors.foreground, fontFamily: 'SpaceGrotesk_400Regular' }]} numberOfLines={1}>
-                      {c.city || 'UNASSIGNED'}
-                    </Text>
-                    <Text style={[styles.barCount, { color: colors.foreground, fontFamily: 'SpaceGrotesk_700Bold' }]}>
-                      {c.count}
-                    </Text>
-                  </View>
-                  <View style={[styles.barTrack, { backgroundColor: colors.border }]}>
-                    <View style={[styles.barFill, { width: `${(c.count / max) * 100}%` as any, backgroundColor: colors.primary }]} />
-                  </View>
-                </View>
-              ));
-            })()}
-          </View>
-
           {/* Stage distribution */}
           {(stats?.byStage ?? []).length > 0 && (
             <>
