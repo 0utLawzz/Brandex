@@ -99,6 +99,9 @@ function Toggle({ label, value, onValueChange }: { label: string; value: boolean
   return (
     <View style={styles.toggleRow}>
       <Text style={[styles.toggleLabel, { color: colors.foreground, fontFamily: 'SpaceGrotesk_500Medium' }]}>{label}</Text>
+      <Text style={[styles.toggleState, { color: value ? colors.primary : colors.mutedForeground, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+        {value ? 'ON' : 'OFF'}
+      </Text>
       <Switch
         value={value}
         onValueChange={onValueChange}
@@ -261,6 +264,7 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(0,0,0,0.1)',
   },
   toggleLabel: { fontSize: 15 },
+  toggleState: { fontSize: 11, letterSpacing: 0.8, marginLeft: 'auto', marginRight: 8 },
   submitBtn: {
     marginTop: 20,
     borderWidth: 2,

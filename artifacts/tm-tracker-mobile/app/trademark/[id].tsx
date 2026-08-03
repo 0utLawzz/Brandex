@@ -119,8 +119,8 @@ export default function TrademarkDetailScreen() {
         subStage: trademark.subStage ?? '',
         city: trademark.city ?? '',
         date: trademark.date ?? '',
-        isDuplicate: trademark.isDuplicate,
-        isTm11: trademark.isTm11,
+        isDuplicate: trademark.isDuplicate === true,
+        isTm11: trademark.isTm11 === true,
         notes: trademark.notes ?? '',
       });
     }
@@ -262,6 +262,9 @@ export default function TrademarkDetailScreen() {
           <Field label="City" value={form.city} onChangeText={set('city')} />
           <View style={styles.toggleRow}>
             <Text style={[styles.toggleLabel, { color: colors.foreground, fontFamily: 'SpaceGrotesk_500Medium' }]}>Duplicate</Text>
+            <Text style={[styles.toggleState, { color: form.isDuplicate ? colors.primary : colors.mutedForeground, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+              {form.isDuplicate ? 'ON' : 'OFF'}
+            </Text>
             <Switch
               value={form.isDuplicate}
               onValueChange={set('isDuplicate') as any}
@@ -271,6 +274,9 @@ export default function TrademarkDetailScreen() {
           </View>
           <View style={styles.toggleRow}>
             <Text style={[styles.toggleLabel, { color: colors.foreground, fontFamily: 'SpaceGrotesk_500Medium' }]}>TM-11 Filed</Text>
+            <Text style={[styles.toggleState, { color: form.isTm11 ? colors.primary : colors.mutedForeground, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+              {form.isTm11 ? 'ON' : 'OFF'}
+            </Text>
             <Switch
               value={form.isTm11}
               onValueChange={set('isTm11') as any}
@@ -350,6 +356,7 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(0,0,0,0.1)',
   },
   toggleLabel: { fontSize: 15 },
+  toggleState: { fontSize: 11, letterSpacing: 0.8, marginLeft: 'auto', marginRight: 8 },
   saveBtn: {
     marginTop: 20,
     borderWidth: 2,
