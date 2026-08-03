@@ -208,31 +208,50 @@ router.get("/trademarks/stats", async (req, res): Promise<void> => {
 // Column order (A-K): DATE | CASE NO | APP NAME | TM NO | CLASS | STATUS | SUB STATUS | Duplicate | TM-11 | Notes | City
 // Data starts at row 2 (row 1 is the frozen header).
 router.post("/trademarks/sync", async (req, res): Promise<void> => {
-  const SPREADSHEET_ID = "1yu27k_3Z6cCJmcnQI52z1dIC52Zi9ZxaKlo9wJiNFiQ";
-  const apiKey = process.env.GOOGLE_SHEETS_API_KEY;
-
-  if (!apiKey) {
-    res.status(500).json({ error: "GOOGLE_SHEETS_API_KEY not configured" });
-    return;
-  }
-
-  // Fetch data starting from A2 so we skip the header row entirely
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/A2:K?key=${apiKey}`;
+  const url =
+    "https://docs.google.com/spreadsheets/d/e/2PACX-1vTelzPMvLPhdXugWg7No78vyJXgc3e3h4mKDcQLAAsSvLRWQe36fyqlk7mRwIsQSB7PabmNLqKXG2cz/pub?gid=229416165&single=true&output=csv";
 
   let rows: string[][];
   try {
     const response = await fetch(url);
     if (!response.ok) {
       const body = await response.text();
-      logger.error({ status: response.status, body }, "Google Sheets API error");
-      res.status(502).json({ error: `Google Sheets API error: ${response.status}` });
+      logger.error({ status: response.status, body }, "Published sheet error");
+      res.status(502).json({ error: `Published sheet error: ${response.status}` });
       return;
     }
-    const json = (await response.json()) as { values?: string[][] };
-    rows = json.values ?? [];
+    const csv = await response.text();
+    rows = [];
+    let row: string[] = [];
+    let value = "";
+    let quoted = false;
+    for (let i = 0; i < csv.length; i += 1) {
+      const char = csv[i];
+      const next = csv[i + 1];
+      if (char === '"' && quoted && next === '"') {
+        value += '"';
+        i += 1;
+      } else if (char === '"') {
+        quoted = !quoted;
+      } else if (char === "," && !quoted) {
+        row.push(value.trim());
+        value = "";
+      } else if ((char === "\n" || char === "\r") && !quoted) {
+        if (char === "\r" && next === "\n") i += 1;
+        row.push(value.trim());
+        if (row.some((cell) => cell.length > 0)) rows.push(row);
+        row = [];
+        value = "";
+      } else {
+        value += char;
+      }
+    }
+    row.push(value.trim());
+    if (row.some((cell) => cell.length > 0)) rows.push(row);
+    rows = rows.slice(1);
   } catch (err) {
-    logger.error({ err }, "Failed to fetch from Google Sheets API");
-    res.status(502).json({ error: "Failed to fetch Google Sheets data" });
+    logger.error({ err }, "Failed to fetch published Google Sheet");
+    res.status(502).json({ error: "Failed to fetch published Google Sheet" });
     return;
   }
 
@@ -266,8 +285,7 @@ router.post("/trademarks/sync", async (req, res): Promise<void> => {
   // so removed rows in the sheet don't linger in the DB.
   await db.delete(trademarksTable).where(eq(trademarksTable.source, "sheets"));
 
-  let synced = 0;
-
+  const records = [];
   for (const row of rows) {
     const tmNo = cell(row, COL.tmNo);
     const appName = cell(row, COL.appName);
@@ -291,14 +309,17 @@ router.post("/trademarks/sync", async (req, res): Promise<void> => {
       updatedAt: new Date(),
     };
 
-    await db.insert(trademarksTable).values(record);
-    synced++;
+    records.push(record);
+  }
+
+  if (records.length > 0) {
+    await db.insert(trademarksTable).values(records);
   }
 
   res.json(
     SyncFromSheetsResponse.parse({
-      synced,
-      message: `Successfully synced ${synced} records from Google Sheets`,
+      synced: records.length,
+      message: `Successfully synced ${records.length} records from Google Sheets`,
     }),
   );
 });
