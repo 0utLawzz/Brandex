@@ -236,50 +236,30 @@ router.get("/trademarks/stats", async (req, res): Promise<void> => {
 // Column order (A-K): DATE | CASE NO | APP NAME | TM NO | CLASS | STATUS | SUB STATUS | Duplicate | TM-11 | Notes | City
 // Data starts at row 2 (row 1 is the frozen header).
 router.post("/trademarks/sync", async (req, res): Promise<void> => {
-  const url =
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vTelzPMvLPhdXugWg7No78vyJXgc3e3h4mKDcQLAAsSvLRWQe36fyqlk7mRwIsQSB7PabmNLqKXG2cz/pub?gid=229416165&single=true&output=csv";
+  const spreadsheetId = "1yu27k_3Z6cCJmcnQI52z1dIC52Zi9ZxaKlo9wJiNFiQ";
+  const apiKey = process.env.GOOGLE_SHEETS_API_KEY;
+
+  if (!apiKey) {
+    res.status(500).json({ error: "GOOGLE_SHEETS_API_KEY not configured" });
+    return;
+  }
+
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A2:K?key=${apiKey}`;
 
   let rows: string[][];
   try {
     const response = await fetch(url);
     if (!response.ok) {
       const body = await response.text();
-      logger.error({ status: response.status, body }, "Published sheet error");
-      res.status(502).json({ error: `Published sheet error: ${response.status}` });
+      logger.error({ status: response.status, body }, "Google Sheets API error");
+      res.status(502).json({ error: `Google Sheets API error: ${response.status}` });
       return;
     }
-    const csv = await response.text();
-    rows = [];
-    let row: string[] = [];
-    let value = "";
-    let quoted = false;
-    for (let i = 0; i < csv.length; i += 1) {
-      const char = csv[i];
-      const next = csv[i + 1];
-      if (char === '"' && quoted && next === '"') {
-        value += '"';
-        i += 1;
-      } else if (char === '"') {
-        quoted = !quoted;
-      } else if (char === "," && !quoted) {
-        row.push(value.trim());
-        value = "";
-      } else if ((char === "\n" || char === "\r") && !quoted) {
-        if (char === "\r" && next === "\n") i += 1;
-        row.push(value.trim());
-        if (row.some((cell) => cell.length > 0)) rows.push(row);
-        row = [];
-        value = "";
-      } else {
-        value += char;
-      }
-    }
-    row.push(value.trim());
-    if (row.some((cell) => cell.length > 0)) rows.push(row);
-    rows = rows.slice(1);
+    const json = (await response.json()) as { values?: string[][] };
+    rows = json.values ?? [];
   } catch (err) {
-    logger.error({ err }, "Failed to fetch published Google Sheet");
-    res.status(502).json({ error: "Failed to fetch published Google Sheet" });
+    logger.error({ err }, "Failed to fetch from Google Sheets API");
+    res.status(502).json({ error: "Failed to fetch Google Sheets data" });
     return;
   }
 
@@ -309,8 +289,15 @@ router.post("/trademarks/sync", async (req, res): Promise<void> => {
   const bool = (val: string): boolean =>
     ["true", "yes", "1"].includes(val.toLowerCase());
 
-  // Clear all previously synced-from-sheets rows before re-importing
-  // so removed rows in the sheet don't linger in the DB.
+  // Clear audit rows first because change_log references trademarks.
+  // Then clear synced rows so removed sheet rows don't linger in the DB.
+  const syncedTrademarkIds = await db
+    .select({ id: trademarksTable.id })
+    .from(trademarksTable)
+    .where(eq(trademarksTable.source, "sheets"));
+  for (const { id } of syncedTrademarkIds) {
+    await db.delete(changeLogTable).where(eq(changeLogTable.trademarkId, id));
+  }
   await db.delete(trademarksTable).where(eq(trademarksTable.source, "sheets"));
 
   // Parse case number from folderNo (format: X-284-001)
@@ -362,14 +349,32 @@ router.post("/trademarks/sync", async (req, res): Promise<void> => {
     records.push(record);
   }
 
-  if (records.length > 0) {
-    await db.insert(trademarksTable).values(records);
+  let synced = 0;
+  let skipped = 0;
+  for (const record of records) {
+    try {
+      await db.insert(trademarksTable).values(record);
+      synced += 1;
+    } catch (err) {
+      skipped += 1;
+      logger.warn(
+        {
+          errorMessage: err instanceof Error ? err.message : String(err),
+          tmNo: record.tmNo,
+          folderNo: record.folderNo,
+        },
+        "Skipping malformed Google Sheets row",
+      );
+    }
   }
 
   res.json(
     SyncFromSheetsResponse.parse({
-      synced: records.length,
-      message: `Successfully synced ${records.length} records from Google Sheets`,
+      synced,
+      message:
+        skipped > 0
+          ? `Synced ${synced} records from Google Sheets; skipped ${skipped} invalid rows`
+          : `Successfully synced ${synced} records from Google Sheets`,
     }),
   );
 });

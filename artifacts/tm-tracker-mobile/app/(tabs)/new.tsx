@@ -283,23 +283,25 @@ export default function NewTrademarkScreen() {
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     createMutation.mutate({
-      date: form.date.trim(),
-      prefix: form.prefix,
-      clientNo: form.clientNo.trim(),
-      caseNo: form.caseNo.trim(),
-      tmNo: form.tmNo.trim() || null,
-      appName: form.appName.trim(),
-      folderNo: form.folderNo.trim() || null,
-      appClass: form.appClass.trim() || null,
-      city: form.city.trim(),
-      stage: form.stage.trim(),
-      subStage: form.subStage.trim() || null,
-      status: form.subStage.trim() || form.stage.trim(), // Use substage as status if available
-      notes: form.notes.trim() || null,
-      isDuplicate: form.isDuplicate,
-      isTm11: form.isTm11,
-      imageUrl: form.imageUrl.trim() || null,
-      pdfUrl: form.pdfUrl.trim() || null,
+      data: {
+        date: form.date.trim(),
+        prefix: form.prefix,
+        clientNo: form.clientNo.trim(),
+        caseNo: form.caseNo.trim(),
+        tmNo: form.tmNo.trim() || null,
+        appName: form.appName.trim(),
+        folderNo: form.folderNo.trim() || null,
+        appClass: form.appClass.trim() || null,
+        city: form.city.trim(),
+        stage: form.stage.trim(),
+        subStage: form.subStage.trim() || null,
+        status: form.subStage.trim() || form.stage.trim(),
+        notes: form.notes.trim() || null,
+        isDuplicate: form.isDuplicate,
+        isTm11: form.isTm11,
+        imageUrl: form.imageUrl.trim() || null,
+        pdfUrl: form.pdfUrl.trim() || null,
+      },
     });
   };
 

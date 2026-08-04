@@ -348,10 +348,6 @@ const styles = StyleSheet.create({
     gap: 6,
     marginBottom: 12,
   },
-  boxTitle: {
-    fontSize: 10,
-    letterSpacing: 0.8,
-  },
   barRow: {
     marginBottom: 10,
   },

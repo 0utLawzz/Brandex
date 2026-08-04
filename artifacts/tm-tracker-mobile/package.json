@@ -4,7 +4,7 @@
   "private": true,
   "main": "expo-router/entry",
   "scripts": {
-    "dev": "pnpm exec expo start --web --port 19006 --clear",
+    "dev": "pnpm exec expo start --web --port ${PORT:-19006} --clear",
     "build": "node scripts/build.js",
     "serve": "node server/serve.js",
     "typecheck": "tsc -p tsconfig.json --noEmit"

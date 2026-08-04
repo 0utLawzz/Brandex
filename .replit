@@ -24,6 +24,10 @@ args = "artifacts/api-server: API Server"
 task = "workflow.run"
 args = "artifacts/tm-tracker: web"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "artifacts/tm-tracker-mobile: expo"
+
 [[workflows.workflow]]
 name = "artifacts/api-server: API Server"
 author = "agent"
@@ -39,6 +43,14 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "PORT=21939 BASE_PATH=/ pnpm --filter @workspace/tm-tracker run dev"
+
+[[workflows.workflow]]
+name = "artifacts/tm-tracker-mobile: expo"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "PORT=25449 EXPO_PUBLIC_DOMAIN=$REPLIT_DEV_DOMAIN pnpm --filter @workspace/tm-tracker-mobile run dev"
 
 [agent]
 stack = "PNPM_WORKSPACE"
