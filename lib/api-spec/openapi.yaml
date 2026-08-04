@@ -214,7 +214,13 @@ components:
         id:
           type: integer
         date:
-          type: ["string", "null"]
+          type: string
+        prefix:
+          type: string
+        clientNo:
+          type: string
+        caseNo:
+          type: string
         folderNo:
           type: ["string", "null"]
         appName:
@@ -223,17 +229,23 @@ components:
           type: ["string", "null"]
         tmNo:
           type: ["string", "null"]
+        city:
+          type: string
         stage:
-          type: ["string", "null"]
+          type: string
         subStage:
           type: ["string", "null"]
+        status:
+          type: string
         isDuplicate:
           type: boolean
         isTm11:
           type: boolean
         notes:
           type: ["string", "null"]
-        city:
+        imageUrl:
+          type: ["string", "null"]
+        pdfUrl:
           type: ["string", "null"]
         source:
           type: string
@@ -244,6 +256,13 @@ components:
           type: ["string", "null"]
       required:
         - id
+        - date
+        - prefix
+        - clientNo
+        - caseNo
+        - city
+        - stage
+        - status
         - isDuplicate
         - isTm11
         - source
@@ -252,7 +271,13 @@ components:
       type: object
       properties:
         date:
-          type: ["string", "null"]
+          type: string
+        prefix:
+          type: string
+        clientNo:
+          type: string
+        caseNo:
+          type: string
         folderNo:
           type: ["string", "null"]
         appName:
@@ -260,22 +285,34 @@ components:
         appClass:
           type: ["string", "null"]
         tmNo:
+          type: ["string", "null"]
+        city:
           type: string
         stage:
-          type: ["string", "null"]
+          type: string
         subStage:
           type: ["string", "null"]
+        status:
+          type: string
         isDuplicate:
           type: boolean
         isTm11:
           type: boolean
         notes:
           type: ["string", "null"]
-        city:
+        imageUrl:
+          type: ["string", "null"]
+        pdfUrl:
           type: ["string", "null"]
       required:
-        - tmNo
+        - date
+        - prefix
+        - clientNo
+        - caseNo
         - appName
+        - city
+        - stage
+        - status
         - isDuplicate
         - isTm11
 
@@ -284,6 +321,12 @@ components:
       properties:
         date:
           type: ["string", "null"]
+        prefix:
+          type: ["string", "null"]
+        clientNo:
+          type: ["string", "null"]
+        caseNo:
+          type: ["string", "null"]
         folderNo:
           type: ["string", "null"]
         appName:
@@ -292,9 +335,13 @@ components:
           type: ["string", "null"]
         tmNo:
           type: ["string", "null"]
+        city:
+          type: ["string", "null"]
         stage:
           type: ["string", "null"]
         subStage:
+          type: ["string", "null"]
+        status:
           type: ["string", "null"]
         isDuplicate:
           type: ["boolean", "null"]
@@ -302,7 +349,9 @@ components:
           type: ["boolean", "null"]
         notes:
           type: ["string", "null"]
-        city:
+        imageUrl:
+          type: ["string", "null"]
+        pdfUrl:
           type: ["string", "null"]
 
     TrademarkStats:

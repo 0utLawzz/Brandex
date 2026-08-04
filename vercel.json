@@ -1,0 +1,12 @@
+{
+  "buildCommand": "cd artifacts/tm-tracker-mobile && pnpm run build",
+  "outputDirectory": "artifacts/tm-tracker-mobile/dist",
+  "installCommand": "pnpm install",
+  "framework": null,
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

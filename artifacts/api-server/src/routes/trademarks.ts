@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, or, ilike, and, sql } from "drizzle-orm";
-import { db, trademarksTable } from "@workspace/db";
+import { eq, or, ilike, and, sql, desc } from "drizzle-orm";
+import { db, trademarksTable, changeLogTable } from "@workspace/db";
 import {
   ListTrademarksQueryParams,
   CreateTrademarkBody,
@@ -26,6 +26,21 @@ function parseId(raw: string | string[]): number {
 
 function toSafeString(val: unknown): string {
   return typeof val === "string" ? val.trim() : "";
+}
+
+// Stage progression order for forward-only workflow
+const STAGE_ORDER = ['STAGE 1', 'STAGE 2', 'STAGE 3', 'STAGE 4'];
+
+function canProgressStage(currentStage: string | null, newStage: string): boolean {
+  if (!currentStage) return true; // Allow any stage if no current stage
+  const currentIndex = STAGE_ORDER.indexOf(currentStage);
+  const newIndex = STAGE_ORDER.indexOf(newStage);
+  
+  // If either stage is not in the predefined order, allow the change
+  if (currentIndex === -1 || newIndex === -1) return true;
+  
+  // Only allow forward progression (newIndex > currentIndex)
+  return newIndex > currentIndex;
 }
 
 // GET /trademarks
@@ -76,14 +91,20 @@ router.get("/trademarks", async (req, res): Promise<void> => {
     ListTrademarksResponseItem.parse({
       ...row,
       date: row.date ?? null,
+      prefix: row.prefix ?? null,
+      clientNo: row.clientNo ?? null,
+      caseNo: row.caseNo ?? null,
       folderNo: row.folderNo ?? null,
       appName: row.appName ?? null,
       appClass: row.appClass ?? null,
       tmNo: row.tmNo ?? null,
+      city: row.city ?? null,
       stage: row.stage ?? null,
       subStage: row.subStage ?? null,
+      status: row.status ?? null,
       notes: row.notes ?? null,
-      city: row.city ?? null,
+      imageUrl: row.imageUrl ?? null,
+      pdfUrl: row.pdfUrl ?? null,
       source: row.source ?? "local",
       createdAt: row.createdAt ? row.createdAt.toISOString() : null,
       updatedAt: row.updatedAt ? row.updatedAt.toISOString() : null,
@@ -110,18 +131,33 @@ router.post("/trademarks", async (req, res): Promise<void> => {
     })
     .returning();
 
+  // Log the creation
+  await db.insert(changeLogTable).values({
+    trademarkId: row.id,
+    field: "CREATE",
+    oldValue: null,
+    newValue: JSON.stringify(parsed.data),
+    changedBy: "system",
+  });
+
   res.status(201).json(
     CreateTrademarkResponse.parse({
       ...row,
       date: row.date ?? null,
+      prefix: row.prefix ?? null,
+      clientNo: row.clientNo ?? null,
+      caseNo: row.caseNo ?? null,
       folderNo: row.folderNo ?? null,
       appName: row.appName ?? null,
       appClass: row.appClass ?? null,
       tmNo: row.tmNo ?? null,
+      city: row.city ?? null,
       stage: row.stage ?? null,
       subStage: row.subStage ?? null,
+      status: row.status ?? null,
       notes: row.notes ?? null,
-      city: row.city ?? null,
+      imageUrl: row.imageUrl ?? null,
+      pdfUrl: row.pdfUrl ?? null,
       source: row.source ?? "local",
       createdAt: row.createdAt ? row.createdAt.toISOString() : null,
       updatedAt: row.updatedAt ? row.updatedAt.toISOString() : null,
@@ -277,26 +313,48 @@ router.post("/trademarks/sync", async (req, res): Promise<void> => {
   // so removed rows in the sheet don't linger in the DB.
   await db.delete(trademarksTable).where(eq(trademarksTable.source, "sheets"));
 
+  // Parse case number from folderNo (format: X-284-001)
+  const parseCaseNumber = (caseNo: string | null) => {
+    if (!caseNo) return { prefix: 'X', clientNo: '', caseNo: '' };
+    const parts = caseNo.split('-');
+    if (parts.length >= 3) {
+      return { prefix: parts[0], clientNo: parts[1], caseNo: parts[2] };
+    }
+    return { prefix: 'X', clientNo: '', caseNo: '' };
+  };
+
   const records = [];
   for (const row of rows) {
     const tmNo = cell(row, COL.tmNo);
     const appName = cell(row, COL.appName);
+    const folderNo = cell(row, COL.folderNo);
+    const city = cell(row, COL.city);
+    const stage = cell(row, COL.stage);
 
     // Skip completely empty rows
     if (!tmNo && !appName) continue;
 
+    // Parse case number components
+    const { prefix, clientNo: clientNo, caseNo: caseNum } = parseCaseNumber(folderNo);
+
     const record = {
-      date: cell(row, COL.date) || null,
-      folderNo: cell(row, COL.folderNo) || null,
+      date: cell(row, COL.date) || new Date().toISOString().split('T')[0],
+      prefix: prefix || 'X',
+      clientNo: clientNo || '',
+      caseNo: caseNum || '',
+      folderNo: folderNo || null,
       appName: appName || null,
       appClass: cell(row, COL.appClass) || null,
       tmNo: tmNo || null,
-      stage: cell(row, COL.stage) || null,
+      city: city || 'Islamabad',
+      stage: stage || 'STAGE 1',
       subStage: cell(row, COL.subStage) || null,
+      status: cell(row, COL.subStage) || stage || 'STAGE 1',
       isDuplicate: bool(cell(row, COL.isDuplicate)),
       isTm11: bool(cell(row, COL.isTm11)),
       notes: cell(row, COL.notes) || null,
-      city: cell(row, COL.city) || null,
+      imageUrl: null,
+      pdfUrl: null,
       source: "sheets" as const,
       updatedAt: new Date(),
     };
@@ -336,14 +394,20 @@ router.get("/trademarks/:id", async (req, res): Promise<void> => {
     GetTrademarkResponse.parse({
       ...row,
       date: row.date ?? null,
+      prefix: row.prefix ?? null,
+      clientNo: row.clientNo ?? null,
+      caseNo: row.caseNo ?? null,
       folderNo: row.folderNo ?? null,
       appName: row.appName ?? null,
       appClass: row.appClass ?? null,
       tmNo: row.tmNo ?? null,
+      city: row.city ?? null,
       stage: row.stage ?? null,
       subStage: row.subStage ?? null,
+      status: row.status ?? null,
       notes: row.notes ?? null,
-      city: row.city ?? null,
+      imageUrl: row.imageUrl ?? null,
+      pdfUrl: row.pdfUrl ?? null,
       source: row.source ?? "local",
       createdAt: row.createdAt ? row.createdAt.toISOString() : null,
       updatedAt: row.updatedAt ? row.updatedAt.toISOString() : null,
@@ -362,6 +426,28 @@ router.put("/trademarks/:id", async (req, res): Promise<void> => {
     return;
   }
 
+  // Get the current row for change logging and validation
+  const [currentRow] = await db
+    .select()
+    .from(trademarksTable)
+    .where(eq(trademarksTable.id, id))
+    .limit(1);
+
+  if (!currentRow) {
+    res.status(404).json({ error: "Trademark not found" });
+    return;
+  }
+
+  // Validate stage progression (forward-only workflow)
+  if (bodyParsed.data.stage && currentRow.stage) {
+    if (!canProgressStage(currentRow.stage, bodyParsed.data.stage)) {
+      res.status(400).json({ 
+        error: `Cannot move from ${currentRow.stage} to ${bodyParsed.data.stage}. Status can only progress forward.` 
+      });
+      return;
+    }
+  }
+
   // Build a clean update payload; omit null booleans since the column is non-nullable
   const { isDuplicate, isTm11, ...rest } = bodyParsed.data;
   const updateData: Record<string, unknown> = { ...rest, updatedAt: new Date() };
@@ -375,9 +461,18 @@ router.put("/trademarks/:id", async (req, res): Promise<void> => {
     .where(eq(trademarksTable.id, id))
     .returning();
 
-  if (!row) {
-    res.status(404).json({ error: "Trademark not found" });
-    return;
+  // Log changes
+  for (const [key, newValue] of Object.entries(bodyParsed.data)) {
+    const oldValue = (currentRow as any)[key];
+    if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
+      await db.insert(changeLogTable).values({
+        trademarkId: id,
+        field: key,
+        oldValue: oldValue ? String(oldValue) : null,
+        newValue: newValue ? String(newValue) : null,
+        changedBy: "system",
+      });
+    }
   }
 
   const sheetsWritebackUrl = process.env.GOOGLE_SHEETS_APPS_SCRIPT_URL;
@@ -433,19 +528,42 @@ router.put("/trademarks/:id", async (req, res): Promise<void> => {
     UpdateTrademarkResponse.parse({
       ...row,
       date: row.date ?? null,
+      prefix: row.prefix ?? null,
+      clientNo: row.clientNo ?? null,
+      caseNo: row.caseNo ?? null,
       folderNo: row.folderNo ?? null,
       appName: row.appName ?? null,
       appClass: row.appClass ?? null,
       tmNo: row.tmNo ?? null,
+      city: row.city ?? null,
       stage: row.stage ?? null,
       subStage: row.subStage ?? null,
+      status: row.status ?? null,
       notes: row.notes ?? null,
-      city: row.city ?? null,
+      imageUrl: row.imageUrl ?? null,
+      pdfUrl: row.pdfUrl ?? null,
       source: row.source ?? "local",
       createdAt: row.createdAt ? row.createdAt.toISOString() : null,
       updatedAt: row.updatedAt ? row.updatedAt.toISOString() : null,
     }),
   );
+});
+
+// GET /trademarks/:id/change-log
+router.get("/trademarks/:id/change-log", async (req, res): Promise<void> => {
+  const { id: idRaw } = GetTrademarkParams.parse(req.params);
+  const id = typeof idRaw === "number" ? idRaw : parseInt(String(idRaw), 10);
+
+  const logs = await db
+    .select()
+    .from(changeLogTable)
+    .where(eq(changeLogTable.trademarkId, id))
+    .orderBy(desc(changeLogTable.changedAt));
+
+  res.json(logs.map((log) => ({
+    ...log,
+    changedAt: log.changedAt ? log.changedAt.toISOString() : null,
+  })));
 });
 
 // DELETE /trademarks/:id

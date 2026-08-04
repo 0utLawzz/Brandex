@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -10,6 +10,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
@@ -21,34 +22,57 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import * as ImagePicker from 'expo-image-picker';
 import { ClassPicker } from '@/components/ClassPicker';
 
 interface FormState {
+  date: string;
+  prefix: string;
+  clientNo: string;
+  caseNo: string;
   tmNo: string;
   appName: string;
   folderNo: string;
   appClass: string;
+  city: string;
   stage: string;
   subStage: string;
-  city: string;
-  date: string;
+  status: string;
   isDuplicate: boolean;
   isTm11: boolean;
   notes: string;
+  imageUrl: string;
+  pdfUrl: string;
 }
 
 const INITIAL: FormState = {
+  date: '',
+  prefix: 'X',
+  clientNo: '',
+  caseNo: '',
   tmNo: '',
   appName: '',
   folderNo: '',
   appClass: '',
-  stage: '',
+  city: 'Islamabad',
+  stage: 'STAGE 1',
   subStage: '',
-  city: '',
-  date: '',
+  status: '',
   isDuplicate: false,
   isTm11: false,
   notes: '',
+  imageUrl: '',
+  pdfUrl: '',
+};
+
+const PREFIXES = ['X', 'A', 'N'];
+const CITIES = ['Islamabad', 'Karachi', 'Lahore', 'Peshawar'];
+
+const STAGE_CONFIG = {
+  'STAGE 1': ['Examination', 'Acknowledgement', 'TM Number Received'],
+  'STAGE 2': ['Assign Uzma (KRI)', 'Assign Faisal (LHR)', 'Assign Faisal (KRI)', 'Assign Rashid (KRI)', 'Opposition', 'Hearing'],
+  'STAGE 3': ['Accepted', 'Published', 'Demand Note Issued'],
+  'STAGE 4': ['Opposition', 'Certificate Received', 'Certificate Dispatch', 'Certificate Image'],
 };
 
 function Field({
@@ -112,6 +136,60 @@ function Toggle({ label, value, onValueChange }: { label: string; value: boolean
   );
 }
 
+function Dropdown({ label, value, options, onSelect, required }: {
+  label: string;
+  value: string;
+  options: string[];
+  onSelect: (v: string) => void;
+  required?: boolean;
+}) {
+  const colors = useColors();
+  const [visible, setVisible] = useState(false);
+  
+  return (
+    <View style={styles.field}>
+      <Text style={[styles.label, { color: colors.mutedForeground, fontFamily: 'SpaceGrotesk_500Medium' }]}>
+        {label.toUpperCase()}{required ? ' *' : ''}
+      </Text>
+      <TouchableOpacity
+        style={[styles.input, {
+          borderColor: colors.border,
+          backgroundColor: colors.input,
+        }]}
+        onPress={() => setVisible(true)}
+      >
+        <Text style={{ color: value ? colors.foreground : colors.mutedForeground, fontFamily: 'SpaceGrotesk_400Regular' }}>
+          {value || 'Select...'}
+        </Text>
+      </TouchableOpacity>
+      <Modal visible={visible} transparent animationType="fade">
+        <TouchableOpacity style={styles.modalOverlay} onPress={() => setVisible(false)}>
+          <View style={[styles.modalContent, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.modalTitle, { color: colors.foreground, fontFamily: 'SpaceGrotesk_700Bold' }]}>Select {label}</Text>
+            {options.map((option) => (
+              <TouchableOpacity
+                key={option}
+                style={[styles.modalOption, value === option && { backgroundColor: colors.primary }]}
+                onPress={() => {
+                  onSelect(option);
+                  setVisible(false);
+                }}
+              >
+                <Text style={[styles.modalOptionText, { 
+                  color: value === option ? colors.primaryForeground : colors.foreground,
+                  fontFamily: 'SpaceGrotesk_400Regular'
+                }]}>
+                  {option}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    </View>
+  );
+}
+
 export default function NewTrademarkScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -121,6 +199,46 @@ export default function NewTrademarkScreen() {
 
   const set = (key: keyof FormState) => (val: string | boolean) =>
     setForm((prev) => ({ ...prev, [key]: val }));
+
+  // Auto-set date on mount
+  useEffect(() => {
+    const today = new Date().toISOString().split('T')[0];
+    set('date')(today);
+  }, []);
+
+  // Update substage options when stage changes
+  const handleStageChange = (newStage: string) => {
+    set('stage')(newStage);
+    set('subStage')(''); // Reset substage when stage changes
+  };
+
+  // Image picker
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      set('imageUrl')(result.assets[0].uri);
+    }
+  };
+
+  // PDF picker
+  const pickPdf = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: false,
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      // For now, we'll use the URI. In production, this should upload to a storage service
+      set('pdfUrl')(result.assets[0].uri);
+    }
+  };
 
   const createMutation = useCreateTrademark({
     mutation: {
@@ -139,27 +257,49 @@ export default function NewTrademarkScreen() {
   });
 
   const handleSubmit = () => {
-    if (!form.tmNo.trim()) {
-      Alert.alert('Required', 'TM Number is required.');
+    if (!form.date.trim()) {
+      Alert.alert('Required', 'Date is required.');
+      return;
+    }
+    if (!form.clientNo.trim()) {
+      Alert.alert('Required', 'Client Number is required.');
+      return;
+    }
+    if (!form.caseNo.trim()) {
+      Alert.alert('Required', 'Case Number is required.');
       return;
     }
     if (!form.appName.trim()) {
       Alert.alert('Required', 'Application Name is required.');
       return;
     }
+    if (!form.city.trim()) {
+      Alert.alert('Required', 'City is required.');
+      return;
+    }
+    if (!form.stage.trim()) {
+      Alert.alert('Required', 'Stage is required.');
+      return;
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     createMutation.mutate({
-      tmNo: form.tmNo.trim(),
+      date: form.date.trim(),
+      prefix: form.prefix,
+      clientNo: form.clientNo.trim(),
+      caseNo: form.caseNo.trim(),
+      tmNo: form.tmNo.trim() || null,
       appName: form.appName.trim(),
       folderNo: form.folderNo.trim() || null,
       appClass: form.appClass.trim() || null,
-      stage: form.stage.trim() || null,
+      city: form.city.trim(),
+      stage: form.stage.trim(),
       subStage: form.subStage.trim() || null,
-      city: form.city.trim() || null,
-      date: form.date.trim() || null,
+      status: form.subStage.trim() || form.stage.trim(), // Use substage as status if available
       notes: form.notes.trim() || null,
       isDuplicate: form.isDuplicate,
       isTm11: form.isTm11,
+      imageUrl: form.imageUrl.trim() || null,
+      pdfUrl: form.pdfUrl.trim() || null,
     });
   };
 
@@ -183,20 +323,61 @@ export default function NewTrademarkScreen() {
 
       <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <Text style={[styles.section, { color: colors.mutedForeground, fontFamily: 'SpaceGrotesk_500Medium' }]}>CORE DETAILS</Text>
-        <Field label="TM Number" value={form.tmNo} onChangeText={set('tmNo')} required placeholder="e.g. 12345678" />
+        <Field label="Date" value={form.date} onChangeText={set('date')} required placeholder="YYYY-MM-DD" />
+        <View style={styles.row}>
+          <View style={styles.halfField}>
+            <Dropdown label="Prefix" value={form.prefix} options={PREFIXES} onSelect={set('prefix')} required />
+          </View>
+          <View style={styles.halfField}>
+            <Field label="Client No" value={form.clientNo} onChangeText={set('clientNo')} required placeholder="284" />
+          </View>
+        </View>
+        <View style={styles.row}>
+          <View style={styles.halfField}>
+            <Field label="Case No" value={form.caseNo} onChangeText={set('caseNo')} required placeholder="001" />
+          </View>
+          <View style={styles.halfField}>
+            <Field label="TM Number" value={form.tmNo} onChangeText={set('tmNo')} placeholder="12345678" />
+          </View>
+        </View>
         <Field label="Application Name" value={form.appName} onChangeText={set('appName')} required placeholder="Brand / mark name" />
-        <Field label="Folder / Case No" value={form.folderNo} onChangeText={set('folderNo')} placeholder="e.g. A-2024-001" />
+        <Field label="Folder No" value={form.folderNo} onChangeText={set('folderNo')} placeholder="e.g. A-2024-001" />
         <ClassPicker value={form.appClass} onChange={(value) => set('appClass')(value)} />
-        <Field label="Date" value={form.date} onChangeText={set('date')} placeholder="YYYY-MM-DD" />
       </View>
 
       <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 12 }]}>
         <Text style={[styles.section, { color: colors.mutedForeground, fontFamily: 'SpaceGrotesk_500Medium' }]}>STATUS</Text>
-        <Field label="Stage" value={form.stage} onChangeText={set('stage')} placeholder="e.g. Filed, Pending" />
-        <Field label="Sub Stage" value={form.subStage} onChangeText={set('subStage')} placeholder="e.g. Under Examination" />
-        <Field label="City" value={form.city} onChangeText={set('city')} placeholder="e.g. Delhi" />
+        <Dropdown label="City" value={form.city} options={CITIES} onSelect={set('city')} required />
+        <Dropdown label="Stage" value={form.stage} options={Object.keys(STAGE_CONFIG)} onSelect={handleStageChange} required />
+        <Dropdown label="Sub Stage" value={form.subStage} options={STAGE_CONFIG[form.stage as keyof typeof STAGE_CONFIG] || []} onSelect={set('subStage')} />
         <Toggle label="Duplicate" value={form.isDuplicate} onValueChange={set('isDuplicate') as any} />
         <Toggle label="TM-11 Filed" value={form.isTm11} onValueChange={set('isTm11') as any} />
+      </View>
+
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 12 }]}>
+        <Text style={[styles.section, { color: colors.mutedForeground, fontFamily: 'SpaceGrotesk_500Medium' }]}>ATTACHMENTS</Text>
+        <View style={styles.attachmentRow}>
+          <TouchableOpacity style={[styles.attachmentBtn, { borderColor: colors.border, flex: 1 }]} onPress={pickImage}>
+            <Text style={[styles.attachmentText, { color: colors.foreground, fontFamily: 'SpaceGrotesk_500Medium' }]}>
+              {form.imageUrl ? 'Change Image' : 'Add Image'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.attachmentBtn, { borderColor: colors.border, flex: 1 }]} onPress={pickPdf}>
+            <Text style={[styles.attachmentText, { color: colors.foreground, fontFamily: 'SpaceGrotesk_500Medium' }]}>
+              {form.pdfUrl ? 'Change PDF' : 'Add PDF'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+        {form.imageUrl && (
+          <Text style={[styles.attachmentStatus, { color: colors.mutedForeground, fontFamily: 'SpaceGrotesk_400Regular' }]}>
+            ✓ Image selected
+          </Text>
+        )}
+        {form.pdfUrl && (
+          <Text style={[styles.attachmentStatus, { color: colors.mutedForeground, fontFamily: 'SpaceGrotesk_400Regular' }]}>
+            ✓ PDF selected
+          </Text>
+        )}
       </View>
 
       <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 12 }]}>
@@ -252,9 +433,13 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     paddingHorizontal: 12,
     paddingVertical: 10,
+  },
+  inputText: {
     fontSize: 15,
   },
   textarea: { height: 80, textAlignVertical: 'top' },
+  row: { flexDirection: 'row', gap: 8 },
+  halfField: { flex: 1 },
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -265,6 +450,51 @@ const styles = StyleSheet.create({
   },
   toggleLabel: { fontSize: 15 },
   toggleState: { fontSize: 11, letterSpacing: 0.8, marginLeft: 'auto', marginRight: 8 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '80%',
+    maxWidth: 400,
+    borderWidth: 2,
+    padding: 16,
+    borderRadius: 8,
+  },
+  modalTitle: {
+    fontSize: 18,
+    marginBottom: 12,
+  },
+  modalOption: {
+    padding: 12,
+    borderWidth: 1,
+    marginBottom: 8,
+    borderRadius: 4,
+  },
+  modalOptionText: {
+    fontSize: 16,
+  },
+  attachmentBtn: {
+    borderWidth: 2,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderRadius: 4,
+  },
+  attachmentRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  attachmentText: {
+    fontSize: 14,
+    letterSpacing: 0.5,
+  },
+  attachmentStatus: {
+    fontSize: 12,
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
   submitBtn: {
     marginTop: 20,
     borderWidth: 2,

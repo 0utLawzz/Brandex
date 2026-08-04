@@ -24,6 +24,10 @@ function NativeTabLayout() {
         <Icon sf={{ default: 'list.bullet', selected: 'list.bullet' }} />
         <Label>Database</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="change-log">
+        <Icon sf={{ default: 'clock', selected: 'clock.fill' }} />
+        <Label>Changes</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="new">
         <Icon sf={{ default: 'plus.circle', selected: 'plus.circle.fill' }} />
         <Label>New TM</Label>
@@ -105,6 +109,18 @@ function ClassicTabLayout() {
               <SymbolView name="list.bullet" tintColor={color} size={22} />
             ) : (
               <Feather name="database" size={21} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="change-log"
+        options={{
+          title: 'Changes',
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="clock" tintColor={color} size={22} />
+            ) : (
+              <Feather name="clock" size={21} color={color} />
             ),
         }}
       />

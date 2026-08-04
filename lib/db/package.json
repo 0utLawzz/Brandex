@@ -18,8 +18,10 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@esbuild/win32-x64": "^0.28.1",
     "@types/node": "catalog:",
     "@types/pg": "^8.20.0",
-    "drizzle-kit": "^0.31.10"
+    "drizzle-kit": "^0.31.10",
+    "tsx": "catalog:"
   }
 }

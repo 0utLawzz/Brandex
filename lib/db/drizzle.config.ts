@@ -1,16 +1,11 @@
 import { defineConfig } from "drizzle-kit";
 import path from "path";
 
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL, ensure the database is provisioned");
-}
-
-// Neon requires a direct (unpooled) connection for drizzle-kit migrations.
-// Set DIRECT_URL to the Neon "Direct connection" string; falls back to DATABASE_URL.
-const migrationUrl = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
+// Use Neon database connection
+const migrationUrl = "postgresql://neondb_owner:npg_U8s1CpqmklcS@ep-snowy-sound-axm3t610-pooler.c-4.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require";
 
 export default defineConfig({
-  schema: path.join(__dirname, "./src/schema/index.ts"),
+  schema: "./src/schema/index.ts",
   dialect: "postgresql",
   dbCredentials: {
     url: migrationUrl,
