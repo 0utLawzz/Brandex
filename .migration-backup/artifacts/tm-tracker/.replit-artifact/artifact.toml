@@ -1,5 +1,5 @@
 kind = "web"
-previewPath = "/"
+previewPath = "/backup-desktop/"
 title = "Trademark Tracker"
 version = "1.0.0"
 id = "artifacts/tm-tracker"
@@ -7,7 +7,7 @@ router = "path"
 
 [[services]]
 name = "web"
-paths = [ "/" ]
+paths = [ "/backup-desktop/" ]
 localPort = 21939
 
 [services.development]
@@ -24,4 +24,4 @@ to = "/index.html"
 
 [services.env]
 PORT = "21939"
-BASE_PATH = "/"
+BASE_PATH = "/backup-desktop/"

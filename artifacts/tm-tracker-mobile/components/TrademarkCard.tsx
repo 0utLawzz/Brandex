@@ -61,7 +61,7 @@ export function TrademarkCard({ item, onPress }: TrademarkCardProps) {
                 fontFamily: 'SpaceGrotesk_700Bold',
               },
             ]}>
-              {item.source === 'sheets' ? 'SHEET' : 'DB'}
+              {item.source === 'sheets' ? 'SHEET RECORD' : 'DATABASE RECORD'}
             </Text>
           </View>
         </View>

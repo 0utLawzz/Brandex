@@ -1,5 +1,5 @@
 kind = "mobile"
-previewPath = "/mobile/"
+previewPath = "/backup-mobile/"
 title = "TM Tracker Mobile"
 version = "1.0.0"
 id = "artifacts/tm-tracker-mobile"
@@ -8,7 +8,7 @@ router = "expo-domain"
 [[services]]
 name = "expo"
 ensurePreviewReachable = "/status"
-paths = [ "/mobile/" ]
+paths = [ "/backup-mobile/" ]
 localPort = 25449
 
 [services.development]
@@ -20,4 +20,4 @@ run = [ "pnpm", "--filter", "@workspace/tm-tracker-mobile", "run", "serve" ]
 
 [services.env]
 PORT = "25449"
-BASE_PATH = "/mobile/"
+BASE_PATH = "/backup-mobile/"

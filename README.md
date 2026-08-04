@@ -17,8 +17,8 @@ Brandex is a live trademark registry for law and brand operations teams. It turn
 
 | Artifact | Purpose | Preview |
 | --- | --- | --- |
-| `artifacts/tm-tracker` | Desktop web command center | `/` |
-| `artifacts/tm-tracker-mobile` | Native mobile companion | `/mobile/` |
+| `artifacts/tm-tracker-mobile` | Primary mobile command center | `/` |
+| `artifacts/tm-tracker` | Desktop web copy | `/desktop/` |
 | `artifacts/api-server` | Shared Express API | `/api` |
 
 Shared API contracts and generated clients live under `lib/`. The desktop and mobile apps use the same API and database, so updates made in either experience are visible in the other.

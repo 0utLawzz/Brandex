@@ -17,6 +17,13 @@
 - Rewrote `README.md` with setup, architecture, secrets, and workflow documentation.
 - Final smoke checks passed: API health is OK and live registry data is available.
 
+## Latest update
+
+- Removed the pitch deck artifact and workflow.
+- Mobile is now the primary root preview; desktop remains available at `/desktop/`.
+- Expo startup no longer clears Metro’s cache on every launch, preventing the packager watcher failure.
+- Record cards and desktop registry rows now identify `SHEET RECORD` versus `DATABASE RECORD`.
+
 ## Completed in this pass
 
 - Mobile opens on **Search by TM No**.

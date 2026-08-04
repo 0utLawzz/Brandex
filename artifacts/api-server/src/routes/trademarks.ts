@@ -81,11 +81,11 @@ router.get("/trademarks", async (req, res): Promise<void> => {
           .select()
           .from(trademarksTable)
           .where(and(...conditions))
-          .orderBy(sql`TO_DATE(NULLIF(TRIM(${trademarksTable.date}), ''), 'DD-Mon-YYYY') DESC NULLS LAST`)
+          .orderBy(desc(trademarksTable.updatedAt))
       : await db
           .select()
           .from(trademarksTable)
-          .orderBy(sql`TO_DATE(NULLIF(TRIM(${trademarksTable.date}), ''), 'DD-Mon-YYYY') DESC NULLS LAST`);
+          .orderBy(desc(trademarksTable.updatedAt));
 
   const result = rows.map((row) =>
     ListTrademarksResponseItem.parse({

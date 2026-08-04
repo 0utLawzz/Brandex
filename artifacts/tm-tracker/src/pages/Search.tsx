@@ -159,6 +159,9 @@ export function Search() {
                   TM No
                 </th>
                 <th className="px-4 py-4 border-r border-[#0C0C0C]/30">
+                  Source
+                </th>
+                <th className="px-4 py-4 border-r border-[#0C0C0C]/30">
                   App Name
                 </th>
                 <th className="px-4 py-4 border-r border-[#0C0C0C]/30">
@@ -184,13 +187,13 @@ export function Search() {
             <tbody className="divide-y-2 divide-[#0C0C0C]">
               {isLoading ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-8 text-center font-bold">
+                  <td colSpan={11} className="px-4 py-8 text-center font-bold">
                     LOADING RECORDS...
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-8 text-center font-bold">
+                  <td colSpan={11} className="px-4 py-8 text-center font-bold">
                     NO RECORDS FOUND.
                   </td>
                 </tr>
@@ -202,6 +205,11 @@ export function Search() {
                   >
                     <td className="px-4 py-3 border-r-2 border-[#0C0C0C] font-bold">
                       {tm.tmNo || "-"}
+                    </td>
+                    <td className="px-4 py-3 border-r-2 border-[#0C0C0C]">
+                      <span className={`inline-block border-2 border-[#0C0C0C] px-2 py-1 text-[10px] font-bold uppercase tracking-wider ${tm.source === "sheets" ? "bg-[#D4A800]" : "bg-[#0C0C0C] text-[#F0E8D0]"}`}>
+                        {tm.source === "sheets" ? "SHEET RECORD" : "DATABASE RECORD"}
+                      </span>
                     </td>
                     <td
                       className="px-4 py-3 border-r-2 border-[#0C0C0C] max-w-[200px] truncate overflow-hidden"
