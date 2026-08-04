@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, Image } from 'react-native';
 import { useColors } from '@/hooks/useColors';
 import { Feather } from '@expo/vector-icons';
 import type { Trademark } from '@workspace/api-client-react';
@@ -21,6 +21,11 @@ const STAGE_COLORS: Record<string, string> = {
 export function TrademarkCard({ item, onPress }: TrademarkCardProps) {
   const colors = useColors();
   const stageColor = item.stage ? (STAGE_COLORS[item.stage] ?? colors.primary) : colors.mutedForeground;
+  
+  // Format case number: X-284-001
+  const caseNumber = item.prefix && item.clientNo && item.caseNo 
+    ? `${item.prefix}-${item.clientNo}-${item.caseNo}`
+    : item.folderNo || '—';
 
   return (
     <TouchableOpacity
@@ -29,9 +34,16 @@ export function TrademarkCard({ item, onPress }: TrademarkCardProps) {
       activeOpacity={0.85}
     >
       <View style={styles.header}>
-        <Text style={[styles.tmNo, { color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold' }]} numberOfLines={1}>
-          ADD TM#: {item.tmNo ?? '—'}
-        </Text>
+        <View style={styles.headerLeft}>
+          <Text style={[styles.caseNo, { color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold' }]} numberOfLines={1}>
+            {caseNumber}
+          </Text>
+          {item.tmNo && (
+            <Text style={[styles.tmNo, { color: colors.mutedForeground, fontFamily: 'SpaceGrotesk_400Regular' }]} numberOfLines={1}>
+              TM#: {item.tmNo}
+            </Text>
+          )}
+        </View>
         <View style={styles.badges}>
           <View style={styles.lightItem}><View style={[styles.light, { backgroundColor: item.isDuplicate ? '#18A558' : '#777' }]} /><Text style={[styles.lightText, { color: colors.mutedForeground }]}>DUP</Text></View>
           <View style={styles.lightItem}><View style={[styles.light, { backgroundColor: item.isTm11 ? '#18A558' : '#777' }]} /><Text style={[styles.lightText, { color: colors.mutedForeground }]}>TM-11</Text></View>
@@ -55,20 +67,37 @@ export function TrademarkCard({ item, onPress }: TrademarkCardProps) {
         </View>
       </View>
 
-      <Text style={[styles.appName, { color: colors.foreground, fontFamily: 'SpaceGrotesk_600SemiBold' }]} numberOfLines={1}>
-        {item.appName ?? '—'}
-      </Text>
-
-      <View style={[styles.stageRow, { backgroundColor: stageColor }]}>
-          <Text style={[styles.stageText, { color: '#FFF7E6', fontFamily: 'SpaceGrotesk_700Bold' }]}>
-            {item.stage ?? 'No Stage'}
+      <View style={styles.contentRow}>
+        <View style={styles.textContent}>
+          <Text style={[styles.appName, { color: colors.foreground, fontFamily: 'SpaceGrotesk_600SemiBold' }]} numberOfLines={2}>
+            {item.appName ?? '—'}
           </Text>
+
+          <View style={[styles.stageRow, { backgroundColor: stageColor }]}>
+            <Text style={[styles.stageText, { color: '#FFF7E6', fontFamily: 'SpaceGrotesk_700Bold' }]}>
+              {item.stage || 'No Stage'}
+            </Text>
+            {item.subStage && (
+              <Text style={[styles.subStageText, { color: '#FFF7E6', fontFamily: 'SpaceGrotesk_500Medium' }]}>
+                • {item.subStage}
+              </Text>
+            )}
+          </View>
+          
+          <View style={styles.metaRow}>
+            <Text style={[styles.date, { color: colors.mutedForeground }]}>DATE: {item.date || '—'}</Text>
+            <Text style={[styles.city, { color: colors.mutedForeground }]}>CITY: {item.city || '—'}</Text>
+          </View>
+        </View>
+        
+        {item.imageUrl && (
+          <Image 
+            source={{ uri: item.imageUrl }} 
+            style={styles.thumbnail}
+            resizeMode="cover"
+          />
+        )}
       </View>
-      <View style={styles.metaRow}>
-        <Text style={[styles.date, { color: colors.mutedForeground }]}>DATE: {item.date || '—'}</Text>
-        <Text style={[styles.folder, { color: colors.mutedForeground }]}>FOLDER / CASE NO: {item.folderNo || '—'}</Text>
-      </View>
-      <Text style={[styles.subStage, { color: colors.mutedForeground }]}>SUB STAGE: {item.subStage || '—'}</Text>
     </TouchableOpacity>
   );
 }
@@ -87,13 +116,19 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
+    alignItems: 'flex-start',
+    marginBottom: 8,
   },
-  tmNo: {
-    fontSize: 14,
+  headerLeft: {
     flex: 1,
     marginRight: 8,
+  },
+  caseNo: {
+    fontSize: 15,
+    marginBottom: 2,
+  },
+  tmNo: {
+    fontSize: 11,
   },
   badges: {
     flexDirection: 'row',
@@ -118,19 +153,50 @@ const styles = StyleSheet.create({
     fontSize: 8,
     letterSpacing: 0.4,
   },
-  appName: {
-    fontSize: 16,
-    marginBottom: 10,
+  contentRow: {
+    flexDirection: 'row',
+    gap: 12,
   },
-  stageRow: { paddingHorizontal: 10, paddingVertical: 6, marginBottom: 8 },
+  textContent: {
+    flex: 1,
+  },
+  appName: {
+    fontSize: 15,
+    marginBottom: 8,
+    lineHeight: 20,
+  },
+  stageRow: { 
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10, 
+    paddingVertical: 6, 
+    marginBottom: 8,
+    alignSelf: 'flex-start',
+  },
   stageText: {
     fontSize: 11,
     letterSpacing: 0.5,
   },
-  metaRow: { gap: 4 },
-  date: { fontSize: 11 },
+  subStageText: {
+    fontSize: 10,
+    marginLeft: 6,
+  },
+  metaRow: { 
+    gap: 8,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  date: { fontSize: 10 },
+  city: { fontSize: 10 },
   folder: { fontSize: 11 },
   subStage: { fontSize: 11, marginTop: 4 },
+  thumbnail: {
+    width: 60,
+    height: 60,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#ccc',
+  },
   lightItem: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   light: { width: 10, height: 10, borderRadius: 5, borderWidth: 1, borderColor: '#222' },
   lightText: { fontSize: 8, fontFamily: 'SpaceGrotesk_700Bold' },
