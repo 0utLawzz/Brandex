@@ -24,6 +24,12 @@
 - Expo startup no longer clears Metro’s cache on every launch, preventing the packager watcher failure.
 - Record cards and desktop registry rows now identify `SHEET RECORD` versus `DATABASE RECORD`.
 
+## Mobile packager repair
+
+- Cleared the stale Expo process that was already occupying port `25449`.
+- Restarted Metro cleanly; the mobile workflow now reports `Metro waiting` and `packager-status:running`.
+- Verified the mobile status endpoint and API health endpoint both return HTTP 200.
+
 ## Completed in this pass
 
 - Mobile opens on **Search by TM No**.
