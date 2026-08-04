@@ -1,5 +1,13 @@
 # Brandex TM Tracker — In Progress
 
+## Current work — August 04, 2026
+
+- Bringing the mobile artifact live alongside the desktop tracker.
+- Wiring Google Sheets sync with the configured API key and Apps Script URL.
+- Keeping mobile and desktop on the same API/database source of truth.
+- Preparing a pitch deck covering both app experiences.
+- Rewriting the README and pushing the completed update to GitHub.
+
 ## Completed in this pass
 
 - Mobile opens on **Search by TM No**.
