@@ -29,7 +29,8 @@ The API uses these Replit Secrets:
 
 - `GOOGLE_SHEETS_API_KEY` — reads the configured sheet through the Google Sheets API
 - `GOOGLE_SHEETS_APPS_SCRIPT_URL` — sends trademark updates and audit entries back to the sheet
-- `DATABASE_URL` / `DATABASE_URL_UNPOOLED` — database connectivity and schema tooling
+- `DATABASE_URL` — runtime database connectivity (required)
+- `DATABASE_URL_UNPOOLED` — optional direct/unpooled connection for migrations and admin tooling; it is not required by the running app and may be removed if you do not use those tools
 
 The sheet sync expects columns in this order: `DATE`, `CASE NO`, `APP NAME`, `TM NO`, `CLASS`, `STATUS`, `SUB STATUS`, `Duplicate`, `TM-11`, `Notes`, `City`.
 
@@ -41,7 +42,7 @@ The project uses pnpm workspaces and Replit artifact workflows:
 pnpm install
 ```
 
-Start the configured workflows from Replit. The API serves `/api`, the desktop app serves `/`, and Expo serves `/mobile/`.
+Start the configured workflows from Replit. The API serves `/api`, mobile is the primary `/` preview, and the desktop copy serves `/desktop/`.
 
 Useful checks:
 

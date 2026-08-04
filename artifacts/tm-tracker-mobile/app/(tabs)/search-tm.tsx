@@ -29,6 +29,7 @@ export default function SearchTmScreen() {
     },
     {
       query: {
+        queryKey: ['trademarks', 'search-tm', tmNo.trim()],
         enabled: tmNo.trim().length > 0,
         staleTime: 10_000,
       },

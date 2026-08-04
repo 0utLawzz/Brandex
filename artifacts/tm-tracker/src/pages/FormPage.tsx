@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Save, Trash2, ArrowLeft } from "lucide-react";
+import { Save, Trash2, ArrowLeft, ArrowRightLeft } from "lucide-react";
 import { useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -60,6 +60,20 @@ export function FormPage() {
   const createMutation = useCreateTrademark();
   const updateMutation = useUpdateTrademark();
   const deleteMutation = useDeleteTrademark();
+  const transfer = async (target: "local" | "sheets") => {
+    if (!id) return;
+    const response = await fetch(`/api/trademarks/${id}/transfer`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ target }),
+    });
+    const payload = await response.json();
+    toast({
+      title: response.ok ? "Source updated" : "Transfer failed",
+      description: payload.message || payload.error,
+      variant: response.ok ? "default" : "destructive",
+    });
+  };
 
   const form = useHookForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -181,6 +195,16 @@ export function FormPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-6">
+            {!isNew && trademark && (
+              <div className="mb-6 flex flex-wrap items-center gap-3 border-2 border-[#0C0C0C] bg-[#F0E8D0] p-3 font-mono text-xs uppercase">
+                <span>{trademark.source === "sheets" ? "SHEET RECORD" : "DATABASE RECORD"}</span>
+                <span className="text-[#6d6658]">STAGE: {trademark.stage || "—"} · SUB-STAGE: {trademark.subStage || "—"}</span>
+                <div className="ml-auto flex flex-wrap gap-2">
+                  <Button type="button" size="sm" variant="outline" onClick={() => transfer("sheets")}><ArrowRightLeft className="mr-1 h-3 w-3" /> MOVE TO SHEET</Button>
+                  <Button type="button" size="sm" variant="outline" onClick={() => transfer("local")}><ArrowRightLeft className="mr-1 h-3 w-3" /> MOVE TO DB</Button>
+                </div>
+              </div>
+            )}
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">

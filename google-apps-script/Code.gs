@@ -12,7 +12,7 @@
 function doPost(e) {
   try {
     var body = JSON.parse(e.postData.contents || "{}");
-    if (body.action !== "updateTrademark") {
+    if (body.action !== "updateTrademark" && body.action !== "upsertTrademark") {
       return json({ ok: false, error: "Unsupported action" });
     }
 
@@ -22,11 +22,12 @@ function doPost(e) {
     if (values.length < 2) return json({ ok: false, error: "No data rows" });
 
     var headers = values[0].map(function (h) { return String(h).trim().toUpperCase(); });
-    var tmColumn = headers.indexOf("TM NO");
+    var tmColumn = findColumn(headers, ["TM NO", "TM NUMBER", "TRADEMARK NO"]);
     if (tmColumn < 0) return json({ ok: false, error: "TM NO column not found" });
 
     var trademark = body.trademark || {};
-    var target = String(trademark.tmNo || "").trim();
+    // Use the old number when a user edits TM NO; otherwise use the current one.
+    var target = String(trademark.originalTmNo || trademark.tmNo || "").trim();
     var rowNumber = -1;
     for (var i = 1; i < values.length; i++) {
       if (String(values[i][tmColumn]).trim() === target) {
@@ -34,20 +35,29 @@ function doPost(e) {
         break;
       }
     }
+    if (rowNumber < 0 && body.action === "upsertTrademark") {
+      sheet.appendRow(headers.map(function (header) {
+        return valueForHeader(header, trademark);
+      }));
+      rowNumber = sheet.getLastRow();
+    }
     if (rowNumber < 0) return json({ ok: false, error: "TM NO not found" });
 
     var updates = {
-      "DATE": trademark.date,
+       "DATE": trademark.date,
       "CASE NO": trademark.folderNo,
       "APP NAME": trademark.appName,
       "TM NO": trademark.tmNo,
       "CLASS": trademark.appClass,
       "STATUS": trademark.stage,
-      "APPLICATION SUB STATUS": trademark.subStage,
+       "APPLICATION SUB STATUS": trademark.subStage,
+       "APPLICATION SUB-STATUS": trademark.subStage,
+       "SUB STATUS": trademark.subStage,
+       "SUB-STAGE": trademark.subStage,
       "DUPLICATE": trademark.isDuplicate ? "TRUE" : "FALSE",
       "TM-11": trademark.isTm11 ? "TRUE" : "FALSE",
       "NOTES": trademark.notes,
-      "CITY": trademark.city
+       "CITY": trademark.city
     };
     headers.forEach(function (header, index) {
       if (Object.prototype.hasOwnProperty.call(updates, header)) {
@@ -67,10 +77,39 @@ function doPost(e) {
       Session.getActiveUser().getEmail() || "Brandex",
       JSON.stringify(body.auditLog || {})
     ]);
-    return json({ ok: true, row: rowNumber });
+    return json({ ok: true, success: true, row: rowNumber });
   } catch (error) {
     return json({ ok: false, error: String(error) });
   }
+}
+
+function findColumn(headers, names) {
+  for (var i = 0; i < names.length; i++) {
+    var index = headers.indexOf(names[i]);
+    if (index >= 0) return index;
+  }
+  return -1;
+}
+
+function valueForHeader(header, trademark) {
+  var values = {
+    "DATE": trademark.date,
+    "CASE NO": trademark.folderNo,
+    "FOLDER NO": trademark.folderNo,
+    "APP NAME": trademark.appName,
+    "TM NO": trademark.tmNo,
+    "CLASS": trademark.appClass,
+    "STATUS": trademark.stage,
+    "SUB STATUS": trademark.subStage,
+    "APPLICATION SUB STATUS": trademark.subStage,
+    "APPLICATION SUB-STATUS": trademark.subStage,
+    "SUB-STAGE": trademark.subStage,
+    "DUPLICATE": trademark.isDuplicate ? "TRUE" : "FALSE",
+    "TM-11": trademark.isTm11 ? "TRUE" : "FALSE",
+    "NOTES": trademark.notes,
+    "CITY": trademark.city
+  };
+  return Object.prototype.hasOwnProperty.call(values, header) ? (values[header] || "") : "";
 }
 
 function json(value) {

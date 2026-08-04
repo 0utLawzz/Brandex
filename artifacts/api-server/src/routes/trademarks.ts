@@ -451,16 +451,6 @@ router.put("/trademarks/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  // Validate stage progression (forward-only workflow)
-  if (bodyParsed.data.stage && currentRow.stage) {
-    if (!canProgressStage(currentRow.stage, bodyParsed.data.stage)) {
-      res.status(400).json({ 
-        error: `Cannot move from ${currentRow.stage} to ${bodyParsed.data.stage}. Status can only progress forward.` 
-      });
-      return;
-    }
-  }
-
   // Build a clean update payload; omit null booleans since the column is non-nullable
   const { isDuplicate, isTm11, ...rest } = bodyParsed.data;
   const updateData: Record<string, unknown> = { ...rest, updatedAt: new Date() };
@@ -490,51 +480,52 @@ router.put("/trademarks/:id", async (req, res): Promise<void> => {
 
   const sheetsWritebackUrl = process.env.GOOGLE_SHEETS_APPS_SCRIPT_URL;
   if (!sheetsWritebackUrl) {
-    res.status(503).json({
-      error:
-        "Database updated, but Google Sheets write-back is not configured. Set GOOGLE_SHEETS_APPS_SCRIPT_URL.",
-    });
-    return;
-  }
-
-  try {
-    const writeback = await fetch(sheetsWritebackUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "updateTrademark",
-        trademark: {
-          id: row.id,
-          tmNo: row.tmNo,
-          appName: row.appName,
-          folderNo: row.folderNo,
-          appClass: row.appClass,
-          date: row.date,
-          stage: row.stage,
-          subStage: row.subStage,
-          city: row.city,
-          isDuplicate: row.isDuplicate,
-          isTm11: row.isTm11,
-          notes: row.notes,
-        },
-        auditLog: {
-          trademarkId: row.id,
-          tmNo: row.tmNo,
-          updatedAt: row.updatedAt?.toISOString() ?? new Date().toISOString(),
-          changes: bodyParsed.data,
-        },
-      }),
-    });
-    const result = (await writeback.json()) as { ok?: boolean; error?: string };
-    if (!writeback.ok || result.ok !== true) {
-      logger.error({ status: writeback.status, result }, "Google Sheets write-back failed");
-      res.status(502).json({ error: result.error ?? "Google Sheets write-back failed" });
-      return;
+    logger.warn({ trademarkId: row.id }, "Database updated; Sheets write-back is not configured");
+  } else {
+    try {
+      const writeback = await fetch(sheetsWritebackUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "updateTrademark",
+          trademark: {
+            id: row.id,
+            originalTmNo: currentRow.tmNo,
+            tmNo: row.tmNo,
+            appName: row.appName,
+            folderNo: row.folderNo,
+            appClass: row.appClass,
+            date: row.date,
+            stage: row.stage,
+            subStage: row.subStage,
+            city: row.city,
+            isDuplicate: row.isDuplicate,
+            isTm11: row.isTm11,
+            notes: row.notes,
+          },
+          auditLog: {
+            trademarkId: row.id,
+            tmNo: row.tmNo,
+            updatedAt: row.updatedAt?.toISOString() ?? new Date().toISOString(),
+            changes: bodyParsed.data,
+          },
+        }),
+      });
+      const responseText = await writeback.text();
+      let result: { ok?: boolean; success?: boolean; error?: string } = {};
+      try {
+        result = JSON.parse(responseText) as typeof result;
+      } catch {
+        result = { ok: /success|updated/i.test(responseText) };
+      }
+      if (!writeback.ok || !(result.ok === true || result.success === true)) {
+        logger.error({ status: writeback.status, result }, "Google Sheets write-back failed");
+        logger.warn({ trademarkId: row.id }, "Database updated; Sheets write-back needs attention");
+      }
+    } catch (err) {
+      logger.error({ err }, "Google Sheets write-back request failed");
+      logger.warn({ trademarkId: row.id }, "Database updated; Sheets write-back request needs retry");
     }
-  } catch (err) {
-    logger.error({ err }, "Google Sheets write-back request failed");
-    res.status(502).json({ error: "Google Sheets write-back request failed" });
-    return;
   }
 
   res.json(
@@ -560,6 +551,49 @@ router.put("/trademarks/:id", async (req, res): Promise<void> => {
       updatedAt: row.updatedAt ? row.updatedAt.toISOString() : null,
     }),
   );
+});
+
+// Move a record between the local database and the Sheets-backed registry.
+router.post("/trademarks/:id/transfer", async (req, res): Promise<void> => {
+  const id = parseId(req.params.id);
+  const target = req.body?.target;
+  if (target !== "local" && target !== "sheets") {
+    res.status(400).json({ error: "target must be local or sheets" });
+    return;
+  }
+  const [current] = await db.select().from(trademarksTable).where(eq(trademarksTable.id, id)).limit(1);
+  if (!current) {
+    res.status(404).json({ error: "Trademark not found" });
+    return;
+  }
+  if (target === "sheets") {
+    const sheetsWritebackUrl = process.env.GOOGLE_SHEETS_APPS_SCRIPT_URL;
+    if (!sheetsWritebackUrl) {
+      res.status(503).json({ error: "Google Sheets write-back is not configured." });
+      return;
+    }
+    const writeback = await fetch(sheetsWritebackUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "upsertTrademark",
+        trademark: current,
+        auditLog: { trademarkId: current.id, action: "TRANSFER_TO_SHEETS" },
+      }),
+    });
+    const text = await writeback.text();
+    let result: { ok?: boolean; success?: boolean; error?: string } = {};
+    try { result = JSON.parse(text) as typeof result; } catch {}
+    if (!writeback.ok || !(result.ok || result.success)) {
+      res.status(502).json({ error: result.error ?? "Could not copy record to Google Sheets." });
+      return;
+    }
+  }
+  const [row] = await db.update(trademarksTable)
+    .set({ source: target, updatedAt: new Date() })
+    .where(eq(trademarksTable.id, id))
+    .returning();
+  res.json({ ...row, source: target, message: `Record marked as ${target === "sheets" ? "SHEET RECORD" : "DATABASE RECORD"}` });
 });
 
 // GET /trademarks/:id/change-log

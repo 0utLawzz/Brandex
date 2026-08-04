@@ -118,6 +118,41 @@ function Field({
   );
 }
 
+function DateField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const colors = useColors();
+  const [visible, setVisible] = useState(false);
+  const base = value ? new Date(`${value}T00:00:00`) : new Date();
+  const [month, setMonth] = useState(new Date(base.getFullYear(), base.getMonth(), 1));
+  const first = new Date(month.getFullYear(), month.getMonth(), 1).getDay();
+  const days = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+  const cells = Array.from({ length: first + days }, (_, index) => index < first ? null : index - first + 1);
+  return (
+    <View style={styles.field}>
+      <Text style={[styles.label, { color: colors.mutedForeground, fontFamily: 'SpaceGrotesk_500Medium' }]}>FILING DATE *</Text>
+      <TouchableOpacity style={[styles.input, { borderColor: colors.border, backgroundColor: colors.input }]} onPress={() => setVisible(true)}>
+        <Text style={{ color: value ? colors.foreground : colors.mutedForeground }}>{value || 'SELECT DATE'}</Text>
+      </TouchableOpacity>
+      {visible && (
+        <View style={[styles.calendar, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={styles.calendarHeader}>
+            <TouchableOpacity onPress={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}><Text style={{ color: colors.foreground, fontSize: 20 }}>‹</Text></TouchableOpacity>
+            <Text style={[styles.calendarTitle, { color: colors.foreground }]}>{month.toLocaleString(undefined, { month: 'long', year: 'numeric' })}</Text>
+            <TouchableOpacity onPress={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}><Text style={{ color: colors.foreground, fontSize: 20 }}>›</Text></TouchableOpacity>
+          </View>
+          <View style={styles.calendarGrid}>
+            {['S','M','T','W','T','F','S'].map((day, index) => <Text key={`${day}-${index}`} style={[styles.calendarDay, { color: colors.mutedForeground }]}>{day}</Text>)}
+            {cells.map((day, index) => day ? (
+              <TouchableOpacity key={day} style={styles.calendarCell} onPress={() => { onChange(`${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`); setVisible(false); }}>
+                <Text style={[styles.calendarCellText, { color: colors.foreground }]}>{day}</Text>
+              </TouchableOpacity>
+            ) : <View key={`empty-${index}`} style={styles.calendarCell} />)}
+          </View>
+        </View>
+      )}
+    </View>
+  );
+}
+
 function Toggle({ label, value, onValueChange }: { label: string; value: boolean; onValueChange: (v: boolean) => void }) {
   const colors = useColors();
   return (
@@ -325,7 +360,7 @@ export default function NewTrademarkScreen() {
 
       <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <Text style={[styles.section, { color: colors.mutedForeground, fontFamily: 'SpaceGrotesk_500Medium' }]}>CORE DETAILS</Text>
-        <Field label="Date" value={form.date} onChangeText={set('date')} required placeholder="YYYY-MM-DD" />
+        <DateField value={form.date} onChange={(value) => set('date')(value)} />
         <View style={styles.row}>
           <View style={styles.halfField}>
             <Dropdown label="Prefix" value={form.prefix} options={PREFIXES} onSelect={set('prefix')} required />
@@ -439,6 +474,13 @@ const styles = StyleSheet.create({
   inputText: {
     fontSize: 15,
   },
+  calendar: { borderWidth: 2, padding: 10, marginBottom: 12 },
+  calendarHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  calendarTitle: { fontSize: 14, fontFamily: 'SpaceGrotesk_700Bold' },
+  calendarGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  calendarDay: { width: '14.28%', textAlign: 'center', fontSize: 10, paddingVertical: 4 },
+  calendarCell: { width: '14.28%', alignItems: 'center', paddingVertical: 7 },
+  calendarCellText: { fontSize: 13 },
   textarea: { height: 80, textAlignVertical: 'top' },
   row: { flexDirection: 'row', gap: 8 },
   halfField: { flex: 1 },

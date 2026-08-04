@@ -34,6 +34,7 @@ export default function RegistryScreen() {
     },
     {
       query: {
+        queryKey: ['trademarks', 'registry', search, activeStage],
         staleTime: 10_000,
       },
     }

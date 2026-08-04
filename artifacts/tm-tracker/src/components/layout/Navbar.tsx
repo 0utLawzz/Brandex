@@ -31,8 +31,8 @@ export function Navbar() {
 
   return (
     <nav className="sticky top-0 z-50 w-full bg-[#0C0C0C] text-[#F0E8D0] border-b-[3px] border-[#0C0C0C]">
-      <div className="flex h-16 items-center px-6">
-        <div className="flex items-center gap-2 font-serif text-3xl tracking-widest text-[#F0E8D0] mr-12">
+      <div className="flex min-h-16 flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 sm:px-6">
+        <div className="flex min-w-0 items-center gap-2 font-serif text-lg tracking-widest text-[#F0E8D0] sm:text-2xl lg:text-3xl">
           <BriefcaseBusiness
             className="w-8 h-8 text-[#C94A00]"
             strokeWidth={2.5}
@@ -40,7 +40,7 @@ export function Navbar() {
           BRANDEX LAW ASSOICATE
         </div>
 
-        <div className="flex items-center space-x-6 flex-1">
+        <div className="order-3 flex w-full items-center gap-3 overflow-x-auto pb-1 lg:order-2 lg:w-auto lg:flex-1 lg:space-x-6">
           <Link
             href="/"
             className={`font-mono font-bold uppercase tracking-widest text-sm py-2 border-b-2 transition-colors ${location === "/" ? "border-[#C94A00] text-[#C94A00]" : "border-transparent text-[#E8DFC7] hover:text-white hover:border-white"}`}
@@ -63,11 +63,11 @@ export function Navbar() {
           </Link>
         </div>
 
-        <div className="flex items-center">
+        <div className="order-2 ml-auto flex items-center lg:order-3">
           <button
             onClick={handleSync}
             disabled={sync.isPending || syncing}
-            className="flex items-center gap-2 bg-[#D4A800] text-[#0C0C0C] border-2 border-[#0C0C0C] px-4 py-1.5 font-mono font-bold text-sm uppercase tracking-wider rounded-[6px] hover:-translate-y-0.5 hover:shadow-[4px_4px_0_#F0E8D0] active:translate-y-0 active:shadow-none transition-all disabled:opacity-50"
+            className="flex items-center gap-2 bg-[#D4A800] text-[#0C0C0C] border-2 border-[#0C0C0C] px-2 py-1.5 font-mono text-xs font-bold uppercase tracking-wider rounded-[6px] whitespace-nowrap sm:px-4 sm:text-sm hover:-translate-y-0.5 hover:shadow-[4px_4px_0_#F0E8D0] active:translate-y-0 active:shadow-none transition-all disabled:opacity-50"
           >
             <DatabaseZap
               className={`w-4 h-4 ${sync.isPending ? "animate-spin" : ""}`}

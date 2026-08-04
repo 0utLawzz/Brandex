@@ -27,6 +27,41 @@ import * as Haptics from 'expo-haptics';
 import { ClassPicker } from '@/components/ClassPicker';
 import { Feather } from '@expo/vector-icons';
 
+function DateField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const colors = useColors();
+  const [visible, setVisible] = useState(false);
+  const base = value ? new Date(`${value}T00:00:00`) : new Date();
+  const [month, setMonth] = useState(new Date(base.getFullYear(), base.getMonth(), 1));
+  const first = new Date(month.getFullYear(), month.getMonth(), 1).getDay();
+  const days = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+  const cells = Array.from({ length: first + days }, (_, index) => index < first ? null : index - first + 1);
+  return (
+    <View style={styles.field}>
+      <Text style={[styles.label, { color: colors.mutedForeground, fontFamily: 'SpaceGrotesk_500Medium' }]}>FILING DATE</Text>
+      <TouchableOpacity style={[styles.input, { borderColor: colors.border, backgroundColor: colors.input }]} onPress={() => setVisible(true)}>
+        <Text style={{ color: value ? colors.foreground : colors.mutedForeground }}>{value || 'SELECT DATE'}</Text>
+      </TouchableOpacity>
+      {visible && (
+        <View style={[styles.calendar, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={styles.calendarHeader}>
+            <TouchableOpacity onPress={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}><Feather name="chevron-left" size={18} color={colors.foreground} /></TouchableOpacity>
+            <Text style={[styles.calendarTitle, { color: colors.foreground }]}>{month.toLocaleString(undefined, { month: 'long', year: 'numeric' })}</Text>
+            <TouchableOpacity onPress={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}><Feather name="chevron-right" size={18} color={colors.foreground} /></TouchableOpacity>
+          </View>
+          <View style={styles.calendarGrid}>
+            {['S','M','T','W','T','F','S'].map((day, index) => <Text key={`${day}-${index}`} style={[styles.calendarDay, { color: colors.mutedForeground }]}>{day}</Text>)}
+            {cells.map((day, index) => day ? (
+              <TouchableOpacity key={day} style={styles.calendarCell} onPress={() => { onChange(`${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`); setVisible(false); }}>
+                <Text style={[styles.calendarCellText, { color: colors.foreground }]}>{day}</Text>
+              </TouchableOpacity>
+            ) : <View key={`empty-${index}`} style={styles.calendarCell} />)}
+          </View>
+        </View>
+      )}
+    </View>
+  );
+}
+
 interface FormState {
   tmNo: string;
   appName: string;
@@ -91,7 +126,7 @@ export default function TrademarkDetailScreen() {
   const numId = Number(id);
 
   const { data: trademark, isLoading } = useGetTrademark(numId, {
-    query: { enabled: !isNaN(numId) },
+    query: { queryKey: ['trademark', numId], enabled: !isNaN(numId) },
   });
 
   const [form, setForm] = useState<FormState>({
@@ -158,6 +193,17 @@ export default function TrademarkDetailScreen() {
       },
     },
   });
+
+  const transfer = async (target: 'local' | 'sheets') => {
+    const domain = process.env.EXPO_PUBLIC_DOMAIN;
+    const response = await fetch(`${domain ? `https://${domain}` : ''}/api/trademarks/${numId}/transfer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target }),
+    });
+    const payload = await response.json();
+    Alert.alert(response.ok ? 'Source updated' : 'Transfer failed', payload.message || payload.error);
+  };
 
   const handleSave = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -245,6 +291,22 @@ export default function TrademarkDetailScreen() {
             </Text>
           </View>
         )}
+        <View style={[styles.recordSummary, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.summarySource, { color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+            {trademark?.source === 'sheets' ? 'SHEET RECORD' : 'DATABASE RECORD'}
+          </Text>
+          <Text style={[styles.summaryStage, { color: colors.foreground }]}>
+            STAGE: {trademark?.stage || '—'}  ·  SUB-STAGE: {trademark?.subStage || '—'}
+          </Text>
+          <View style={styles.transferRow}>
+            <TouchableOpacity style={[styles.transferButton, { borderColor: colors.border }]} onPress={() => transfer('sheets')}>
+              <Text style={[styles.transferText, { color: colors.foreground }]}>MOVE TO SHEET</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.transferButton, { borderColor: colors.border }]} onPress={() => transfer('local')}>
+              <Text style={[styles.transferText, { color: colors.foreground }]}>MOVE TO DB</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
 
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.section, { color: colors.mutedForeground, fontFamily: 'SpaceGrotesk_500Medium' }]}>CORE DETAILS</Text>
@@ -252,7 +314,7 @@ export default function TrademarkDetailScreen() {
           <Field label="Application Name" value={form.appName} onChangeText={set('appName')} />
           <Field label="Folder / Case No" value={form.folderNo} onChangeText={set('folderNo')} />
           <ClassPicker value={form.appClass} onChange={(value) => set('appClass')(value)} />
-          <Field label="Date" value={form.date} onChangeText={set('date')} />
+          <DateField value={form.date} onChange={(value) => set('date')(value)} />
         </View>
 
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 12 }]}>
@@ -328,6 +390,19 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   sourceBannerText: { fontSize: 13 },
+  calendar: { borderWidth: 2, padding: 10, marginBottom: 12 },
+  calendarHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  calendarTitle: { fontSize: 14, fontFamily: 'SpaceGrotesk_700Bold' },
+  calendarGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  calendarDay: { width: '14.28%', textAlign: 'center', fontSize: 10, paddingVertical: 4 },
+  calendarCell: { width: '14.28%', alignItems: 'center', paddingVertical: 7 },
+  calendarCellText: { fontSize: 13 },
+  recordSummary: { borderWidth: 2, padding: 12, marginBottom: 14 },
+  summarySource: { fontSize: 12, letterSpacing: 0.7 },
+  summaryStage: { fontSize: 13, marginTop: 6 },
+  transferRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  transferButton: { borderWidth: 2, paddingHorizontal: 10, paddingVertical: 8 },
+  transferText: { fontSize: 10, fontFamily: 'SpaceGrotesk_700Bold' },
   card: {
     borderWidth: 2,
     padding: 16,
