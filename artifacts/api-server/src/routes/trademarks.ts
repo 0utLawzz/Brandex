@@ -335,7 +335,7 @@ router.post("/trademarks/sync", async (req, res): Promise<void> => {
       tmNo: tmNo || null,
       city: city || 'Islamabad',
       stage: stage || 'STAGE 1',
-      subStage: cell(row, COL.subStage) || null,
+      subStage: cell(row, COL.subStage) || stage || 'STAGE 1',
       status: cell(row, COL.subStage) || stage || 'STAGE 1',
       isDuplicate: bool(cell(row, COL.isDuplicate)),
       isTm11: bool(cell(row, COL.isTm11)),
@@ -351,20 +351,28 @@ router.post("/trademarks/sync", async (req, res): Promise<void> => {
 
   let synced = 0;
   let skipped = 0;
-  for (const record of records) {
+  for (let start = 0; start < records.length; start += 100) {
+    const batch = records.slice(start, start + 100);
     try {
-      await db.insert(trademarksTable).values(record);
-      synced += 1;
-    } catch (err) {
-      skipped += 1;
-      logger.warn(
-        {
-          errorMessage: err instanceof Error ? err.message : String(err),
-          tmNo: record.tmNo,
-          folderNo: record.folderNo,
-        },
-        "Skipping malformed Google Sheets row",
-      );
+      await db.insert(trademarksTable).values(batch);
+      synced += batch.length;
+    } catch {
+      for (const record of batch) {
+        try {
+          await db.insert(trademarksTable).values(record);
+          synced += 1;
+        } catch (err) {
+          skipped += 1;
+          logger.warn(
+            {
+              errorMessage: err instanceof Error ? err.message : String(err),
+              tmNo: record.tmNo,
+              folderNo: record.folderNo,
+            },
+            "Skipping malformed Google Sheets row",
+          );
+        }
+      }
     }
   }
 

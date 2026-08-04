@@ -1,0 +1,10 @@
+[
+  {"id":"7f2a4c11-8a1d-4b31-9c42-01d2e4a5f6b7","position":1,"filepath":"src/pages/slides/Cover.tsx","title":"Brandex Trademark Tracker","description":"One live registry across desktop and mobile.","speakerNotes":""},
+  {"id":"8a3b5d22-9b2e-4c42-ad53-12e3f5b6a7c8","position":2,"filepath":"src/pages/slides/OperationalGap.tsx","title":"The operational gap","description":"Why fragmented trademark records slow the team down.","speakerNotes":""},
+  {"id":"9b4c6e33-ac3f-4d53-be64-23f4a6c7b8d9","position":3,"filepath":"src/pages/slides/SourceOfTruth.tsx","title":"One source of truth","description":"Google Sheets, API, database, and audit history.","speakerNotes":""},
+  {"id":"ac5d7f44-bd40-4e64-cf75-34a5b7d8c9e0","position":4,"filepath":"src/pages/slides/DesktopCommandCenter.tsx","title":"Desktop command center","description":"The browser workspace for daily operations.","speakerNotes":""},
+  {"id":"bd6e8055-ce51-4f75-d086-45b6c8e9d0f1","position":5,"filepath":"src/pages/slides/MobileInTheField.tsx","title":"Mobile in the field","description":"The native companion for work away from the desk.","speakerNotes":""},
+  {"id":"ce7f9166-df62-4086-e197-56c7d9f0e1a2","position":6,"filepath":"src/pages/slides/WorkflowContinuity.tsx","title":"Workflow continuity","description":"One record, available wherever work happens.","speakerNotes":""},
+  {"id":"df80a277-e073-4197-f208-67d8e0a1f2b3","position":7,"filepath":"src/pages/slides/ConnectedOperations.tsx","title":"Connected operations","description":"Sync, write-back, progression, and history.","speakerNotes":""},
+  {"id":"e091b388-f184-42a8-0319-78e9f1b2a3c4","position":8,"filepath":"src/pages/slides/Closing.tsx","title":"Brandex, wherever work happens","description":"A living trademark sheet becomes an operating system.","speakerNotes":""}
+]

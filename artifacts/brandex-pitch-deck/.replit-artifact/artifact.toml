@@ -1,0 +1,28 @@
+kind = "slides"
+previewPath = "/brandex-pitch-deck/"
+title = "Brandex Trademark Tracker Pitch Deck"
+description = "An 8-slide product pitch deck showing how Brandex connects the desktop command center and native mobile companion through one live trademark registry."
+version = "1.0.0"
+id = "artifacts/brandex-pitch-deck"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/brandex-pitch-deck/" ]
+localPort = 19254
+
+[services.development]
+run = "pnpm --filter @workspace/brandex-pitch-deck run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/brandex-pitch-deck", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/brandex-pitch-deck/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19254"
+BASE_PATH = "/brandex-pitch-deck/"

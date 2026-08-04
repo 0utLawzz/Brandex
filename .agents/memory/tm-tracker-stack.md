@@ -12,7 +12,8 @@ Neo-brutalist palette: cream `#F0E8D0`, orange `hsl(22 100% 39%)`, teal `hsl(164
 
 ## Secrets required
 - `DATABASE_URL` — provisioned automatically by Replit
-- `GOOGLE_SHEETS_API_KEY` — needed for the Sync G-Sheets feature (`POST /api/trademarks/sync`); NOT yet configured
+- `GOOGLE_SHEETS_API_KEY` — configured for the live Google Sheets import used by both desktop and mobile
+- `GOOGLE_SHEETS_APPS_SCRIPT_URL` — configured for Google Sheets write-back and audit forwarding
 - `SESSION_SECRET` — already set
 
 ## Architecture decisions

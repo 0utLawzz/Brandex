@@ -10,6 +10,15 @@
 
 ## Completed in this pass
 
+- Mobile workflow is live on Expo/Metro at `/mobile/`.
+- Desktop and mobile share the same API, database, Google Sheets import, and Apps Script write-back path.
+- Google Sheets import uses `GOOGLE_SHEETS_API_KEY`, handles blank substages, and reports synced/skipped rows.
+- Created and validated the 8-slide Brandex desktop/mobile pitch deck.
+- Rewrote `README.md` with setup, architecture, secrets, and workflow documentation.
+- Final smoke checks passed: API health is OK and live registry data is available.
+
+## Completed in this pass
+
 - Mobile opens on **Search by TM No**.
 - Dashboard city breakdown removed.
 - Blank TM numbers, statuses, substages, and cities are excluded from aggregate counts.
