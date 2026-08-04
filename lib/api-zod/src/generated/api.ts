@@ -28,7 +28,7 @@ export const ListTrademarksQueryParams = zod.object({
 })
 
 export const ListTrademarksResponseItem = zod.object({
-  "id": zod.int(),
+  "id": zod.number().int(),
   "date": zod.string(),
   "prefix": zod.string(),
   "clientNo": zod.string(),
@@ -77,7 +77,7 @@ export const CreateTrademarkBody = zod.object({
 })
 
 export const CreateTrademarkResponse = zod.object({
-  "id": zod.int(),
+  "id": zod.number().int(),
   "date": zod.string(),
   "prefix": zod.string(),
   "clientNo": zod.string(),
@@ -105,24 +105,24 @@ export const CreateTrademarkResponse = zod.object({
  * @summary Get trademark statistics
  */
 export const GetTrademarkStatsResponse = zod.object({
-  "total": zod.int(),
+  "total": zod.number().int(),
   "byStage": zod.array(zod.object({
   "stage": zod.string(),
-  "count": zod.int()
+  "count": zod.number().int()
 })),
   "byCity": zod.array(zod.object({
   "city": zod.string(),
-  "count": zod.int()
+  "count": zod.number().int()
 })),
-  "duplicates": zod.int(),
-  "tm11Count": zod.int(),
+  "duplicates": zod.number().int(),
+  "tm11Count": zod.number().int(),
   "byNumericStage": zod.array(zod.object({
   "stage": zod.string(),
-  "count": zod.int()
+  "count": zod.number().int()
 })),
   "byAssignedSubStage": zod.array(zod.object({
   "subStage": zod.string(),
-  "count": zod.int()
+  "count": zod.number().int()
 }))
 })
 
@@ -131,7 +131,7 @@ export const GetTrademarkStatsResponse = zod.object({
  * @summary Sync trademark data from Google Sheets
  */
 export const SyncFromSheetsResponse = zod.object({
-  "synced": zod.int(),
+  "synced": zod.number().int(),
   "message": zod.string()
 })
 
@@ -144,7 +144,7 @@ export const GetTrademarkParams = zod.object({
 })
 
 export const GetTrademarkResponse = zod.object({
-  "id": zod.int(),
+  "id": zod.number().int(),
   "date": zod.string(),
   "prefix": zod.string(),
   "clientNo": zod.string(),
@@ -196,7 +196,7 @@ export const UpdateTrademarkBody = zod.object({
 })
 
 export const UpdateTrademarkResponse = zod.object({
-  "id": zod.int(),
+  "id": zod.number().int(),
   "date": zod.string(),
   "prefix": zod.string(),
   "clientNo": zod.string(),
