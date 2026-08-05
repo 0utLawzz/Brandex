@@ -4,6 +4,7 @@ import {
   useGetTrademark,
   useUpdateTrademark,
   useDeleteTrademark,
+  useGetTrademarkChangeLog,
 } from "@workspace/api-client-react";
 import { useLocation, useParams } from "wouter";
 import { Input } from "@/components/ui/input";
@@ -11,8 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Save, Trash2, ArrowLeft, ArrowRightLeft } from "lucide-react";
-import { useEffect } from "react";
+import { Save, Trash2, ArrowLeft, ArrowRightLeft, Clock, ChevronDown, ChevronUp } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
@@ -53,9 +54,13 @@ export function FormPage() {
   const id = params.id ? parseInt(params.id, 10) : undefined;
   const isNew = !id;
   const { toast } = useToast();
+  const [showChangeLog, setShowChangeLog] = useState(false);
 
   const { data: trademark, isLoading } = useGetTrademark(id!, {
     query: { enabled: !!id },
+  });
+  const { data: changeLog } = useGetTrademarkChangeLog(id!, {
+    query: { enabled: !!id && showChangeLog },
   });
   const createMutation = useCreateTrademark();
   const updateMutation = useUpdateTrademark();
@@ -366,6 +371,76 @@ export function FormPage() {
             </form>
           </CardContent>
         </Card>
+
+        {/* Change Log / Audit Trail */}
+        {!isNew && (
+          <div className="mt-6">
+            <button
+              type="button"
+              onClick={() => setShowChangeLog((v) => !v)}
+              className="flex items-center gap-3 w-full bg-[#E8DFC7] border-2 border-[#0C0C0C] px-4 py-3 font-mono font-bold text-sm uppercase tracking-wider hover:bg-[#D9D0B7] transition-colors"
+            >
+              <Clock className="w-4 h-4" />
+              CHANGE LOG
+              {changeLog && (
+                <span className="ml-2 bg-[#0C0C0C] text-[#F0E8D0] text-[10px] px-2 py-0.5 font-bold">
+                  {changeLog.length}
+                </span>
+              )}
+              <span className="ml-auto">
+                {showChangeLog ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </span>
+            </button>
+
+            {showChangeLog && (
+              <div className="border-2 border-t-0 border-[#0C0C0C] bg-[#F0E8D0]">
+                {!changeLog || changeLog.length === 0 ? (
+                  <div className="px-6 py-8 text-center font-mono text-sm text-[#6d6658]">
+                    NO CHANGES RECORDED YET.
+                  </div>
+                ) : (
+                  <div className="divide-y-2 divide-[#0C0C0C]">
+                    {changeLog.map((entry) => {
+                      const isCreate = entry.field === 'CREATE';
+                      const changedAt = entry.changedAt
+                        ? new Date(entry.changedAt).toLocaleString()
+                        : '—';
+                      return (
+                        <div key={entry.id} className="px-5 py-4 flex flex-col gap-1">
+                          <div className="flex items-center gap-3 flex-wrap">
+                            <span className={`inline-block border-2 border-[#0C0C0C] px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider ${
+                              isCreate
+                                ? 'bg-[#0A6B52] text-white'
+                                : 'bg-[#C94A00] text-white'
+                            }`}>
+                              {isCreate ? 'CREATED' : entry.field.toUpperCase()}
+                            </span>
+                            <span className="font-mono text-xs text-[#6d6658] ml-auto">{changedAt}</span>
+                            <span className="font-mono text-[10px] bg-[#E8DFC7] border border-[#0C0C0C] px-2 py-0.5 uppercase">
+                              BY {entry.changedBy}
+                            </span>
+                          </div>
+                          {!isCreate && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
+                              <div className="bg-[#FFF0E8] border-l-4 border-[#CC0000] px-3 py-2 font-mono text-xs">
+                                <div className="text-[#CC0000] font-bold text-[9px] uppercase tracking-widest mb-1">BEFORE</div>
+                                <div className="text-[#0C0C0C] break-all">{entry.oldValue ?? '—'}</div>
+                              </div>
+                              <div className="bg-[#E8F5EE] border-l-4 border-[#0A6B52] px-3 py-2 font-mono text-xs">
+                                <div className="text-[#0A6B52] font-bold text-[9px] uppercase tracking-widest mb-1">AFTER</div>
+                                <div className="text-[#0C0C0C] break-all">{entry.newValue}</div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </main>
     </div>
   );

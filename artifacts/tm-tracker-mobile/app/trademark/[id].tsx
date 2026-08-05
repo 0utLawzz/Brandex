@@ -17,6 +17,7 @@ import {
   useGetTrademark,
   useUpdateTrademark,
   useDeleteTrademark,
+  useGetTrademarkChangeLog,
   getListTrademarksQueryKey,
   getGetTrademarkStatsQueryKey,
   getGetTrademarkQueryKey,
@@ -124,9 +125,14 @@ export default function TrademarkDetailScreen() {
   const queryClient = useQueryClient();
   const { id } = useLocalSearchParams<{ id: string }>();
   const numId = Number(id);
+  const [showLog, setShowLog] = useState(false);
 
   const { data: trademark, isLoading } = useGetTrademark(numId, {
     query: { queryKey: ['trademark', numId], enabled: !isNaN(numId) },
+  });
+
+  const { data: changeLog, isLoading: logLoading } = useGetTrademarkChangeLog(numId, {
+    query: { queryKey: ['changelog', numId], enabled: !isNaN(numId) && showLog },
   });
 
   const [form, setForm] = useState<FormState>({
@@ -353,6 +359,79 @@ export default function TrademarkDetailScreen() {
           <Field label="Notes" value={form.notes} onChangeText={set('notes')} multiline />
         </View>
 
+        {/* Audit Log */}
+        <TouchableOpacity
+          style={[styles.logToggle, { backgroundColor: colors.card, borderColor: colors.border }]}
+          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setShowLog(v => !v); }}
+          activeOpacity={0.8}
+        >
+          <Feather name="clock" size={13} color={colors.mutedForeground} />
+          <Text style={[styles.logToggleText, { color: colors.mutedForeground, fontFamily: 'SpaceGrotesk_700Bold' }]}>
+            CHANGE LOG
+          </Text>
+          {changeLog && (
+            <View style={[styles.logBadge, { backgroundColor: colors.foreground }]}>
+              <Text style={[styles.logBadgeText, { color: colors.background }]}>{changeLog.length}</Text>
+            </View>
+          )}
+          <Feather name={showLog ? 'chevron-up' : 'chevron-down'} size={14} color={colors.mutedForeground} style={{ marginLeft: 'auto' }} />
+        </TouchableOpacity>
+
+        {showLog && (
+          <View style={[styles.logContainer, { borderColor: colors.border, backgroundColor: colors.background }]}>
+            {logLoading ? (
+              <ActivityIndicator size="small" color={colors.primary} style={{ margin: 16 }} />
+            ) : !changeLog || changeLog.length === 0 ? (
+              <Text style={[styles.logEmpty, { color: colors.mutedForeground, fontFamily: 'SpaceGrotesk_400Regular' }]}>
+                No changes recorded yet.
+              </Text>
+            ) : (
+              changeLog.map((entry, i) => {
+                const isCreate = entry.field === 'CREATE';
+                const changedAt = entry.changedAt
+                  ? new Date(entry.changedAt).toLocaleString()
+                  : '—';
+                return (
+                  <View
+                    key={entry.id}
+                    style={[styles.logEntry, i > 0 && { borderTopWidth: 1, borderTopColor: colors.border }]}
+                  >
+                    <View style={styles.logEntryHeader}>
+                      <View style={[
+                        styles.logFieldBadge,
+                        { backgroundColor: isCreate ? '#0A6B52' : '#C94A00' },
+                      ]}>
+                        <Text style={[styles.logFieldText, { fontFamily: 'SpaceGrotesk_700Bold' }]}>
+                          {isCreate ? 'CREATED' : entry.field.toUpperCase()}
+                        </Text>
+                      </View>
+                      <Text style={[styles.logDate, { color: colors.mutedForeground, fontFamily: 'SpaceGrotesk_400Regular' }]}>
+                        {changedAt}
+                      </Text>
+                    </View>
+                    {!isCreate && (
+                      <View style={styles.logDiff}>
+                        <View style={[styles.logDiffBox, { backgroundColor: '#FFF0E8', borderLeftColor: '#CC0000' }]}>
+                          <Text style={[styles.logDiffLabel, { color: '#CC0000', fontFamily: 'SpaceGrotesk_700Bold' }]}>BEFORE</Text>
+                          <Text style={[styles.logDiffValue, { color: colors.foreground, fontFamily: 'SpaceGrotesk_400Regular' }]}>
+                            {entry.oldValue ?? '—'}
+                          </Text>
+                        </View>
+                        <View style={[styles.logDiffBox, { backgroundColor: '#E8F5EE', borderLeftColor: '#0A6B52' }]}>
+                          <Text style={[styles.logDiffLabel, { color: '#0A6B52', fontFamily: 'SpaceGrotesk_700Bold' }]}>AFTER</Text>
+                          <Text style={[styles.logDiffValue, { color: colors.foreground, fontFamily: 'SpaceGrotesk_400Regular' }]}>
+                            {entry.newValue}
+                          </Text>
+                        </View>
+                      </View>
+                    )}
+                  </View>
+                );
+              })
+            )}
+          </View>
+        )}
+
         <TouchableOpacity
           style={[
             styles.saveBtn,
@@ -432,6 +511,74 @@ const styles = StyleSheet.create({
   },
   toggleLabel: { fontSize: 15 },
   toggleState: { fontSize: 11, letterSpacing: 0.8, marginLeft: 'auto', marginRight: 8 },
+  logToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 2,
+    padding: 12,
+    marginTop: 12,
+  },
+  logToggleText: {
+    fontSize: 11,
+    letterSpacing: 0.8,
+  },
+  logBadge: {
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    minWidth: 20,
+    alignItems: 'center',
+  },
+  logBadgeText: { fontSize: 10, fontWeight: 'bold' },
+  logContainer: {
+    borderWidth: 2,
+    borderTopWidth: 0,
+  },
+  logEmpty: {
+    fontSize: 13,
+    textAlign: 'center',
+    padding: 20,
+  },
+  logEntry: {
+    padding: 12,
+  },
+  logEntryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+    flexWrap: 'wrap',
+  },
+  logFieldBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  logFieldText: {
+    fontSize: 9,
+    color: 'white',
+    letterSpacing: 0.8,
+  },
+  logDate: {
+    fontSize: 10,
+    marginLeft: 'auto',
+  },
+  logDiff: {
+    gap: 6,
+  },
+  logDiffBox: {
+    borderLeftWidth: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  logDiffLabel: {
+    fontSize: 9,
+    letterSpacing: 0.8,
+    marginBottom: 2,
+  },
+  logDiffValue: {
+    fontSize: 13,
+  },
   saveBtn: {
     marginTop: 20,
     borderWidth: 2,
