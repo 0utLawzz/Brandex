@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "BRANDEX LAW ASSOICATE",
+    "name": "BRANDEX LAW ASSOCIATE",
     "slug": "brandex-law-associate",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -24,7 +24,7 @@
       [
         "expo-router",
         {
-          "origin": "https://replit.com/"
+          "origin": "http://localhost:19006"
         }
       ],
       "expo-font",

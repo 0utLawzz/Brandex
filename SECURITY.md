@@ -38,7 +38,7 @@ When working with Brandex, please follow these security guidelines:
 1. **Never commit secrets or credentials**
    - Do not commit API keys, database credentials, or sensitive tokens
    - Use environment variables for sensitive configuration
-   - The project uses Replit Secrets for configuration
+   - The project uses a `.env` file for local configuration (see `.env.example`)
 
 2. **Keep dependencies updated**
    - Regularly update dependencies to get security patches

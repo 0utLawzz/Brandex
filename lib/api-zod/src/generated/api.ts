@@ -28,7 +28,7 @@ export const ListTrademarksQueryParams = zod.object({
 })
 
 export const ListTrademarksResponseItem = zod.object({
-  "id": zod.number().int(),
+  "id": zod.int(),
   "date": zod.string(),
   "prefix": zod.string(),
   "clientNo": zod.string(),
@@ -77,7 +77,7 @@ export const CreateTrademarkBody = zod.object({
 })
 
 export const CreateTrademarkResponse = zod.object({
-  "id": zod.number().int(),
+  "id": zod.int(),
   "date": zod.string(),
   "prefix": zod.string(),
   "clientNo": zod.string(),
@@ -105,24 +105,24 @@ export const CreateTrademarkResponse = zod.object({
  * @summary Get trademark statistics
  */
 export const GetTrademarkStatsResponse = zod.object({
-  "total": zod.number().int(),
+  "total": zod.int(),
   "byStage": zod.array(zod.object({
   "stage": zod.string(),
-  "count": zod.number().int()
+  "count": zod.int()
 })),
   "byCity": zod.array(zod.object({
   "city": zod.string(),
-  "count": zod.number().int()
+  "count": zod.int()
 })),
-  "duplicates": zod.number().int(),
-  "tm11Count": zod.number().int(),
+  "duplicates": zod.int(),
+  "tm11Count": zod.int(),
   "byNumericStage": zod.array(zod.object({
   "stage": zod.string(),
-  "count": zod.number().int()
+  "count": zod.int()
 })),
   "byAssignedSubStage": zod.array(zod.object({
   "subStage": zod.string(),
-  "count": zod.number().int()
+  "count": zod.int()
 }))
 })
 
@@ -131,7 +131,7 @@ export const GetTrademarkStatsResponse = zod.object({
  * @summary Sync trademark data from Google Sheets
  */
 export const SyncFromSheetsResponse = zod.object({
-  "synced": zod.number().int(),
+  "synced": zod.int(),
   "message": zod.string()
 })
 
@@ -144,7 +144,7 @@ export const GetTrademarkParams = zod.object({
 })
 
 export const GetTrademarkResponse = zod.object({
-  "id": zod.number().int(),
+  "id": zod.int(),
   "date": zod.string(),
   "prefix": zod.string(),
   "clientNo": zod.string(),
@@ -196,7 +196,7 @@ export const UpdateTrademarkBody = zod.object({
 })
 
 export const UpdateTrademarkResponse = zod.object({
-  "id": zod.number().int(),
+  "id": zod.int(),
   "date": zod.string(),
   "prefix": zod.string(),
   "clientNo": zod.string(),
@@ -228,5 +228,24 @@ export const DeleteTrademarkParams = zod.object({
 })
 
 export const DeleteTrademarkResponse = zod.void()
+
+
+/**
+ * @summary Get the audit/change log for a trademark
+ */
+export const GetTrademarkChangeLogParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const GetTrademarkChangeLogResponseItem = zod.object({
+  "id": zod.int(),
+  "trademarkId": zod.int(),
+  "field": zod.string(),
+  "oldValue": zod.string().nullish(),
+  "newValue": zod.string(),
+  "changedAt": zod.string().nullish(),
+  "changedBy": zod.string()
+})
+export const GetTrademarkChangeLogResponse = zod.array(GetTrademarkChangeLogResponseItem)
 
 

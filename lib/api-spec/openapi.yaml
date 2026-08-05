@@ -190,6 +190,33 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /trademarks/{id}/change-log:
+    get:
+      operationId: getTrademarkChangeLog
+      tags: [trademarks]
+      summary: Get the audit/change log for a trademark
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of change log entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChangeLogEntry"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -431,3 +458,27 @@ components:
       required:
         - synced
         - message
+
+    ChangeLogEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        trademarkId:
+          type: integer
+        field:
+          type: string
+        oldValue:
+          type: ["string", "null"]
+        newValue:
+          type: string
+        changedAt:
+          type: ["string", "null"]
+        changedBy:
+          type: string
+      required:
+        - id
+        - trademarkId
+        - field
+        - newValue
+        - changedBy

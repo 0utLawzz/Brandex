@@ -78,7 +78,7 @@ export default function DashboardScreen() {
             BRANDEX LAW
           </Text>
           <Text style={[styles.appTitle, { color: colors.primary, fontFamily: 'SpaceGrotesk_700Bold', marginTop: -4 }]}>
-            ASSOICATE
+            ASSOCIATE
           </Text>
           <Text style={[styles.appSubtitle, { color: colors.mutedForeground, fontFamily: 'SpaceGrotesk_400Regular' }]}>
             Trademark Registry Dashboard

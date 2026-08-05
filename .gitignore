@@ -49,6 +49,12 @@ Thumbs.db
 .env.local
 .env.*.local
 
-# Replit
+# Replit build cache (if ever used in Replit environment)
 .cache/
 .local/
+
+# Replit artifact metadata (auto-generated, should not be committed)
+.replit-artifact/
+
+# Mobile static build output
+static-build/

@@ -24,24 +24,6 @@ function parseId(raw: string | string[]): number {
   return parseInt(str, 10);
 }
 
-function toSafeString(val: unknown): string {
-  return typeof val === "string" ? val.trim() : "";
-}
-
-// Stage progression order for forward-only workflow
-const STAGE_ORDER = ['STAGE 1', 'STAGE 2', 'STAGE 3', 'STAGE 4'];
-
-function canProgressStage(currentStage: string | null, newStage: string): boolean {
-  if (!currentStage) return true; // Allow any stage if no current stage
-  const currentIndex = STAGE_ORDER.indexOf(currentStage);
-  const newIndex = STAGE_ORDER.indexOf(newStage);
-  
-  // If either stage is not in the predefined order, allow the change
-  if (currentIndex === -1 || newIndex === -1) return true;
-  
-  // Only allow forward progression (newIndex > currentIndex)
-  return newIndex > currentIndex;
-}
 
 // GET /trademarks
 router.get("/trademarks", async (req, res): Promise<void> => {
@@ -126,6 +108,7 @@ router.post("/trademarks", async (req, res): Promise<void> => {
     .insert(trademarksTable)
     .values({
       ...parsed.data,
+      subStage: parsed.data.subStage ?? parsed.data.stage ?? "STAGE 1",
       source: "local",
       updatedAt: new Date(),
     })
@@ -472,7 +455,7 @@ router.put("/trademarks/:id", async (req, res): Promise<void> => {
         trademarkId: id,
         field: key,
         oldValue: oldValue ? String(oldValue) : null,
-        newValue: newValue ? String(newValue) : null,
+        newValue: newValue !== undefined && newValue !== null ? String(newValue) : "",
         changedBy: "system",
       });
     }

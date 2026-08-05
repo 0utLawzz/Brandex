@@ -142,6 +142,18 @@ export interface SyncResult {
   message: string;
 }
 
+export interface ChangeLogEntry {
+  id: number;
+  trademarkId: number;
+  field: string;
+  /** @nullable */
+  oldValue?: string | null;
+  newValue: string;
+  /** @nullable */
+  changedAt?: string | null;
+  changedBy: string;
+}
+
 export type ListTrademarksParams = {
 /**
  * Search by TM No, app name, or folder number

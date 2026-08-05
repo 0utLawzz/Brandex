@@ -20,6 +20,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  ChangeLogEntry,
   ErrorResponse,
   HealthStatus,
   ListTrademarksParams,
@@ -657,4 +658,81 @@ export const useDeleteTrademark = <TError = ErrorType<ErrorResponse>,
       > => {
       return useMutation(getDeleteTrademarkMutationOptions(options));
     }
+
+export const getGetTrademarkChangeLogUrl = (id: number,) => {
+
+
+
+
+  return `/api/trademarks/${id}/change-log`
+}
+
+/**
+ * @summary Get the audit/change log for a trademark
+ */
+export const getTrademarkChangeLog = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<ChangeLogEntry[]> => {
+
+  return customFetch<ChangeLogEntry[]>(getGetTrademarkChangeLogUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTrademarkChangeLogQueryKey = (id: number,) => {
+    return [
+    `/api/trademarks/${id}/change-log`
+    ] as const;
+    }
+
+
+export const getGetTrademarkChangeLogQueryOptions = <TData = Awaited<ReturnType<typeof getTrademarkChangeLog>>, TError = ErrorType<ErrorResponse>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTrademarkChangeLog>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTrademarkChangeLogQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTrademarkChangeLog>>> = ({ signal }) => getTrademarkChangeLog(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTrademarkChangeLog>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTrademarkChangeLogQueryResult = NonNullable<Awaited<ReturnType<typeof getTrademarkChangeLog>>>
+export type GetTrademarkChangeLogQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Get the audit/change log for a trademark
+ */
+
+export function useGetTrademarkChangeLog<TData = Awaited<ReturnType<typeof getTrademarkChangeLog>>, TError = ErrorType<ErrorResponse>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTrademarkChangeLog>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTrademarkChangeLogQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 

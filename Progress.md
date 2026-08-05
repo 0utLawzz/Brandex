@@ -78,7 +78,7 @@
    - Execute as: Me
    - Who has access: Anyone with the link
 2. Copy the generated `/exec` URL
-3. Add the URL as Replit secret: `GOOGLE_SHEETS_APPS_SCRIPT_URL`
+3. Add the URL as `.env` variable: `GOOGLE_SHEETS_APPS_SCRIPT_URL`
 4. Test write-back functionality by making a trademark change
 
 **Priority:** HIGH - This is critical for the two-way sync functionality
