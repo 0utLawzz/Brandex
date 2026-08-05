@@ -126,6 +126,7 @@ router.post("/trademarks", async (req, res): Promise<void> => {
     .insert(trademarksTable)
     .values({
       ...parsed.data,
+       subStage: parsed.data.subStage ?? parsed.data.stage,
       source: "local",
       updatedAt: new Date(),
     })
@@ -472,7 +473,7 @@ router.put("/trademarks/:id", async (req, res): Promise<void> => {
         trademarkId: id,
         field: key,
         oldValue: oldValue ? String(oldValue) : null,
-        newValue: newValue ? String(newValue) : null,
+        newValue: newValue ? String(newValue) : "",
         changedBy: "system",
       });
     }
