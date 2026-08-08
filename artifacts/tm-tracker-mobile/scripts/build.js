@@ -57,20 +57,13 @@ function stripProtocol(domain) {
 }
 
 function getDeploymentDomain() {
-  if (process.env.REPLIT_INTERNAL_APP_DOMAIN) {
-    return stripProtocol(process.env.REPLIT_INTERNAL_APP_DOMAIN);
-  }
-
-  if (process.env.REPLIT_DEV_DOMAIN) {
-    return stripProtocol(process.env.REPLIT_DEV_DOMAIN);
-  }
-
   if (process.env.EXPO_PUBLIC_DOMAIN) {
     return stripProtocol(process.env.EXPO_PUBLIC_DOMAIN);
   }
 
   console.error(
-    'ERROR: No deployment domain found. Set REPLIT_INTERNAL_APP_DOMAIN, REPLIT_DEV_DOMAIN, or EXPO_PUBLIC_DOMAIN',
+    'ERROR: Set EXPO_PUBLIC_DOMAIN to your API server\'s public domain.\n' +
+    'Example: EXPO_PUBLIC_DOMAIN=myapp.vercel.app or localhost:8080 for local dev',
   );
   process.exit(1);
 }
@@ -126,7 +119,7 @@ async function checkMetroHealth() {
 }
 
 function getExpoPublicReplId() {
-  return process.env.REPL_ID || process.env.EXPO_PUBLIC_REPL_ID;
+  return process.env.EXPO_PUBLIC_REPL_ID;
 }
 
 async function startMetro(expoPublicDomain, expoPublicReplId) {

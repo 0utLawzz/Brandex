@@ -20,9 +20,16 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  Agent,
+  AgentInput,
+  ChangeLogEntry,
+  CheckDuplicateParams,
+  DuplicateCheckResult,
   ErrorResponse,
   HealthStatus,
+  ImportCsvPayload,
   ListTrademarksParams,
+  MonthlyStat,
   SyncResult,
   Trademark,
   TrademarkInput,
@@ -656,5 +663,605 @@ export const useDeleteTrademark = <TError = ErrorType<ErrorResponse>,
         TContext
       > => {
       return useMutation(getDeleteTrademarkMutationOptions(options));
+    }
+
+export const getGetTrademarkChangeLogUrl = (id: number,) => {
+
+
+
+
+  return `/api/trademarks/${id}/change-log`
+}
+
+/**
+ * @summary Get the audit/change log for a trademark
+ */
+export const getTrademarkChangeLog = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<ChangeLogEntry[]> => {
+
+  return customFetch<ChangeLogEntry[]>(getGetTrademarkChangeLogUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTrademarkChangeLogQueryKey = (id: number,) => {
+    return [
+    `/api/trademarks/${id}/change-log`
+    ] as const;
+    }
+
+
+export const getGetTrademarkChangeLogQueryOptions = <TData = Awaited<ReturnType<typeof getTrademarkChangeLog>>, TError = ErrorType<ErrorResponse>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTrademarkChangeLog>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTrademarkChangeLogQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTrademarkChangeLog>>> = ({ signal }) => getTrademarkChangeLog(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTrademarkChangeLog>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTrademarkChangeLogQueryResult = NonNullable<Awaited<ReturnType<typeof getTrademarkChangeLog>>>
+export type GetTrademarkChangeLogQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Get the audit/change log for a trademark
+ */
+
+export function useGetTrademarkChangeLog<TData = Awaited<ReturnType<typeof getTrademarkChangeLog>>, TError = ErrorType<ErrorResponse>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTrademarkChangeLog>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTrademarkChangeLogQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCheckDuplicateUrl = (params: CheckDuplicateParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/trademarks/check-duplicate?${stringifiedParams}` : `/api/trademarks/check-duplicate`
+}
+
+/**
+ * @summary Check if a TM No already exists
+ */
+export const checkDuplicate = async (params: CheckDuplicateParams, options?: Parameters<typeof customFetch>[1]): Promise<DuplicateCheckResult> => {
+
+  return customFetch<DuplicateCheckResult>(getCheckDuplicateUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getCheckDuplicateQueryKey = (params?: CheckDuplicateParams,) => {
+    return [
+    `/api/trademarks/check-duplicate`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getCheckDuplicateQueryOptions = <TData = Awaited<ReturnType<typeof checkDuplicate>>, TError = ErrorType<unknown>>(params: CheckDuplicateParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof checkDuplicate>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getCheckDuplicateQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof checkDuplicate>>> = ({ signal }) => checkDuplicate(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof checkDuplicate>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type CheckDuplicateQueryResult = NonNullable<Awaited<ReturnType<typeof checkDuplicate>>>
+export type CheckDuplicateQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Check if a TM No already exists
+ */
+
+export function useCheckDuplicate<TData = Awaited<ReturnType<typeof checkDuplicate>>, TError = ErrorType<unknown>>(
+ params: CheckDuplicateParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof checkDuplicate>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getCheckDuplicateQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetMonthlyStatsUrl = () => {
+
+
+
+
+  return `/api/trademarks/monthly-stats`
+}
+
+/**
+ * @summary Get trademark statistics grouped by month
+ */
+export const getMonthlyStats = async ( options?: Parameters<typeof customFetch>[1]): Promise<MonthlyStat[]> => {
+
+  return customFetch<MonthlyStat[]>(getGetMonthlyStatsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMonthlyStatsQueryKey = () => {
+    return [
+    `/api/trademarks/monthly-stats`
+    ] as const;
+    }
+
+
+export const getGetMonthlyStatsQueryOptions = <TData = Awaited<ReturnType<typeof getMonthlyStats>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMonthlyStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMonthlyStatsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMonthlyStats>>> = ({ signal }) => getMonthlyStats({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMonthlyStats>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMonthlyStatsQueryResult = NonNullable<Awaited<ReturnType<typeof getMonthlyStats>>>
+export type GetMonthlyStatsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get trademark statistics grouped by month
+ */
+
+export function useGetMonthlyStats<TData = Awaited<ReturnType<typeof getMonthlyStats>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMonthlyStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMonthlyStatsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getImportCsvUrl = () => {
+
+
+
+
+  return `/api/trademarks/import-csv`
+}
+
+/**
+ * @summary Import trademarks from CSV
+ */
+export const importCsv = async (importCsvPayload: ImportCsvPayload, options?: Parameters<typeof customFetch>[1]): Promise<SyncResult> => {
+
+  return customFetch<SyncResult>(getImportCsvUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(importCsvPayload)
+  }
+);}
+
+
+
+
+
+export const getImportCsvMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importCsv>>, TError,{data: BodyType<ImportCsvPayload>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof importCsv>>, TError,{data: BodyType<ImportCsvPayload>}, TContext> => {
+
+const mutationKey = ['importCsv'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof importCsv>>, {data: BodyType<ImportCsvPayload>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  importCsv(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ImportCsvMutationResult = NonNullable<Awaited<ReturnType<typeof importCsv>>>
+    export type ImportCsvMutationBody = BodyType<ImportCsvPayload>
+    export type ImportCsvMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Import trademarks from CSV
+ */
+export const useImportCsv = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importCsv>>, TError,{data: BodyType<ImportCsvPayload>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof importCsv>>,
+        TError,
+        {data: BodyType<ImportCsvPayload>},
+        TContext
+      > => {
+      return useMutation(getImportCsvMutationOptions(options));
+    }
+
+export const getListAgentsUrl = () => {
+
+
+
+
+  return `/api/agents`
+}
+
+/**
+ * @summary List all agents
+ */
+export const listAgents = async ( options?: Parameters<typeof customFetch>[1]): Promise<Agent[]> => {
+
+  return customFetch<Agent[]>(getListAgentsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAgentsQueryKey = () => {
+    return [
+    `/api/agents`
+    ] as const;
+    }
+
+
+export const getListAgentsQueryOptions = <TData = Awaited<ReturnType<typeof listAgents>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAgents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAgentsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAgents>>> = ({ signal }) => listAgents({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAgents>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAgentsQueryResult = NonNullable<Awaited<ReturnType<typeof listAgents>>>
+export type ListAgentsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all agents
+ */
+
+export function useListAgents<TData = Awaited<ReturnType<typeof listAgents>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAgents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAgentsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateAgentUrl = () => {
+
+
+
+
+  return `/api/agents`
+}
+
+/**
+ * @summary Create a new agent
+ */
+export const createAgent = async (agentInput: AgentInput, options?: Parameters<typeof customFetch>[1]): Promise<Agent> => {
+
+  return customFetch<Agent>(getCreateAgentUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(agentInput)
+  }
+);}
+
+
+
+
+
+export const getCreateAgentMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAgent>>, TError,{data: BodyType<AgentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createAgent>>, TError,{data: BodyType<AgentInput>}, TContext> => {
+
+const mutationKey = ['createAgent'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createAgent>>, {data: BodyType<AgentInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createAgent(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateAgentMutationResult = NonNullable<Awaited<ReturnType<typeof createAgent>>>
+    export type CreateAgentMutationBody = BodyType<AgentInput>
+    export type CreateAgentMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create a new agent
+ */
+export const useCreateAgent = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAgent>>, TError,{data: BodyType<AgentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createAgent>>,
+        TError,
+        {data: BodyType<AgentInput>},
+        TContext
+      > => {
+      return useMutation(getCreateAgentMutationOptions(options));
+    }
+
+export const getUpdateAgentUrl = (id: number,) => {
+
+
+
+
+  return `/api/agents/${id}`
+}
+
+/**
+ * @summary Update an agent
+ */
+export const updateAgent = async (id: number,
+    agentInput: AgentInput, options?: Parameters<typeof customFetch>[1]): Promise<Agent> => {
+
+  return customFetch<Agent>(getUpdateAgentUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(agentInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateAgentMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAgent>>, TError,{id: number;data: BodyType<AgentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateAgent>>, TError,{id: number;data: BodyType<AgentInput>}, TContext> => {
+
+const mutationKey = ['updateAgent'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateAgent>>, {id: number;data: BodyType<AgentInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateAgent(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateAgentMutationResult = NonNullable<Awaited<ReturnType<typeof updateAgent>>>
+    export type UpdateAgentMutationBody = BodyType<AgentInput>
+    export type UpdateAgentMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update an agent
+ */
+export const useUpdateAgent = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAgent>>, TError,{id: number;data: BodyType<AgentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateAgent>>,
+        TError,
+        {id: number;data: BodyType<AgentInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateAgentMutationOptions(options));
+    }
+
+export const getDeleteAgentUrl = (id: number,) => {
+
+
+
+
+  return `/api/agents/${id}`
+}
+
+/**
+ * @summary Delete an agent
+ */
+export const deleteAgent = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteAgentUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteAgentMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAgent>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteAgent>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteAgent'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteAgent>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteAgent(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteAgentMutationResult = NonNullable<Awaited<ReturnType<typeof deleteAgent>>>
+
+    export type DeleteAgentMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete an agent
+ */
+export const useDeleteAgent = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAgent>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteAgent>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteAgentMutationOptions(options));
     }
 

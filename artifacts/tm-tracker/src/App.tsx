@@ -7,6 +7,7 @@ import { Route, Switch, Router as WouterRouter } from "wouter";
 import { Dashboard } from "./pages/Dashboard";
 import { Search } from "./pages/Search";
 import { FormPage } from "./pages/FormPage";
+import { Agents } from "./pages/Agents";
 
 const queryClient = new QueryClient();
 
@@ -15,6 +16,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Dashboard} />
       <Route path="/search" component={Search} />
+      <Route path="/agents" component={Agents} />
       <Route path="/new" component={FormPage} />
       <Route path="/trademarks/:id" component={FormPage} />
       <Route component={NotFound} />

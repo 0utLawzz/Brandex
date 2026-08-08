@@ -1,7 +1,8 @@
-import { useGetTrademarkStats } from "@workspace/api-client-react";
+import { useGetTrademarkStats, useGetMonthlyStats } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Activity, Copy, FileText, MapPin, Layers, BarChart3 } from "lucide-react";
+import { Activity, Copy, FileText, MapPin, Layers, BarChart3, TrendingUp } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from "recharts";
 import { Navbar } from "@/components/layout/Navbar";
 
 function StatCard({
@@ -85,7 +86,23 @@ function BreakdownCard({
 
 export function Dashboard() {
   const { data: stats, isLoading } = useGetTrademarkStats();
+  const { data: monthlyStats } = useGetMonthlyStats();
 
+  // Transform monthlyStats for recharts:
+  // We want: [{ name: '2026-08', 'Application Filed': 10, 'Examination': 5, ... }]
+  const chartData: any[] = [];
+  if (monthlyStats) {
+    const monthsMap = new Map<string, any>();
+    monthlyStats.forEach((row) => {
+      if (!row.month) return;
+      if (!monthsMap.has(row.month)) {
+        monthsMap.set(row.month, { name: row.month });
+      }
+      const m = monthsMap.get(row.month);
+      m[row.stage || "UNKNOWN"] = row.count;
+    });
+    chartData.push(...Array.from(monthsMap.values()));
+  }
   const numericStages = ["STAGE 1", "STAGE 2", "STAGE 3", "STAGE 4"].map((stage) => {
     const found = stats?.byNumericStage?.find((s) => s.stage === stage);
     return { stage, count: found?.count ?? 0 };
@@ -134,7 +151,7 @@ export function Dashboard() {
                     {numericStages.map((s) => (
                       <div key={s.stage} className="border-2 border-[#0C0C0C] p-3 bg-[#F0E8D0]">
                         <div className="text-3xl font-serif">{s.count}</div>
-                        <Badge variant="outline" className="mt-2 uppercase text-xs">
+                        <Badge className="mt-2 uppercase text-xs border-2 border-[#0C0C0C] bg-[#E8DFC7] text-[#0C0C0C] rounded-none">
                           {s.stage}
                         </Badge>
                       </div>
@@ -193,6 +210,38 @@ export function Dashboard() {
                     );
                   })}
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Monthly KPI Chart */}
+            <Card className="bg-white border-2 border-[#0C0C0C]">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-2xl uppercase tracking-wider text-[#0A6B52]">
+                  <TrendingUp className="w-8 h-8" /> MONTHLY KPI
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4 h-[400px]">
+                {chartData.length === 0 ? (
+                  <div className="font-mono text-sm font-bold text-gray-600">NO MONTHLY DATA</div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                      <XAxis dataKey="name" stroke="#0C0C0C" tick={{ fontFamily: 'monospace' }} />
+                      <YAxis stroke="#0C0C0C" tick={{ fontFamily: 'monospace' }} />
+                      <Tooltip contentStyle={{ fontFamily: 'monospace', borderRadius: 0, border: '2px solid #0C0C0C' }} />
+                      <Legend wrapperStyle={{ fontFamily: 'monospace', fontWeight: 'bold' }} />
+                      <Bar dataKey="Application Filed" stackId="a" fill="#0A6B52" />
+                      <Bar dataKey="Examination" stackId="a" fill="#D4A800" />
+                      <Bar dataKey="Published" stackId="a" fill="#C94A00" />
+                      <Bar dataKey="Accepted" stackId="a" fill="#2563EB" />
+                      <Bar dataKey="Certificate Received" stackId="a" fill="#9333EA" />
+                      <Bar dataKey="Stopped" stackId="a" fill="#CC0000" />
+                      <Bar dataKey="Copyright" stackId="a" fill="#0F766E" />
+                      <Bar dataKey="UNKNOWN" stackId="a" fill="#9CA3AF" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
               </CardContent>
             </Card>
           </div>

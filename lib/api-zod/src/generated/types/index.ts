@@ -6,11 +6,20 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './agent';
+export * from './agentInput';
+export * from './changeLogEntry';
+export * from './checkDuplicateParams';
 export * from './cityCount';
+export * from './csvRow';
+export * from './duplicateCheckResult';
+export * from './duplicateCheckResultRecord';
 export * from './errorResponse';
 export * from './healthStatus';
+export * from './importCsvPayload';
 export * from './listTrademarksParams';
 export * from './listTrademarksSource';
+export * from './monthlyStat';
 export * from './stageCount';
 export * from './subStageCount';
 export * from './syncResult';

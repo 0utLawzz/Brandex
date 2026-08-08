@@ -1,60 +1,150 @@
 # Brandex Trademark Tracker
 
-Brandex is a live trademark registry for law and brand operations teams. It turns a Google Sheet into a searchable, stage-aware workspace that works from a desktop browser and a native mobile companion.
+Brandex is a live trademark registry for law and brand operations teams. It turns a Google Sheet into a searchable, stage-aware workspace — available as a **native mobile app** (Expo) and a **desktop web app** (React/Vite), both backed by the same PostgreSQL database on Neon.
 
-## What it does
+## What It Does
 
-- Keeps trademark records in a shared PostgreSQL-backed registry
-- Syncs the live Google Sheet into the registry with one action
-- Shows dashboard totals, workflow stages, substages, duplicates, and TM-11 counts
-- Supports fast search by TM number, application name, and folder number
-- Lets teams add, edit, and delete records with forward-only stage progression
-- Records changes in an audit log
-- Supports Google Sheets write-back through the Apps Script web app URL
-- Provides the same core flows in the desktop web app and Expo mobile app
+- Keeps trademark records in a shared Neon PostgreSQL database
+- Syncs the live Google Sheet into the registry with one tap
+- Dashboard showing totals, workflow stages, sub-stages, duplicates, and TM-11 counts
+- Fast search by TM number, application name, and folder number
+- Add, edit, and delete records with forward-only stage progression
+- Records all changes in an audit log
+- Supports Google Sheets write-back through an Apps Script web app
+- Same core flows on mobile (Expo) and desktop (Vite)
 
-## Workspace
+---
 
-| Artifact | Purpose | Preview |
-| --- | --- | --- |
-| `artifacts/tm-tracker-mobile` | Primary mobile command center | `/` |
-| `artifacts/tm-tracker` | Desktop web copy | `/desktop/` |
-| `artifacts/api-server` | Shared Express API | `/api` |
+## Workspace Structure
 
-Shared API contracts and generated clients live under `lib/`. The desktop and mobile apps use the same API and database, so updates made in either experience are visible in the other.
+| Artifact | Purpose | Deploy target |
+|----------|---------|--------------|
+| `artifacts/tm-tracker-mobile` | **Primary** — Expo mobile + web | Expo Go / EAS Build |
+| `artifacts/tm-tracker` | Desktop web copy | Vercel |
+| `artifacts/api-server` | Shared Express API | Vercel Serverless / Node |
+| `lib/db` | Drizzle ORM schema + migrations | — |
+| `lib/api-spec` | OpenAPI spec (source of truth) | — |
+| `lib/api-client-react` | Generated React Query hooks | — |
+| `lib/api-zod` | Generated Zod schemas | — |
 
-## Google Sheets setup
+---
 
-The API uses these Replit Secrets:
+## Local Development (Windows)
 
-- `GOOGLE_SHEETS_API_KEY` — reads the configured sheet through the Google Sheets API
-- `GOOGLE_SHEETS_APPS_SCRIPT_URL` — sends trademark updates and audit entries back to the sheet
-- `DATABASE_URL` — runtime database connectivity (required)
-- `DATABASE_URL_UNPOOLED` — optional direct/unpooled connection for migrations and admin tooling; it is not required by the running app and may be removed if you do not use those tools
+### Prerequisites
 
-The sheet sync expects columns in this order: `DATE`, `CASE NO`, `APP NAME`, `TM NO`, `CLASS`, `STATUS`, `SUB STATUS`, `Duplicate`, `TM-11`, `Notes`, `City`.
+- Node.js 18+
+- pnpm (`npm install -g pnpm`)
+- Git
 
-## Run locally in Replit
-
-The project uses pnpm workspaces and Replit artifact workflows:
+### Setup
 
 ```bash
+# 1. Install all dependencies
 pnpm install
+
+# 2. Copy and fill in your environment variables
+copy .env.example .env
+# Edit .env: set DATABASE_URL, GOOGLE_SHEETS_API_KEY, etc.
 ```
 
-Start the configured workflows from Replit. The API serves `/api`, mobile is the primary `/` preview, and the desktop copy serves `/desktop/`.
-
-Useful checks:
+### Running Locally (3 terminals)
 
 ```bash
+# Terminal 1 — API server (http://localhost:8080)
+PORT=8080 pnpm --filter @workspace/api-server run dev
+
+# Terminal 2 — Web app (http://localhost:5173)
+pnpm --filter @workspace/tm-tracker run dev
+
+# Terminal 3 — Mobile app (Expo DevTools)
+pnpm --filter @workspace/tm-tracker-mobile run dev
+```
+
+> **Tip:** The web app auto-proxies `/api` to `localhost:8080`. The mobile app uses `EXPO_PUBLIC_DOMAIN` from `.env` to find the API.
+
+### Database Schema Push (dev only)
+
+```bash
+pnpm --filter @workspace/db run push
+```
+
+### Type Checking
+
+```bash
+# Check all shared libraries
 pnpm run typecheck:libs
-pnpm --filter @workspace/api-server run build
+
+# Check mobile app
 pnpm --filter @workspace/tm-tracker-mobile run typecheck
 ```
 
-## Design language
+### Regenerate API Client (after OpenAPI spec changes)
 
-Brandex uses a neo-brutalist visual system: warm paper backgrounds, black structural borders, orange accents, bold typography, compact data cards, and direct operational labels.
+```bash
+pnpm --filter @workspace/api-spec run codegen
+```
+
+---
+
+## Environment Variables
+
+See [`.env.example`](.env.example) for the full list with descriptions.
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DATABASE_URL` | ✅ | Neon PostgreSQL connection string |
+| `DATABASE_URL_UNPOOLED` | Optional | Direct connection for migrations |
+| `GOOGLE_SHEETS_API_KEY` | ✅ | For "Sync G-Sheets" feature |
+| `GOOGLE_SHEETS_APPS_SCRIPT_URL` | Optional | Enables write-back to Google Sheets |
+| `SESSION_SECRET` | ✅ | Random secret for session management |
+| `EXPO_PUBLIC_DOMAIN` | Mobile | API domain for the Expo app (e.g. `localhost:8080`) |
+| `PORT` | Optional | API server port (default: `8080`) |
+
+---
+
+## Google Sheets Setup
+
+The sync expects columns in this order:
+`DATE` | `CASE NO` | `APP NAME` | `TM NO` | `CLASS` | `STATUS` | `SUB STATUS` | `Duplicate` | `TM-11` | `Notes` | `City`
+
+For write-back (optional):
+1. Open your Google Sheet → Extensions → Apps Script
+2. Paste the code from `google-apps-script/Code.gs`
+3. Deploy as Web App (Execute as: Me, Access: Anyone with link)
+4. Copy the `/exec` URL → add as `GOOGLE_SHEETS_APPS_SCRIPT_URL` in `.env`
+
+---
+
+## Deploying to Vercel
+
+```bash
+# Login and link project
+vercel login
+vercel
+
+# Set environment variables in Vercel dashboard:
+# DATABASE_URL, GOOGLE_SHEETS_API_KEY, SESSION_SECRET
+# (GOOGLE_SHEETS_APPS_SCRIPT_URL if using write-back)
+
+# Deploy to production
+vercel --prod
+```
+
+> **SSL Note:** Neon requires SSL. Ensure `DATABASE_URL` ends with `?sslmode=require`.
+
+---
+
+## Design Language
+
+Brandex uses a **neo-brutalist** visual system:
+- Warm paper backgrounds (`#F0E8D0`)
+- Black structural borders
+- Orange accent color
+- Bold uppercase typography (Space Grotesk)
+- Compact data cards with hard shadows
+
+---
 
 ## Project
 
