@@ -5,6 +5,7 @@ import {
   Search,
   PlusCircle,
   DatabaseZap,
+  Users,
 } from "lucide-react";
 import { useSyncFromSheets } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -60,6 +61,13 @@ export function Navbar() {
           >
             <PlusCircle className="w-4 h-4" />
             New TM
+          </Link>
+          <Link
+            href="/agents"
+            className={`flex items-center gap-2 font-mono font-bold uppercase tracking-widest text-sm py-2 border-b-2 transition-colors ${location.startsWith("/agents") ? "border-[#C94A00] text-[#C94A00]" : "border-transparent text-[#E8DFC7] hover:text-white hover:border-white"}`}
+          >
+            <Users className="w-4 h-4" />
+            Agents
           </Link>
         </div>
 

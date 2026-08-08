@@ -41,4 +41,6 @@ export interface TrademarkUpdate {
   imageUrl?: string | null;
   /** @nullable */
   pdfUrl?: string | null;
+  /** @nullable */
+  assignedTo?: string | null;
 }

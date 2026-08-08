@@ -127,7 +127,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: number
       responses:
         "200":
           description: Trademark record
@@ -150,7 +150,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: number
       requestBody:
         required: true
         content:
@@ -179,7 +179,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: number
       responses:
         "204":
           description: Deleted successfully
@@ -200,7 +200,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: number
       responses:
         "200":
           description: List of change log entries
@@ -216,6 +216,129 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
+  /trademarks/check-duplicate:
+    get:
+      operationId: checkDuplicate
+      tags: [trademarks]
+      summary: Check if a TM No already exists
+      parameters:
+        - name: tmNo
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Check result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DuplicateCheckResult"
+
+  /trademarks/monthly-stats:
+    get:
+      operationId: getMonthlyStats
+      tags: [trademarks]
+      summary: Get trademark statistics grouped by month
+      responses:
+        "200":
+          description: Monthly stats
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MonthlyStat"
+
+  /trademarks/import-csv:
+    post:
+      operationId: importCsv
+      tags: [trademarks]
+      summary: Import trademarks from CSV
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportCsvPayload"
+      responses:
+        "200":
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncResult"
+
+  /agents:
+    get:
+      operationId: listAgents
+      tags: [agents]
+      summary: List all agents
+      responses:
+        "200":
+          description: List of agents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Agent"
+    post:
+      operationId: createAgent
+      tags: [agents]
+      summary: Create a new agent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentInput"
+      responses:
+        "201":
+          description: Created agent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Agent"
+
+  /agents/{id}:
+    put:
+      operationId: updateAgent
+      tags: [agents]
+      summary: Update an agent
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentInput"
+      responses:
+        "200":
+          description: Updated agent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Agent"
+    delete:
+      operationId: deleteAgent
+      tags: [agents]
+      summary: Delete an agent
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "204":
+          description: Deleted successfully
 
 components:
   schemas:
@@ -239,7 +362,7 @@ components:
       type: object
       properties:
         id:
-          type: integer
+          type: number
         date:
           type: string
         prefix:
@@ -280,6 +403,8 @@ components:
         createdAt:
           type: ["string", "null"]
         updatedAt:
+          type: ["string", "null"]
+        assignedTo:
           type: ["string", "null"]
       required:
         - id
@@ -331,6 +456,8 @@ components:
           type: ["string", "null"]
         pdfUrl:
           type: ["string", "null"]
+        assignedTo:
+          type: ["string", "null"]
       required:
         - date
         - prefix
@@ -381,11 +508,14 @@ components:
         pdfUrl:
           type: ["string", "null"]
 
+        assignedTo:
+          type: ["string", "null"]
+
     TrademarkStats:
       type: object
       properties:
         total:
-          type: integer
+          type: number
         byStage:
           type: array
           items:
@@ -395,9 +525,9 @@ components:
           items:
             $ref: "#/components/schemas/CityCount"
         duplicates:
-          type: integer
+          type: number
         tm11Count:
-          type: integer
+          type: number
         byNumericStage:
           type: array
           items:
@@ -421,7 +551,7 @@ components:
         stage:
           type: string
         count:
-          type: integer
+          type: number
       required:
         - stage
         - count
@@ -432,7 +562,7 @@ components:
         city:
           type: string
         count:
-          type: integer
+          type: number
       required:
         - city
         - count
@@ -443,7 +573,7 @@ components:
         subStage:
           type: string
         count:
-          type: integer
+          type: number
       required:
         - subStage
         - count
@@ -452,7 +582,7 @@ components:
       type: object
       properties:
         synced:
-          type: integer
+          type: number
         message:
           type: string
       required:
@@ -463,9 +593,9 @@ components:
       type: object
       properties:
         id:
-          type: integer
+          type: number
         trademarkId:
-          type: integer
+          type: number
         field:
           type: string
         oldValue:
@@ -482,3 +612,89 @@ components:
         - field
         - newValue
         - changedBy
+
+    DuplicateCheckResult:
+      type: object
+      properties:
+        duplicate:
+          type: boolean
+        record:
+          type: object
+          properties:
+            id:
+              type: number
+            tmNo:
+              type: string
+            appName:
+              type: string
+            stage:
+              type: string
+            clientNo:
+              type: string
+            caseNo:
+              type: string
+      required:
+        - duplicate
+
+    MonthlyStat:
+      type: object
+      properties:
+        month:
+          type: string
+        stage:
+          type: string
+        count:
+          type: number
+      required:
+        - month
+        - stage
+        - count
+
+    Agent:
+      type: object
+      properties:
+        id:
+          type: number
+        key:
+          type: string
+        name:
+          type: string
+        city:
+          type: string
+        createdAt:
+          type: ["string", "null"]
+      required:
+        - id
+        - key
+        - name
+        - city
+
+    AgentInput:
+      type: object
+      properties:
+        key:
+          type: string
+        name:
+          type: string
+        city:
+          type: string
+      required:
+        - key
+        - name
+        - city
+
+    CsvRow:
+      type: object
+      additionalProperties: true
+
+    ImportCsvPayload:
+      type: object
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/CsvRow"
+      required:
+        - rows
+
+

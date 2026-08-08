@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { Platform } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
@@ -13,19 +14,49 @@ import {
 } from '@expo-google-fonts/space-grotesk';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import Constants from 'expo-constants';
 import { setBaseUrl } from '@workspace/api-client-react';
 
-// Configure the API base URL before any component renders.
-// Set EXPO_PUBLIC_DOMAIN in your .env or environment to point at your API server.
-// Example: EXPO_PUBLIC_DOMAIN=api.yourdomain.com or localhost:8080 for local dev
-const API_DOMAIN = process.env.EXPO_PUBLIC_DOMAIN;
-if (API_DOMAIN) {
-  setBaseUrl(`https://${API_DOMAIN}`);
-} else if (__DEV__) {
-  // In local dev without EXPO_PUBLIC_DOMAIN, fall back to localhost
-  setBaseUrl('http://localhost:8080');
-  console.warn('EXPO_PUBLIC_DOMAIN is not set. Falling back to http://localhost:8080');
+// Resolve the API server URL:
+//  1. EXPO_PUBLIC_API_URL takes highest priority (production / staging override).
+//  2. In Expo Go / dev-client on Android/iOS, Expo injects the LAN host via
+//     Constants.expoConfig.hostUri (e.g. "192.168.100.162:8081").
+//     We strip the Metro port and append the Express port (3000).
+//  3. On web or as a last resort, fall back to localhost:3000.
+function resolveApiUrl(): string {
+  // Explicit override always wins
+  const explicit = process.env.EXPO_PUBLIC_API_URL ?? process.env.EXPO_PUBLIC_DOMAIN;
+  if (explicit) {
+    return explicit.startsWith('http') ? explicit : `https://${explicit}`;
+  }
+
+  if (__DEV__) {
+    // On native (Android / iOS) grab the LAN IP Expo injects at runtime
+    if (Platform.OS !== 'web') {
+      const hostUri: string | undefined =
+        // Expo SDK 49+ — expoConfig.hostUri
+        (Constants.expoConfig as any)?.hostUri ??
+        // Older SDKs
+        (Constants as any)?.manifest?.debuggerHost ??
+        (Constants as any)?.manifest2?.extra?.expoGo?.debuggerHost;
+
+      if (hostUri) {
+        // hostUri looks like "192.168.100.162:8081" — replace Metro port with API port
+        const lanIp = hostUri.split(':')[0];
+        console.log(`[API] Using LAN IP: http://${lanIp}:3000`);
+        return `http://${lanIp}:3000`;
+      }
+    }
+    // Web dev — localhost is correct
+    console.warn('[API] Falling back to http://localhost:3000 — set EXPO_PUBLIC_API_URL for production.');
+    return 'http://localhost:3000';
+  }
+
+  return 'http://localhost:3000';
 }
+
+const apiUrl = resolveApiUrl();
+setBaseUrl(apiUrl);
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -42,6 +73,7 @@ const queryClient = new QueryClient({
 function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerBackTitle: 'Back' }}>
+      <Stack.Screen name="welcome" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen
         name="trademark/[id]"

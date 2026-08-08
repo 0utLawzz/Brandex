@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, or, ilike, and, sql, desc } from "drizzle-orm";
+import { eq, or, ilike, and, sql, desc, asc } from "drizzle-orm";
 import { db, trademarksTable, changeLogTable } from "@workspace/db";
 import {
   ListTrademarksQueryParams,
@@ -34,6 +34,7 @@ router.get("/trademarks", async (req, res): Promise<void> => {
   }
 
   const { search, stage, city } = parsed.data;
+  const sort = typeof req.query.sort === 'string' ? req.query.sort : undefined;
 
   // Build conditions
   const conditions = [];
@@ -57,17 +58,21 @@ router.get("/trademarks", async (req, res): Promise<void> => {
     conditions.push(ilike(trademarksTable.city, city.trim()));
   }
 
+  const orderBy = sort === 'az'
+    ? asc(trademarksTable.appName)
+    : desc(trademarksTable.updatedAt);
+
   const rows =
     conditions.length > 0
       ? await db
           .select()
           .from(trademarksTable)
           .where(and(...conditions))
-          .orderBy(desc(trademarksTable.updatedAt))
+          .orderBy(orderBy)
       : await db
           .select()
           .from(trademarksTable)
-          .orderBy(desc(trademarksTable.updatedAt));
+          .orderBy(orderBy);
 
   const result = rows.map((row) =>
     ListTrademarksResponseItem.parse({
@@ -146,6 +151,186 @@ router.post("/trademarks", async (req, res): Promise<void> => {
       updatedAt: row.updatedAt ? row.updatedAt.toISOString() : null,
     }),
   );
+});
+
+// GET /change-log — all change log entries with trademark context
+router.get("/change-log", async (req, res): Promise<void> => {
+  const limitRaw = parseInt(String(req.query.limit ?? '100'), 10);
+  const limit = isNaN(limitRaw) || limitRaw < 1 ? 100 : Math.min(limitRaw, 500);
+  const offsetRaw = parseInt(String(req.query.offset ?? '0'), 10);
+  const offset = isNaN(offsetRaw) || offsetRaw < 0 ? 0 : offsetRaw;
+
+  const logs = await db
+    .select({
+      id: changeLogTable.id,
+      trademarkId: changeLogTable.trademarkId,
+      field: changeLogTable.field,
+      oldValue: changeLogTable.oldValue,
+      newValue: changeLogTable.newValue,
+      changedAt: changeLogTable.changedAt,
+      changedBy: changeLogTable.changedBy,
+      appName: trademarksTable.appName,
+      tmNo: trademarksTable.tmNo,
+      folderNo: trademarksTable.folderNo,
+    })
+    .from(changeLogTable)
+    .leftJoin(trademarksTable, eq(changeLogTable.trademarkId, trademarksTable.id))
+    .orderBy(desc(changeLogTable.changedAt))
+    .limit(limit)
+    .offset(offset);
+
+  res.json(logs.map((log) => ({
+    ...log,
+    changedAt: log.changedAt ? log.changedAt.toISOString() : null,
+  })));
+});
+
+// GET /trademarks/export — download all trademarks as CSV
+router.get("/trademarks/export", async (req, res): Promise<void> => {
+  const rows = await db
+    .select()
+    .from(trademarksTable)
+    .orderBy(asc(trademarksTable.appName));
+
+  const header = [
+    'DATE', 'CASE NO', 'APP NAME', 'TM NO', 'CLASS',
+    'STATUS', 'SUB STATUS', 'DUPLICATE', 'TM-11', 'NOTES', 'CITY',
+    'PREFIX', 'CLIENT NO', 'FOLDER NO', 'SOURCE', 'CREATED AT',
+  ];
+
+  const escape = (val: string | null | undefined): string => {
+    if (val == null) return '';
+    const s = String(val);
+    if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+      return `"${s.replace(/"/g, '""')}"`;
+    }
+    return s;
+  };
+
+  const csvRows = rows.map((r) => [
+    escape(r.date),
+    escape(r.folderNo),
+    escape(r.appName),
+    escape(r.tmNo),
+    escape(r.appClass),
+    escape(r.stage),
+    escape(r.subStage),
+    r.isDuplicate ? 'TRUE' : 'FALSE',
+    r.isTm11 ? 'TRUE' : 'FALSE',
+    escape(r.notes),
+    escape(r.city),
+    escape(r.prefix),
+    escape(r.clientNo),
+    escape(r.folderNo),
+    escape(r.source),
+    r.createdAt ? r.createdAt.toISOString() : '',
+  ].join(','));
+
+  const csv = [header.join(','), ...csvRows].join('\n');
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', 'attachment; filename="trademarks.csv"');
+  res.send(csv);
+});
+
+// POST /trademarks/import — bulk import from CSV body (JSON array of rows)
+router.post("/trademarks/import", async (req, res): Promise<void> => {
+  const csvText = typeof req.body === 'string' ? req.body : null;
+  if (!csvText) {
+    res.status(400).json({ error: 'Send CSV as plain text body (Content-Type: text/plain)' });
+    return;
+  }
+
+  const lines = csvText.split('\n').map((l: string) => l.trim()).filter(Boolean);
+  if (lines.length < 2) {
+    res.json({ imported: 0, message: 'No data rows found' });
+    return;
+  }
+
+  // Skip header row
+  const dataLines = lines.slice(1);
+
+  const parseCsv = (line: string): string[] => {
+    const result: string[] = [];
+    let cur = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuotes && line[i + 1] === '"') { cur += '"'; i++; }
+        else { inQuotes = !inQuotes; }
+      } else if (ch === ',' && !inQuotes) {
+        result.push(cur.trim()); cur = '';
+      } else {
+        cur += ch;
+      }
+    }
+    result.push(cur.trim());
+    return result;
+  };
+
+  const bool = (val: string): boolean => ['true', 'yes', '1'].includes(val.toLowerCase());
+
+  const records = [];
+  for (const line of dataLines) {
+    const cols = parseCsv(line);
+    const appName = cols[2] ?? '';
+    const tmNo = cols[3] ?? '';
+    if (!appName && !tmNo) continue;
+
+    const folderNo = cols[1] ?? null;
+    const parts = folderNo ? folderNo.split('-') : [];
+    const prefix = parts.length >= 3 ? parts[0] : (cols[11] || 'X');
+    const clientNo = parts.length >= 3 ? parts[1] : (cols[12] || '');
+    const caseNo = parts.length >= 3 ? parts[2] : '';
+    const stage = cols[5] || 'STAGE 1';
+
+    records.push({
+      date: cols[0] || new Date().toISOString().split('T')[0],
+      prefix,
+      clientNo,
+      caseNo,
+      folderNo: folderNo || null,
+      appName: appName || null,
+      appClass: cols[4] || null,
+      tmNo: tmNo || null,
+      city: cols[10] || 'Islamabad',
+      stage,
+      subStage: cols[6] || stage,
+      status: cols[6] || stage,
+      isDuplicate: bool(cols[7] || ''),
+      isTm11: bool(cols[8] || ''),
+      notes: cols[9] || null,
+      imageUrl: null,
+      pdfUrl: null,
+      source: 'local' as const,
+      updatedAt: new Date(),
+    });
+  }
+
+  let imported = 0;
+  let skipped = 0;
+  for (let i = 0; i < records.length; i += 100) {
+    const batch = records.slice(i, i + 100);
+    try {
+      await db.insert(trademarksTable).values(batch);
+      imported += batch.length;
+    } catch {
+      for (const record of batch) {
+        try {
+          await db.insert(trademarksTable).values(record);
+          imported++;
+        } catch {
+          skipped++;
+        }
+      }
+    }
+  }
+
+  res.json({
+    imported,
+    skipped,
+    message: `Imported ${imported} records${skipped > 0 ? `; skipped ${skipped}` : ''}`,
+  });
 });
 
 // GET /trademarks/stats  — must come before /:id
@@ -614,4 +799,93 @@ router.delete("/trademarks/:id", async (req, res): Promise<void> => {
   res.status(204).send();
 });
 
+// ─── GET /trademarks/check-duplicate?tmNo=xxx ────────────────────────────────
+router.get("/trademarks/check-duplicate", async (req, res): Promise<void> => {
+  const tmNo = typeof req.query.tmNo === "string" ? req.query.tmNo.trim() : "";
+  if (!tmNo) { res.json({ duplicate: false }); return; }
+
+  const rows = await db
+    .select()
+    .from(trademarksTable)
+    .where(ilike(trademarksTable.tmNo, tmNo))
+    .limit(1);
+
+  if (rows.length === 0) {
+    res.json({ duplicate: false });
+  } else {
+    const r = rows[0];
+    res.json({
+      duplicate: true,
+      record: {
+        id: r.id,
+        tmNo: r.tmNo,
+        appName: r.appName,
+        stage: r.stage,
+        clientNo: r.clientNo,
+        caseNo: r.caseNo,
+      },
+    });
+  }
+});
+
+// ─── GET /trademarks/monthly-stats ────────────────────────────────────────────
+router.get("/trademarks/monthly-stats", async (_req, res): Promise<void> => {
+  try {
+    const rows = await db.execute(sql`
+      SELECT
+        TO_CHAR(created_at, 'YYYY-MM') AS month,
+        stage,
+        COUNT(*)::int AS count
+      FROM trademarks
+      WHERE created_at IS NOT NULL
+      GROUP BY month, stage
+      ORDER BY month ASC
+    `);
+    res.json(rows.rows ?? rows);
+  } catch (err) {
+    logger.error("monthly-stats error", err);
+    res.status(500).json({ error: "Failed to compute monthly stats" });
+  }
+});
+
+// ─── POST /trademarks/import-csv ──────────────────────────────────────────────
+router.post("/trademarks/import-csv", async (req, res): Promise<void> => {
+  // Expects body: { rows: Array<{ date, tmNo, appName, appClass, city, stage, subStage, status, notes }> }
+  const { rows } = req.body as { rows: any[] };
+  if (!Array.isArray(rows) || rows.length === 0) {
+    res.status(400).json({ error: "rows array is required" });
+    return;
+  }
+
+  try {
+    const inserted = await db
+      .insert(trademarksTable)
+      .values(
+        rows.map((r) => ({
+          date: r.date ?? new Date().toISOString().split("T")[0],
+          prefix: r.prefix ?? "TM",
+          clientNo: r.clientNo ?? r.client_no ?? "IMPORT",
+          caseNo: r.caseNo ?? r.case_no ?? "IMPORT",
+          appName: r.appName ?? r.app_name ?? "",
+          appClass: r.appClass ?? r.app_class ?? null,
+          tmNo: r.tmNo ?? r.tm_no ?? null,
+          city: r.city ?? "Unknown",
+          stage: r.stage ?? "Application Filed",
+          subStage: r.subStage ?? r.sub_stage ?? r.stage ?? "Pending",
+          status: r.status ?? "Active",
+          notes: r.notes ?? null,
+          source: "local" as const,
+          updatedAt: new Date(),
+        })),
+      )
+      .returning({ id: trademarksTable.id });
+
+    res.json({ synced: inserted.length, message: `${inserted.length} records imported` });
+  } catch (err) {
+    logger.error("CSV import error", err);
+    res.status(500).json({ error: "Import failed" });
+  }
+});
+
 export default router;
+

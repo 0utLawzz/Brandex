@@ -28,7 +28,7 @@ export const ListTrademarksQueryParams = zod.object({
 })
 
 export const ListTrademarksResponseItem = zod.object({
-  "id": zod.number().int(),
+  "id": zod.number(),
   "date": zod.string(),
   "prefix": zod.string(),
   "clientNo": zod.string(),
@@ -48,7 +48,8 @@ export const ListTrademarksResponseItem = zod.object({
   "pdfUrl": zod.string().nullish(),
   "source": zod.string().describe('Origin of the record: local or sheets'),
   "createdAt": zod.string().nullish(),
-  "updatedAt": zod.string().nullish()
+  "updatedAt": zod.string().nullish(),
+  "assignedTo": zod.string().nullish()
 })
 export const ListTrademarksResponse = zod.array(ListTrademarksResponseItem)
 
@@ -73,11 +74,12 @@ export const CreateTrademarkBody = zod.object({
   "isTm11": zod.boolean(),
   "notes": zod.string().nullish(),
   "imageUrl": zod.string().nullish(),
-  "pdfUrl": zod.string().nullish()
+  "pdfUrl": zod.string().nullish(),
+  "assignedTo": zod.string().nullish()
 })
 
 export const CreateTrademarkResponse = zod.object({
-  "id": zod.number().int(),
+  "id": zod.number(),
   "date": zod.string(),
   "prefix": zod.string(),
   "clientNo": zod.string(),
@@ -97,7 +99,8 @@ export const CreateTrademarkResponse = zod.object({
   "pdfUrl": zod.string().nullish(),
   "source": zod.string().describe('Origin of the record: local or sheets'),
   "createdAt": zod.string().nullish(),
-  "updatedAt": zod.string().nullish()
+  "updatedAt": zod.string().nullish(),
+  "assignedTo": zod.string().nullish()
 })
 
 
@@ -105,24 +108,24 @@ export const CreateTrademarkResponse = zod.object({
  * @summary Get trademark statistics
  */
 export const GetTrademarkStatsResponse = zod.object({
-  "total": zod.number().int(),
+  "total": zod.number(),
   "byStage": zod.array(zod.object({
   "stage": zod.string(),
-  "count": zod.number().int()
+  "count": zod.number()
 })),
   "byCity": zod.array(zod.object({
   "city": zod.string(),
-  "count": zod.number().int()
+  "count": zod.number()
 })),
-  "duplicates": zod.number().int(),
-  "tm11Count": zod.number().int(),
+  "duplicates": zod.number(),
+  "tm11Count": zod.number(),
   "byNumericStage": zod.array(zod.object({
   "stage": zod.string(),
-  "count": zod.number().int()
+  "count": zod.number()
 })),
   "byAssignedSubStage": zod.array(zod.object({
   "subStage": zod.string(),
-  "count": zod.number().int()
+  "count": zod.number()
 }))
 })
 
@@ -131,7 +134,7 @@ export const GetTrademarkStatsResponse = zod.object({
  * @summary Sync trademark data from Google Sheets
  */
 export const SyncFromSheetsResponse = zod.object({
-  "synced": zod.number().int(),
+  "synced": zod.number(),
   "message": zod.string()
 })
 
@@ -140,11 +143,11 @@ export const SyncFromSheetsResponse = zod.object({
  * @summary Get a trademark by ID
  */
 export const GetTrademarkParams = zod.object({
-  "id": zod.coerce.number().int()
+  "id": zod.coerce.number()
 })
 
 export const GetTrademarkResponse = zod.object({
-  "id": zod.number().int(),
+  "id": zod.number(),
   "date": zod.string(),
   "prefix": zod.string(),
   "clientNo": zod.string(),
@@ -164,7 +167,8 @@ export const GetTrademarkResponse = zod.object({
   "pdfUrl": zod.string().nullish(),
   "source": zod.string().describe('Origin of the record: local or sheets'),
   "createdAt": zod.string().nullish(),
-  "updatedAt": zod.string().nullish()
+  "updatedAt": zod.string().nullish(),
+  "assignedTo": zod.string().nullish()
 })
 
 
@@ -172,7 +176,7 @@ export const GetTrademarkResponse = zod.object({
  * @summary Update a trademark record
  */
 export const UpdateTrademarkParams = zod.object({
-  "id": zod.coerce.number().int()
+  "id": zod.coerce.number()
 })
 
 export const UpdateTrademarkBody = zod.object({
@@ -192,11 +196,12 @@ export const UpdateTrademarkBody = zod.object({
   "isTm11": zod.boolean().nullish(),
   "notes": zod.string().nullish(),
   "imageUrl": zod.string().nullish(),
-  "pdfUrl": zod.string().nullish()
+  "pdfUrl": zod.string().nullish(),
+  "assignedTo": zod.string().nullish()
 })
 
 export const UpdateTrademarkResponse = zod.object({
-  "id": zod.number().int(),
+  "id": zod.number(),
   "date": zod.string(),
   "prefix": zod.string(),
   "clientNo": zod.string(),
@@ -216,7 +221,8 @@ export const UpdateTrademarkResponse = zod.object({
   "pdfUrl": zod.string().nullish(),
   "source": zod.string().describe('Origin of the record: local or sheets'),
   "createdAt": zod.string().nullish(),
-  "updatedAt": zod.string().nullish()
+  "updatedAt": zod.string().nullish(),
+  "assignedTo": zod.string().nullish()
 })
 
 
@@ -224,7 +230,7 @@ export const UpdateTrademarkResponse = zod.object({
  * @summary Delete a trademark record
  */
 export const DeleteTrademarkParams = zod.object({
-  "id": zod.coerce.number().int()
+  "id": zod.coerce.number()
 })
 
 export const DeleteTrademarkResponse = zod.void()
@@ -234,12 +240,12 @@ export const DeleteTrademarkResponse = zod.void()
  * @summary Get the audit/change log for a trademark
  */
 export const GetTrademarkChangeLogParams = zod.object({
-  "id": zod.coerce.number().int()
+  "id": zod.coerce.number()
 })
 
 export const GetTrademarkChangeLogResponseItem = zod.object({
-  "id": zod.number().int(),
-  "trademarkId": zod.number().int(),
+  "id": zod.number(),
+  "trademarkId": zod.number(),
   "field": zod.string(),
   "oldValue": zod.string().nullish(),
   "newValue": zod.string(),
@@ -247,5 +253,112 @@ export const GetTrademarkChangeLogResponseItem = zod.object({
   "changedBy": zod.string()
 })
 export const GetTrademarkChangeLogResponse = zod.array(GetTrademarkChangeLogResponseItem)
+
+
+/**
+ * @summary Check if a TM No already exists
+ */
+export const CheckDuplicateQueryParams = zod.object({
+  "tmNo": zod.coerce.string()
+})
+
+export const CheckDuplicateResponse = zod.object({
+  "duplicate": zod.boolean(),
+  "record": zod.object({
+  "id": zod.number().optional(),
+  "tmNo": zod.string().optional(),
+  "appName": zod.string().optional(),
+  "stage": zod.string().optional(),
+  "clientNo": zod.string().optional(),
+  "caseNo": zod.string().optional()
+}).optional()
+})
+
+
+/**
+ * @summary Get trademark statistics grouped by month
+ */
+export const GetMonthlyStatsResponseItem = zod.object({
+  "month": zod.string(),
+  "stage": zod.string(),
+  "count": zod.number()
+})
+export const GetMonthlyStatsResponse = zod.array(GetMonthlyStatsResponseItem)
+
+
+/**
+ * @summary Import trademarks from CSV
+ */
+export const ImportCsvBody = zod.object({
+  "rows": zod.array(zod.record(zod.string(), zod.unknown()))
+})
+
+export const ImportCsvResponse = zod.object({
+  "synced": zod.number(),
+  "message": zod.string()
+})
+
+
+/**
+ * @summary List all agents
+ */
+export const ListAgentsResponseItem = zod.object({
+  "id": zod.number(),
+  "key": zod.string(),
+  "name": zod.string(),
+  "city": zod.string(),
+  "createdAt": zod.string().nullish()
+})
+export const ListAgentsResponse = zod.array(ListAgentsResponseItem)
+
+
+/**
+ * @summary Create a new agent
+ */
+export const CreateAgentBody = zod.object({
+  "key": zod.string(),
+  "name": zod.string(),
+  "city": zod.string()
+})
+
+export const CreateAgentResponse = zod.object({
+  "id": zod.number(),
+  "key": zod.string(),
+  "name": zod.string(),
+  "city": zod.string(),
+  "createdAt": zod.string().nullish()
+})
+
+
+/**
+ * @summary Update an agent
+ */
+export const UpdateAgentParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateAgentBody = zod.object({
+  "key": zod.string(),
+  "name": zod.string(),
+  "city": zod.string()
+})
+
+export const UpdateAgentResponse = zod.object({
+  "id": zod.number(),
+  "key": zod.string(),
+  "name": zod.string(),
+  "city": zod.string(),
+  "createdAt": zod.string().nullish()
+})
+
+
+/**
+ * @summary Delete an agent
+ */
+export const DeleteAgentParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteAgentResponse = zod.void()
 
 

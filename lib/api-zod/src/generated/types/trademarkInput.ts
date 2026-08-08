@@ -31,4 +31,6 @@ export interface TrademarkInput {
   imageUrl?: string | null;
   /** @nullable */
   pdfUrl?: string | null;
+  /** @nullable */
+  assignedTo?: string | null;
 }

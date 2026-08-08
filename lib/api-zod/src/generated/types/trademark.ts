@@ -39,4 +39,6 @@ export interface Trademark {
   createdAt?: string | null;
   /** @nullable */
   updatedAt?: string | null;
+  /** @nullable */
+  assignedTo?: string | null;
 }

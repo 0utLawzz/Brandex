@@ -46,6 +46,8 @@ export interface Trademark {
   createdAt?: string | null;
   /** @nullable */
   updatedAt?: string | null;
+  /** @nullable */
+  assignedTo?: string | null;
 }
 
 export interface TrademarkInput {
@@ -73,6 +75,8 @@ export interface TrademarkInput {
   imageUrl?: string | null;
   /** @nullable */
   pdfUrl?: string | null;
+  /** @nullable */
+  assignedTo?: string | null;
 }
 
 export interface TrademarkUpdate {
@@ -110,6 +114,8 @@ export interface TrademarkUpdate {
   imageUrl?: string | null;
   /** @nullable */
   pdfUrl?: string | null;
+  /** @nullable */
+  assignedTo?: string | null;
 }
 
 export interface StageCount {
@@ -154,6 +160,47 @@ export interface ChangeLogEntry {
   changedBy: string;
 }
 
+export type DuplicateCheckResultRecord = {
+  id?: number;
+  tmNo?: string;
+  appName?: string;
+  stage?: string;
+  clientNo?: string;
+  caseNo?: string;
+};
+
+export interface DuplicateCheckResult {
+  duplicate: boolean;
+  record?: DuplicateCheckResultRecord;
+}
+
+export interface MonthlyStat {
+  month: string;
+  stage: string;
+  count: number;
+}
+
+export interface Agent {
+  id: number;
+  key: string;
+  name: string;
+  city: string;
+  /** @nullable */
+  createdAt?: string | null;
+}
+
+export interface AgentInput {
+  key: string;
+  name: string;
+  city: string;
+}
+
+export interface CsvRow { [key: string]: unknown }
+
+export interface ImportCsvPayload {
+  rows: CsvRow[];
+}
+
 export type ListTrademarksParams = {
 /**
  * Search by TM No, app name, or folder number
@@ -181,4 +228,8 @@ export const ListTrademarksSource = {
   sheets: 'sheets',
   all: 'all',
 } as const;
+
+export type CheckDuplicateParams = {
+tmNo: string;
+};
 
