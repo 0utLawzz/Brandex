@@ -12,7 +12,7 @@ router.get("/agents", async (_req, res): Promise<void> => {
     const agents = await db.select().from(agentsTable).orderBy(agentsTable.name);
     res.json(agents);
   } catch (err) {
-    logger.error("Failed to list agents", err);
+    logger.error(`Failed to list agents: ${err}`);
     res.status(500).json({ error: "Failed to list agents" });
   }
 });
@@ -59,7 +59,7 @@ router.put("/agents/:id", async (req, res): Promise<void> => {
     if (!agent) { res.status(404).json({ error: "Agent not found" }); return; }
     res.json(agent);
   } catch (err) {
-    logger.error("Failed to update agent", err);
+    logger.error(`Failed to update agent: ${err}`);
     res.status(500).json({ error: "Failed to update agent" });
   }
 });
@@ -72,7 +72,7 @@ router.delete("/agents/:id", async (req, res): Promise<void> => {
     await db.delete(agentsTable).where(eq(agentsTable.id, id));
     res.status(204).end();
   } catch (err) {
-    logger.error("Failed to delete agent", err);
+    logger.error(`Failed to delete agent: ${err}`);
     res.status(500).json({ error: "Failed to delete agent" });
   }
 });

@@ -151,7 +151,7 @@ export function Dashboard() {
                     {numericStages.map((s) => (
                       <div key={s.stage} className="border-2 border-[#0C0C0C] p-3 bg-[#F0E8D0]">
                         <div className="text-3xl font-serif">{s.count}</div>
-                        <Badge variant="outline" className="mt-2 uppercase text-xs">
+                        <Badge className="mt-2 uppercase text-xs border-2 border-[#0C0C0C] bg-[#E8DFC7] text-[#0C0C0C] rounded-none">
                           {s.stage}
                         </Badge>
                       </div>

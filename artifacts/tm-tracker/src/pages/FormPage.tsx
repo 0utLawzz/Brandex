@@ -7,6 +7,7 @@ import {
   useGetTrademarkChangeLog,
   useCheckDuplicate,
   useListAgents,
+  TrademarkInput,
 } from "@workspace/api-client-react";
 import { useLocation, useParams } from "wouter";
 import { Input } from "@/components/ui/input";
@@ -63,14 +64,14 @@ export function FormPage() {
   const { toast } = useToast();
   const [showChangeLog, setShowChangeLog] = useState(false);
 
-  const { data: trademark, isLoading } = useGetTrademark(id!, {
-    query: { enabled: !!id },
+  const { data: trademark, isLoading } = useGetTrademark(id ?? 0, {
+    query: { enabled: !!id } as any,
   });
   
   const { data: agents = [] } = useListAgents();
   
-  const { data: changeLog } = useGetTrademarkChangeLog(id!, {
-    query: { enabled: !!id && showChangeLog },
+  const { data: changeLog } = useGetTrademarkChangeLog(id ?? 0, {
+    query: { enabled: !!id && showChangeLog } as any,
   });
 
   const createMutation = useCreateTrademark();
@@ -138,17 +139,30 @@ export function FormPage() {
   }, [trademark, isNew, form]);
 
   const watchTmNo = form.watch("tmNo");
-  const { data: duplicateCheck } = useCheckDuplicate({ tmNo: watchTmNo }, {
-    query: { 
-      enabled: isNew && watchTmNo.length > 3,
-      staleTime: 5000,
-    }
-  });
+  const { data: duplicateCheck } = useCheckDuplicate(
+    { tmNo: watchTmNo },
+    { query: { enabled: isNew && watchTmNo.length > 3, staleTime: 5000 } as any },
+  );
 
   const onSubmit = (data: FormValues) => {
-    const payload = {
-      ...data,
-      status: "Active", // Default status
+    const payload: TrademarkInput = {
+      tmNo: data.tmNo || null,
+      appName: data.appName,
+      prefix: data.prefix,
+      clientNo: data.clientNo,
+      caseNo: data.caseNo,
+      appClass: data.appClass || null,
+      date: data.date || format(new Date(), "yyyy-MM-dd"),
+      stage: data.stage || "Application Filed",
+      subStage: data.subStage || null,
+      city: data.city || "Unknown",
+      status: "Active",
+      isDuplicate: data.isDuplicate,
+      isTm11: data.isTm11,
+      notes: data.notes || null,
+      imageUrl: data.imageUrl || null,
+      pdfUrl: data.pdfUrl || null,
+      assignedTo: data.assignedTo || null,
     };
 
     if (isNew) {

@@ -843,7 +843,7 @@ router.get("/trademarks/monthly-stats", async (_req, res): Promise<void> => {
     `);
     res.json(rows.rows ?? rows);
   } catch (err) {
-    logger.error("monthly-stats error", err);
+    logger.error(`monthly-stats error: ${err}`);
     res.status(500).json({ error: "Failed to compute monthly stats" });
   }
 });
@@ -882,7 +882,7 @@ router.post("/trademarks/import-csv", async (req, res): Promise<void> => {
 
     res.json({ synced: inserted.length, message: `${inserted.length} records imported` });
   } catch (err) {
-    logger.error("CSV import error", err);
+    logger.error(`CSV import error: ${err}`);
     res.status(500).json({ error: "Import failed" });
   }
 });
