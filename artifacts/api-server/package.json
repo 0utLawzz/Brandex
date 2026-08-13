@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "cross-env NODE_ENV=development PORT=3000 pnpm run build && pnpm run start",
     "build": "node ./build.mjs",
-    "start": "node --enable-source-maps --env-file=.env ./dist/index.mjs",
+    "start": "node --enable-source-maps --env-file=../../.env ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
