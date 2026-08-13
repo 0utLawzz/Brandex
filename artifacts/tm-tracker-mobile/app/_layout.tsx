@@ -27,32 +27,31 @@ function resolveApiUrl(): string {
   // Explicit override always wins
   const explicit = process.env.EXPO_PUBLIC_API_URL ?? process.env.EXPO_PUBLIC_DOMAIN;
   if (explicit) {
-    return explicit.startsWith('http') ? explicit : `https://${explicit}`;
+    if (explicit.startsWith("http://") || explicit.startsWith("https://")) return explicit;
+    return /^localhost|^127\.|^192\.|^10\./.test(explicit) ? `http://${explicit}` : `https://${explicit}`;
   }
 
   if (__DEV__) {
     // On native (Android / iOS) grab the LAN IP Expo injects at runtime
     if (Platform.OS !== 'web') {
       const hostUri: string | undefined =
-        // Expo SDK 49+ — expoConfig.hostUri
         (Constants.expoConfig as any)?.hostUri ??
-        // Older SDKs
         (Constants as any)?.manifest?.debuggerHost ??
         (Constants as any)?.manifest2?.extra?.expoGo?.debuggerHost;
 
       if (hostUri) {
-        // hostUri looks like "192.168.100.162:8081" — replace Metro port with API port
+        // hostUri looks like "192.168.100.162:8081" — replace Metro port with API port (8080)
         const lanIp = hostUri.split(':')[0];
-        console.log(`[API] Using LAN IP: http://${lanIp}:3000`);
-        return `http://${lanIp}:3000`;
+        console.log(`[API] Using LAN IP: http://${lanIp}:8080`);
+        return `http://${lanIp}:8080`;
       }
     }
-    // Web dev — localhost is correct
-    console.warn('[API] Falling back to http://localhost:3000 — set EXPO_PUBLIC_API_URL for production.');
-    return 'http://localhost:3000';
+    // Web dev — localhost:8080 is correct
+    console.warn('[API] Falling back to http://localhost:8080 — set EXPO_PUBLIC_API_URL for production.');
+    return 'http://localhost:8080';
   }
 
-  return 'http://localhost:3000';
+  return 'http://localhost:8080';
 }
 
 const apiUrl = resolveApiUrl();

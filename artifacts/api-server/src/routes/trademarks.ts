@@ -555,6 +555,93 @@ router.post("/trademarks/sync", async (req, res): Promise<void> => {
   );
 });
 
+// ─── GET /trademarks/check-duplicate?tmNo=xxx ────────────────────────────────
+router.get("/trademarks/check-duplicate", async (req, res): Promise<void> => {
+  const tmNo = typeof req.query.tmNo === "string" ? req.query.tmNo.trim() : "";
+  if (!tmNo) { res.json({ duplicate: false }); return; }
+
+  const rows = await db
+    .select()
+    .from(trademarksTable)
+    .where(ilike(trademarksTable.tmNo, tmNo))
+    .limit(1);
+
+  if (rows.length === 0) {
+    res.json({ duplicate: false });
+  } else {
+    const r = rows[0];
+    res.json({
+      duplicate: true,
+      record: {
+        id: r.id,
+        tmNo: r.tmNo,
+        appName: r.appName,
+        stage: r.stage,
+        clientNo: r.clientNo,
+        caseNo: r.caseNo,
+      },
+    });
+  }
+});
+
+// ─── GET /trademarks/monthly-stats ────────────────────────────────────────────
+router.get("/trademarks/monthly-stats", async (_req, res): Promise<void> => {
+  try {
+    const rows = await db.execute(sql`
+      SELECT
+        TO_CHAR(created_at, 'YYYY-MM') AS month,
+        stage,
+        COUNT(*)::int AS count
+      FROM trademarks
+      WHERE created_at IS NOT NULL
+      GROUP BY month, stage
+      ORDER BY month ASC
+    `);
+    res.json(rows.rows ?? rows);
+  } catch (err) {
+    logger.error(`monthly-stats error: ${err}`);
+    res.status(500).json({ error: "Failed to compute monthly stats" });
+  }
+});
+
+// ─── POST /trademarks/import-csv ──────────────────────────────────────────────
+router.post("/trademarks/import-csv", async (req, res): Promise<void> => {
+  const { rows } = req.body as { rows: any[] };
+  if (!Array.isArray(rows) || rows.length === 0) {
+    res.status(400).json({ error: "rows array is required" });
+    return;
+  }
+
+  try {
+    const inserted = await db
+      .insert(trademarksTable)
+      .values(
+        rows.map((r) => ({
+          date: r.date ?? new Date().toISOString().split("T")[0],
+          prefix: r.prefix ?? "TM",
+          clientNo: r.clientNo ?? r.client_no ?? "IMPORT",
+          caseNo: r.caseNo ?? r.case_no ?? "IMPORT",
+          appName: r.appName ?? r.app_name ?? "",
+          appClass: r.appClass ?? r.app_class ?? null,
+          tmNo: r.tmNo ?? r.tm_no ?? null,
+          city: r.city ?? "Unknown",
+          stage: r.stage ?? "Application Filed",
+          subStage: r.subStage ?? r.sub_stage ?? r.stage ?? "Pending",
+          status: r.status ?? "Active",
+          notes: r.notes ?? null,
+          source: "local" as const,
+          updatedAt: new Date(),
+        })),
+      )
+      .returning({ id: trademarksTable.id });
+
+    res.json({ synced: inserted.length, message: `${inserted.length} records imported` });
+  } catch (err) {
+    logger.error(`CSV import error: ${err}`);
+    res.status(500).json({ error: "Import failed" });
+  }
+});
+
 // GET /trademarks/:id
 router.get("/trademarks/:id", async (req, res): Promise<void> => {
   const { id: idRaw } = GetTrademarkParams.parse(req.params);
@@ -797,94 +884,6 @@ router.delete("/trademarks/:id", async (req, res): Promise<void> => {
   }
 
   res.status(204).send();
-});
-
-// ─── GET /trademarks/check-duplicate?tmNo=xxx ────────────────────────────────
-router.get("/trademarks/check-duplicate", async (req, res): Promise<void> => {
-  const tmNo = typeof req.query.tmNo === "string" ? req.query.tmNo.trim() : "";
-  if (!tmNo) { res.json({ duplicate: false }); return; }
-
-  const rows = await db
-    .select()
-    .from(trademarksTable)
-    .where(ilike(trademarksTable.tmNo, tmNo))
-    .limit(1);
-
-  if (rows.length === 0) {
-    res.json({ duplicate: false });
-  } else {
-    const r = rows[0];
-    res.json({
-      duplicate: true,
-      record: {
-        id: r.id,
-        tmNo: r.tmNo,
-        appName: r.appName,
-        stage: r.stage,
-        clientNo: r.clientNo,
-        caseNo: r.caseNo,
-      },
-    });
-  }
-});
-
-// ─── GET /trademarks/monthly-stats ────────────────────────────────────────────
-router.get("/trademarks/monthly-stats", async (_req, res): Promise<void> => {
-  try {
-    const rows = await db.execute(sql`
-      SELECT
-        TO_CHAR(created_at, 'YYYY-MM') AS month,
-        stage,
-        COUNT(*)::int AS count
-      FROM trademarks
-      WHERE created_at IS NOT NULL
-      GROUP BY month, stage
-      ORDER BY month ASC
-    `);
-    res.json(rows.rows ?? rows);
-  } catch (err) {
-    logger.error(`monthly-stats error: ${err}`);
-    res.status(500).json({ error: "Failed to compute monthly stats" });
-  }
-});
-
-// ─── POST /trademarks/import-csv ──────────────────────────────────────────────
-router.post("/trademarks/import-csv", async (req, res): Promise<void> => {
-  // Expects body: { rows: Array<{ date, tmNo, appName, appClass, city, stage, subStage, status, notes }> }
-  const { rows } = req.body as { rows: any[] };
-  if (!Array.isArray(rows) || rows.length === 0) {
-    res.status(400).json({ error: "rows array is required" });
-    return;
-  }
-
-  try {
-    const inserted = await db
-      .insert(trademarksTable)
-      .values(
-        rows.map((r) => ({
-          date: r.date ?? new Date().toISOString().split("T")[0],
-          prefix: r.prefix ?? "TM",
-          clientNo: r.clientNo ?? r.client_no ?? "IMPORT",
-          caseNo: r.caseNo ?? r.case_no ?? "IMPORT",
-          appName: r.appName ?? r.app_name ?? "",
-          appClass: r.appClass ?? r.app_class ?? null,
-          tmNo: r.tmNo ?? r.tm_no ?? null,
-          city: r.city ?? "Unknown",
-          stage: r.stage ?? "Application Filed",
-          subStage: r.subStage ?? r.sub_stage ?? r.stage ?? "Pending",
-          status: r.status ?? "Active",
-          notes: r.notes ?? null,
-          source: "local" as const,
-          updatedAt: new Date(),
-        })),
-      )
-      .returning({ id: trademarksTable.id });
-
-    res.json({ synced: inserted.length, message: `${inserted.length} records imported` });
-  } catch (err) {
-    logger.error(`CSV import error: ${err}`);
-    res.status(500).json({ error: "Import failed" });
-  }
 });
 
 export default router;

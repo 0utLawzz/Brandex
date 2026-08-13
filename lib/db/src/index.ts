@@ -11,6 +11,9 @@ if (!process.env.DATABASE_URL) {
 }
 
 export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+pool.on("error", (err) => {
+  console.error("Unexpected error on idle PostgreSQL client", err);
+});
 export const db = drizzle(pool, { schema });
 
 export * from "./schema";
