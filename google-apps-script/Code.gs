@@ -39,6 +39,9 @@
  * POST { action: "delete", id: "..." }       → delete by ID
  */
 
+// These are the PREFERRED tab names.
+// The lookup is case-insensitive and also checks legacy names,
+// so existing sheets named "Database" or "Audit Log" will be found correctly.
 var DB_SHEET_NAME  = "DATABASE";
 var LOG_SHEET_NAME = "LOGS";
 
@@ -139,16 +142,63 @@ function doPost(e) {
 }
 
 // ---------------------------------------------------------------------------
+// Sheet lookup helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Find a sheet by name, case-insensitively.
+ * Also accepts an array of legacy fallback names.
+ * Returns null if not found.
+ */
+function findSheet(preferredName, legacyNames) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var all = ss.getSheets();
+  var needle = preferredName.trim().toLowerCase();
+
+  // 1. Exact match first
+  var exact = ss.getSheetByName(preferredName);
+  if (exact) return exact;
+
+  // 2. Case-insensitive match
+  for (var i = 0; i < all.length; i++) {
+    if (all[i].getName().trim().toLowerCase() === needle) return all[i];
+  }
+
+  // 3. Legacy names (also case-insensitive)
+  if (legacyNames) {
+    for (var j = 0; j < legacyNames.length; j++) {
+      var leg = legacyNames[j].trim().toLowerCase();
+      for (var k = 0; k < all.length; k++) {
+        if (all[k].getName().trim().toLowerCase() === leg) return all[k];
+      }
+    }
+  }
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // Core DB operations
 // ---------------------------------------------------------------------------
 function getDbSheet() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName(DB_SHEET_NAME) || ss.getSheets()[0];
+  // Legacy names: "Database" (mixed case from old Code.gs)
+  var sheet = findSheet(DB_SHEET_NAME, ["Database", "database", "Sheet1"]);
+
+  if (!sheet) {
+    // No matching sheet found — create it
+    sheet = ss.insertSheet(DB_SHEET_NAME);
+    sheet.appendRow(DB_HEADERS);
+    return sheet;
+  }
+
+  // Ensure row 1 is the header row
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(DB_HEADERS);
   } else {
     var firstCell = String(sheet.getRange(1, 1).getValue()).trim();
     if (firstCell !== "ID") {
+      // Row 1 is not a header — insert one
       sheet.insertRowBefore(1);
       sheet.getRange(1, 1, 1, DB_HEADERS.length).setValues([DB_HEADERS]);
     }
@@ -157,8 +207,9 @@ function getDbSheet() {
 }
 
 function getLogSheet() {
-  var ss    = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName(LOG_SHEET_NAME);
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  // Legacy names: "Audit Log" (old Code.gs name)
+  var sheet = findSheet(LOG_SHEET_NAME, ["Audit Log", "audit log", "AUDIT LOG", "Logs"]);
   if (!sheet) {
     sheet = ss.insertSheet(LOG_SHEET_NAME);
     sheet.appendRow(LOG_HEADERS);
