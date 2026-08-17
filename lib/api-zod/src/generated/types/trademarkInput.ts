@@ -10,6 +10,8 @@ export interface TrademarkInput {
   date: string;
   prefix: string;
   clientNo: string;
+  /** @nullable */
+  clientName?: string | null;
   caseNo: string;
   /** @nullable */
   folderNo?: string | null;
@@ -23,6 +25,8 @@ export interface TrademarkInput {
   /** @nullable */
   subStage?: string | null;
   status: string;
+  /** @nullable */
+  caseType?: string | null;
   isDuplicate: boolean;
   isTm11: boolean;
   /** @nullable */

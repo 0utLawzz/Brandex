@@ -14,6 +14,8 @@ export interface TrademarkUpdate {
   /** @nullable */
   clientNo?: string | null;
   /** @nullable */
+  clientName?: string | null;
+  /** @nullable */
   caseNo?: string | null;
   /** @nullable */
   folderNo?: string | null;
@@ -31,6 +33,8 @@ export interface TrademarkUpdate {
   subStage?: string | null;
   /** @nullable */
   status?: string | null;
+  /** @nullable */
+  caseType?: string | null;
   /** @nullable */
   isDuplicate?: boolean | null;
   /** @nullable */

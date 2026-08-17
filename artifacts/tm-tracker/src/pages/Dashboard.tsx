@@ -1,252 +1,162 @@
-import { useGetTrademarkStats, useGetMonthlyStats } from "@workspace/api-client-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Activity, Copy, FileText, MapPin, Layers, BarChart3, TrendingUp } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from "recharts";
-import { Navbar } from "@/components/layout/Navbar";
+import { useGetTrademarkStats } from "@workspace/api-client-react";
+import { AppShell } from "@/components/layout/AppShell";
+import { Link } from "wouter";
+import { Plus, Search, Database, ScrollText, Clock } from "lucide-react";
+import { format, isValid } from "date-fns";
 
-function StatCard({
-  title,
-  value,
-  icon: Icon,
-  bg,
-  text,
-}: {
-  title: string;
-  value: number | string;
-  icon: React.ElementType;
-  bg: string;
-  text: string;
-}) {
+const STAGE_COLORS: Record<string, string> = {
+  "STAGE 1": "bg-[#0D9970] text-white",
+  "STAGE 2": "bg-[#D4A800] text-[#0C0C0C]",
+  "STAGE 3": "bg-[#C94A00] text-white",
+  "STAGE 4": "bg-[#0A6B52] text-white",
+};
+
+const STAGE_BORDER: Record<string, string> = {
+  "STAGE 1": "border-[#0D9970]",
+  "STAGE 2": "border-[#D4A800]",
+  "STAGE 3": "border-[#C94A00]",
+  "STAGE 4": "border-[#0A6B52]",
+};
+
+function StatBox({ label, value, color }: { label: string; value: number | string; color?: string }) {
   return (
-    <Card className={`border-2 border-[#0C0C0C] ${bg} ${text}`}>
-      <CardHeader className="pb-3">
-        <CardTitle className={`flex items-center gap-2 text-xl uppercase tracking-wider ${text}`}>
-          <Icon className="w-6 h-6" /> {title}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className={`text-5xl font-serif`}>{value}</div>
-      </CardContent>
-    </Card>
+    <div className={`border-2 border-[#0C0C0C] bg-[#E8DFC7] p-4 flex flex-col gap-1 ${color ?? ""}`}>
+      <div className="font-mono text-[10px] font-bold uppercase tracking-widest opacity-70">{label}</div>
+      <div className="font-serif text-4xl leading-none">{value}</div>
+    </div>
   );
 }
 
-function BreakdownCard({
-  title,
-  icon: Icon,
-  items,
-  emptyText,
-  keyProp,
-  labelProp,
-  countProp,
-  colorClass,
-}: {
-  title: string;
-  icon: React.ElementType;
-  items: any[];
-  emptyText: string;
-  keyProp: string;
-  labelProp: string;
-  countProp: string;
-  colorClass: string;
-}) {
+function QuickAction({ href, icon: Icon, label, color }: { href: string; icon: React.ElementType; label: string; color: string }) {
   return (
-    <Card className="bg-[#E8DFC7] border-2 border-[#0C0C0C]">
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-xl uppercase tracking-wider">
-          <Icon className="w-6 h-6" /> {title}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {items.length === 0 ? (
-          <div className="font-mono text-sm font-bold text-gray-600">{emptyText}</div>
-        ) : (
-          <div className="space-y-3">
-            {items.map((item) => (
-              <div key={item[keyProp]} className="flex flex-col gap-1">
-                <div className="flex justify-between font-mono font-bold text-sm">
-                  <span>{item[labelProp] || "UNASSIGNED"}</span>
-                  <span>{item[countProp]}</span>
-                </div>
-                <div className="w-full h-3 bg-[#F0E8D0] border-2 border-[#0C0C0C]">
-                  <div
-                    className={`h-full ${colorClass}`}
-                    style={{ width: `${Math.max(2, Math.min(100, (item[countProp] / Math.max(...items.map((i: any) => i[countProp]))) * 100))}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+    <Link
+      href={href}
+      className={`flex items-center gap-3 px-4 py-3 font-mono font-bold text-sm uppercase tracking-widest border-2 border-[#0C0C0C] transition-all hover:-translate-y-0.5 hover:shadow-[4px_4px_0_#0C0C0C] active:translate-y-0 active:shadow-none ${color}`}
+    >
+      <Icon className="w-5 h-5" />
+      {label}
+    </Link>
   );
 }
 
 export function Dashboard() {
   const { data: stats, isLoading } = useGetTrademarkStats();
-  const { data: monthlyStats } = useGetMonthlyStats();
 
-  // Transform monthlyStats for recharts:
-  // We want: [{ name: '2026-08', 'Application Filed': 10, 'Examination': 5, ... }]
-  const chartData: any[] = [];
-  if (monthlyStats) {
-    const monthsMap = new Map<string, any>();
-    monthlyStats.forEach((row) => {
-      if (!row.month) return;
-      if (!monthsMap.has(row.month)) {
-        monthsMap.set(row.month, { name: row.month });
-      }
-      const m = monthsMap.get(row.month);
-      m[row.stage || "UNKNOWN"] = row.count;
-    });
-    chartData.push(...Array.from(monthsMap.values()));
-  }
   const numericStages = ["STAGE 1", "STAGE 2", "STAGE 3", "STAGE 4"].map((stage) => {
     const found = stats?.byNumericStage?.find((s) => s.stage === stage);
     return { stage, count: found?.count ?? 0 };
   });
 
-  const maxStageCount = Math.max(1, ...numericStages.map((s) => s.count));
+  const maxCityCount = Math.max(1, ...(stats?.byCity ?? []).map((c) => c.count));
 
   return (
-    <div className="min-h-screen bg-[#F0E8D0] flex flex-col">
-      <Navbar />
-
-      <main className="flex-1 p-6 md:p-8 max-w-7xl mx-auto w-full">
-        <header className="mb-8">
-          <h1 className="font-serif text-4xl md:text-6xl text-[#0C0C0C] uppercase tracking-wide">
-            BRANDEX LAW <span className="text-[#C94A00]">ASSOICATE</span>
+    <AppShell>
+      <div className="p-6 lg:p-8 max-w-5xl w-full mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="font-serif text-4xl lg:text-5xl text-[#0C0C0C] uppercase tracking-wide leading-none">
+            DASHBOARD
           </h1>
-          <p className="font-mono text-[#0C0C0C] mt-2 font-medium">
-            Trademark Registry Dashboard
+          <p className="font-mono text-xs text-[#6d6658] mt-1 uppercase tracking-widest">
+            {format(new Date(), "EEEE, d MMMM yyyy")}
           </p>
-        </header>
+        </div>
 
         {isLoading ? (
-          <div className="font-mono text-2xl font-bold animate-pulse">Loading data...</div>
+          <div className="font-mono font-bold animate-pulse text-[#6d6658]">LOADING DATA...</div>
         ) : !stats ? (
-          <div className="font-mono text-2xl font-bold text-red-600">Failed to load statistics.</div>
+          <div className="font-mono font-bold text-[#C94A00]">FAILED TO LOAD STATISTICS.</div>
         ) : (
           <div className="space-y-6">
-            {/* Overview stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <StatCard title="TOTAL TMs" value={stats.total} icon={Activity} bg="bg-[#0A6B52]" text="text-white" />
-              <StatCard title="TM-11 FILED" value={stats.tm11Count} icon={FileText} bg="bg-[#D4A800]" text="text-[#0C0C0C]" />
-              <StatCard title="DUPLICATES" value={stats.duplicates} icon={Copy} bg="bg-[#C94A00]" text="text-white" />
-              <StatCard title="ASSIGNED" value={stats.byAssignedSubStage?.reduce((sum, s) => sum + s.count, 0) ?? 0} icon={BarChart3} bg="bg-[#0A6B52]" text="text-white" />
-            </div>
-
-            {/* Stage 1-4 + Assigned breakdown */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Card className="bg-[#E8DFC7] border-2 border-[#0C0C0C]">
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-xl uppercase tracking-wider">
-                    <Layers className="w-6 h-6" /> STAGE 1 — 4
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-4">
-                    {numericStages.map((s) => (
-                      <div key={s.stage} className="border-2 border-[#0C0C0C] p-3 bg-[#F0E8D0]">
-                        <div className="text-3xl font-serif">{s.count}</div>
-                        <Badge className="mt-2 uppercase text-xs border-2 border-[#0C0C0C] bg-[#E8DFC7] text-[#0C0C0C] rounded-none">
-                          {s.stage}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <BreakdownCard
-                title="ASSIGNED BY SUB-STATUS"
-                icon={BarChart3}
-                items={stats.byAssignedSubStage ?? []}
-                emptyText="NO ASSIGNED RECORDS"
-                keyProp="subStage"
-                labelProp="subStage"
-                countProp="count"
-                colorClass="bg-[#0A6B52]"
-              />
-            </div>
-
-            {/* City breakdown */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <BreakdownCard
-                title="CITY BREAKDOWN"
-                icon={MapPin}
-                items={stats.byCity ?? []}
-                emptyText="NO CITY DATA"
-                keyProp="city"
-                labelProp="city"
-                countProp="count"
-                colorClass="bg-[#0C0C0C]"
-              />
-            </div>
-
-            {/* Stage distribution */}
-            <Card className="bg-[#F0E8D0] border-2 border-[#0C0C0C]">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-2xl uppercase tracking-wider">
-                  <Layers className="w-8 h-8 text-[#C94A00]" /> STAGE DISTRIBUTION
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                  {stats.byStage.map((stage) => {
-                    const stageKey = stage.stage?.toLowerCase() as any;
-                    return (
-                      <div
-                        key={stage.stage || "unknown"}
-                        className="flex flex-col border-2 border-[#0C0C0C] p-4 bg-[#E8DFC7]"
-                      >
-                        <div className="font-serif text-4xl mb-2">{stage.count}</div>
-                        <Badge variant={stageKey} className="self-start uppercase">
-                          {stage.stage || "UNKNOWN"}
-                        </Badge>
-                      </div>
-                    );
-                  })}
+            {/* Top stats strip */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              <StatBox label="TOTAL RECORDS" value={stats.total} />
+              {numericStages.map((s) => (
+                <div
+                  key={s.stage}
+                  className={`border-2 border-[#0C0C0C] p-4 flex flex-col gap-1 ${STAGE_COLORS[s.stage] ?? "bg-[#E8DFC7]"}`}
+                >
+                  <div className="font-mono text-[10px] font-bold uppercase tracking-widest opacity-80">{s.stage}</div>
+                  <div className="font-serif text-4xl leading-none">{s.count}</div>
                 </div>
-              </CardContent>
-            </Card>
+              ))}
+              <StatBox label="MODIFIED (7D)" value={stats.recentlyModified ?? 0} />
+            </div>
 
-            {/* Monthly KPI Chart */}
-            <Card className="bg-white border-2 border-[#0C0C0C]">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-2xl uppercase tracking-wider text-[#0A6B52]">
-                  <TrendingUp className="w-8 h-8" /> MONTHLY KPI
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-4 h-[400px]">
-                {chartData.length === 0 ? (
-                  <div className="font-mono text-sm font-bold text-gray-600">NO MONTHLY DATA</div>
-                ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-                      <XAxis dataKey="name" stroke="#0C0C0C" tick={{ fontFamily: 'monospace' }} />
-                      <YAxis stroke="#0C0C0C" tick={{ fontFamily: 'monospace' }} />
-                      <Tooltip contentStyle={{ fontFamily: 'monospace', borderRadius: 0, border: '2px solid #0C0C0C' }} />
-                      <Legend wrapperStyle={{ fontFamily: 'monospace', fontWeight: 'bold' }} />
-                      <Bar dataKey="Application Filed" stackId="a" fill="#0A6B52" />
-                      <Bar dataKey="Examination" stackId="a" fill="#D4A800" />
-                      <Bar dataKey="Published" stackId="a" fill="#C94A00" />
-                      <Bar dataKey="Accepted" stackId="a" fill="#2563EB" />
-                      <Bar dataKey="Certificate Received" stackId="a" fill="#9333EA" />
-                      <Bar dataKey="Stopped" stackId="a" fill="#CC0000" />
-                      <Bar dataKey="Copyright" stackId="a" fill="#0F766E" />
-                      <Bar dataKey="UNKNOWN" stackId="a" fill="#9CA3AF" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                )}
-              </CardContent>
-            </Card>
+            {/* Breakdowns */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* Records by City */}
+              <div className="border-2 border-[#0C0C0C] bg-[#E8DFC7]">
+                <div className="px-4 py-3 border-b-2 border-[#0C0C0C] font-mono font-bold text-xs uppercase tracking-widest">
+                  RECORDS BY CITY
+                </div>
+                <div className="p-4 space-y-3">
+                  {stats.byCity.length === 0 ? (
+                    <div className="font-mono text-xs text-[#6d6658]">NO CITY DATA</div>
+                  ) : (
+                    stats.byCity
+                      .sort((a, b) => b.count - a.count)
+                      .map((c) => (
+                        <div key={c.city} className="space-y-1">
+                          <div className="flex justify-between font-mono font-bold text-xs">
+                            <span>{c.city || "UNSPECIFIED"}</span>
+                            <span>{c.count}</span>
+                          </div>
+                          <div className="w-full h-2.5 bg-[#F0E8D0] border border-[#0C0C0C]">
+                            <div
+                              className="h-full bg-[#0C0C0C]"
+                              style={{ width: `${Math.max(2, (c.count / maxCityCount) * 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                      ))
+                  )}
+                </div>
+              </div>
+
+              {/* Records by Stage */}
+              <div className="border-2 border-[#0C0C0C] bg-[#E8DFC7]">
+                <div className="px-4 py-3 border-b-2 border-[#0C0C0C] font-mono font-bold text-xs uppercase tracking-widest">
+                  RECORDS BY STATUS
+                </div>
+                <div className="p-4 space-y-2">
+                  {stats.byStage.length === 0 ? (
+                    <div className="font-mono text-xs text-[#6d6658]">NO STATUS DATA</div>
+                  ) : (
+                    stats.byStage
+                      .sort((a, b) => b.count - a.count)
+                      .slice(0, 8)
+                      .map((s) => (
+                        <div key={s.stage} className="flex items-center justify-between gap-3">
+                          <span
+                            className={`inline-block border border-[#0C0C0C] px-2 py-0.5 font-mono font-bold text-[10px] uppercase tracking-wider truncate max-w-[180px] ${STAGE_COLORS[s.stage] ?? "bg-[#F0E8D0] text-[#0C0C0C]"}`}
+                            title={s.stage}
+                          >
+                            {s.stage}
+                          </span>
+                          <span className="font-mono font-bold text-sm shrink-0">{s.count}</span>
+                        </div>
+                      ))
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="border-2 border-[#0C0C0C] bg-[#E8DFC7]">
+              <div className="px-4 py-3 border-b-2 border-[#0C0C0C] font-mono font-bold text-xs uppercase tracking-widest">
+                QUICK ACTIONS
+              </div>
+              <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <QuickAction href="/database?new=1" icon={Plus} label="+ ADD RECORD" color="bg-[#C94A00] text-white" />
+                <QuickAction href="/search" icon={Search} label="SEARCH TM" color="bg-[#F0E8D0] text-[#0C0C0C]" />
+                <QuickAction href="/database" icon={Database} label="DATABASE" color="bg-[#0A6B52] text-white" />
+                <QuickAction href="/logs" icon={ScrollText} label="LOGS" color="bg-[#0C0C0C] text-[#F0E8D0]" />
+              </div>
+            </div>
           </div>
         )}
-      </main>
-    </div>
+      </div>
+    </AppShell>
   );
 }

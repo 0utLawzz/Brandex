@@ -18,6 +18,8 @@ export interface Trademark {
   date: string;
   prefix: string;
   clientNo: string;
+  /** @nullable */
+  clientName?: string | null;
   caseNo: string;
   /** @nullable */
   folderNo?: string | null;
@@ -32,6 +34,8 @@ export interface Trademark {
   /** @nullable */
   subStage?: string | null;
   status: string;
+  /** @nullable */
+  caseType?: string | null;
   isDuplicate: boolean;
   isTm11: boolean;
   /** @nullable */
@@ -54,6 +58,8 @@ export interface TrademarkInput {
   date: string;
   prefix: string;
   clientNo: string;
+  /** @nullable */
+  clientName?: string | null;
   caseNo: string;
   /** @nullable */
   folderNo?: string | null;
@@ -67,6 +73,8 @@ export interface TrademarkInput {
   /** @nullable */
   subStage?: string | null;
   status: string;
+  /** @nullable */
+  caseType?: string | null;
   isDuplicate: boolean;
   isTm11: boolean;
   /** @nullable */
@@ -87,6 +95,8 @@ export interface TrademarkUpdate {
   /** @nullable */
   clientNo?: string | null;
   /** @nullable */
+  clientName?: string | null;
+  /** @nullable */
   caseNo?: string | null;
   /** @nullable */
   folderNo?: string | null;
@@ -104,6 +114,8 @@ export interface TrademarkUpdate {
   subStage?: string | null;
   /** @nullable */
   status?: string | null;
+  /** @nullable */
+  caseType?: string | null;
   /** @nullable */
   isDuplicate?: boolean | null;
   /** @nullable */
@@ -135,6 +147,7 @@ export interface SubStageCount {
 
 export interface TrademarkStats {
   total: number;
+  recentlyModified?: number;
   byStage: StageCount[];
   byCity: CityCount[];
   duplicates: number;
@@ -214,6 +227,14 @@ stage?: string;
  * Filter by city
  */
 city?: string;
+/**
+ * Filter by case type
+ */
+caseType?: string;
+/**
+ * Filter by sub-stage
+ */
+subStage?: string;
 /**
  * Data source: local (DB only), sheets (Google Sheets only), all (merged)
  */

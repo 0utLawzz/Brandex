@@ -51,6 +51,18 @@ paths:
           schema:
             type: string
           description: Filter by city
+        - name: caseType
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by case type
+        - name: subStage
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by sub-stage
         - name: source
           in: query
           required: false
@@ -369,6 +381,8 @@ components:
           type: string
         clientNo:
           type: string
+        clientName:
+          type: ["string", "null"]
         caseNo:
           type: string
         folderNo:
@@ -387,6 +401,8 @@ components:
           type: ["string", "null"]
         status:
           type: string
+        caseType:
+          type: ["string", "null"]
         isDuplicate:
           type: boolean
         isTm11:
@@ -428,6 +444,8 @@ components:
           type: string
         clientNo:
           type: string
+        clientName:
+          type: ["string", "null"]
         caseNo:
           type: string
         folderNo:
@@ -446,6 +464,8 @@ components:
           type: ["string", "null"]
         status:
           type: string
+        caseType:
+          type: ["string", "null"]
         isDuplicate:
           type: boolean
         isTm11:
@@ -479,6 +499,8 @@ components:
           type: ["string", "null"]
         clientNo:
           type: ["string", "null"]
+        clientName:
+          type: ["string", "null"]
         caseNo:
           type: ["string", "null"]
         folderNo:
@@ -496,6 +518,8 @@ components:
         subStage:
           type: ["string", "null"]
         status:
+          type: ["string", "null"]
+        caseType:
           type: ["string", "null"]
         isDuplicate:
           type: ["boolean", "null"]
@@ -515,6 +539,8 @@ components:
       type: object
       properties:
         total:
+          type: number
+        recentlyModified:
           type: number
         byStage:
           type: array

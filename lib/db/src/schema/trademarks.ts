@@ -21,6 +21,8 @@ export const trademarksTable = pgTable("trademarks", {
   notes: text("notes"),
   imageUrl: text("image_url"),
   pdfUrl: text("pdf_url"),
+  clientName: text("client_name"), // Client full name
+  caseType: text("case_type"), // Type/category of case
   assignedTo: text("assigned_to"), // agent key e.g. 'UZMA'
   source: text("source").notNull().default("local"), // 'local' or 'sheet'
   createdAt: timestamp("created_at").defaultNow(),

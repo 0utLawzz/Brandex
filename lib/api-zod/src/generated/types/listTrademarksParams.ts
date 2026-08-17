@@ -21,6 +21,14 @@ stage?: string;
  */
 city?: string;
 /**
+ * Filter by case type
+ */
+caseType?: string;
+/**
+ * Filter by sub-stage
+ */
+subStage?: string;
+/**
  * Data source: local (DB only), sheets (Google Sheets only), all (merged)
  */
 source?: ListTrademarksSource;

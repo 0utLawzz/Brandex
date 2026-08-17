@@ -34,6 +34,8 @@ router.get("/trademarks", async (req, res): Promise<void> => {
   }
 
   const { search, stage, city } = parsed.data;
+  const caseType = typeof req.query.caseType === 'string' ? req.query.caseType : undefined;
+  const subStageFilter = typeof req.query.subStage === 'string' ? req.query.subStage : undefined;
   const sort = typeof req.query.sort === 'string' ? req.query.sort : undefined;
 
   // Build conditions
@@ -46,6 +48,9 @@ router.get("/trademarks", async (req, res): Promise<void> => {
         ilike(trademarksTable.tmNo, term),
         ilike(trademarksTable.appName, term),
         ilike(trademarksTable.folderNo, term),
+        ilike(trademarksTable.clientNo, term),
+        ilike(trademarksTable.clientName, term),
+        ilike(trademarksTable.caseNo, term),
       ),
     );
   }
@@ -56,6 +61,14 @@ router.get("/trademarks", async (req, res): Promise<void> => {
 
   if (city && city.trim()) {
     conditions.push(ilike(trademarksTable.city, city.trim()));
+  }
+
+  if (caseType && caseType.trim()) {
+    conditions.push(ilike(trademarksTable.caseType, caseType.trim()));
+  }
+
+  if (subStageFilter && subStageFilter.trim()) {
+    conditions.push(ilike(trademarksTable.subStage, subStageFilter.trim()));
   }
 
   const orderBy = sort === 'az'
@@ -80,6 +93,7 @@ router.get("/trademarks", async (req, res): Promise<void> => {
       date: row.date ?? null,
       prefix: row.prefix ?? null,
       clientNo: row.clientNo ?? null,
+      clientName: (row as any).clientName ?? null,
       caseNo: row.caseNo ?? null,
       folderNo: row.folderNo ?? null,
       appName: row.appName ?? null,
@@ -89,6 +103,7 @@ router.get("/trademarks", async (req, res): Promise<void> => {
       stage: row.stage ?? null,
       subStage: row.subStage ?? null,
       status: row.status ?? null,
+      caseType: (row as any).caseType ?? null,
       notes: row.notes ?? null,
       imageUrl: row.imageUrl ?? null,
       pdfUrl: row.pdfUrl ?? null,
@@ -113,6 +128,8 @@ router.post("/trademarks", async (req, res): Promise<void> => {
     .insert(trademarksTable)
     .values({
       ...parsed.data,
+      clientName: (parsed.data as any).clientName ?? null,
+      caseType: (parsed.data as any).caseType ?? null,
       subStage: parsed.data.subStage ?? parsed.data.stage ?? "STAGE 1",
       source: "local",
       updatedAt: new Date(),
@@ -125,7 +142,7 @@ router.post("/trademarks", async (req, res): Promise<void> => {
     field: "CREATE",
     oldValue: null,
     newValue: JSON.stringify(parsed.data),
-    changedBy: "system",
+    changedBy: "Nadeem",
   });
 
   res.status(201).json(
@@ -134,6 +151,7 @@ router.post("/trademarks", async (req, res): Promise<void> => {
       date: row.date ?? null,
       prefix: row.prefix ?? null,
       clientNo: row.clientNo ?? null,
+      clientName: (row as any).clientName ?? null,
       caseNo: row.caseNo ?? null,
       folderNo: row.folderNo ?? null,
       appName: row.appName ?? null,
@@ -143,6 +161,7 @@ router.post("/trademarks", async (req, res): Promise<void> => {
       stage: row.stage ?? null,
       subStage: row.subStage ?? null,
       status: row.status ?? null,
+      caseType: (row as any).caseType ?? null,
       notes: row.notes ?? null,
       imageUrl: row.imageUrl ?? null,
       pdfUrl: row.pdfUrl ?? null,
@@ -377,15 +396,32 @@ router.get("/trademarks/stats", async (req, res): Promise<void> => {
     .where(sql`LOWER(${trademarksTable.stage}) = 'assigned' AND NULLIF(TRIM(COALESCE(${trademarksTable.subStage}, '')), '') IS NOT NULL`)
     .groupBy(trademarksTable.subStage);
 
+  const byCityResult = await db
+    .select({
+      city: trademarksTable.city,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(trademarksTable)
+    .where(sql`NULLIF(TRIM(COALESCE(${trademarksTable.city}, '')), '') IS NOT NULL`)
+    .groupBy(trademarksTable.city);
+
+  const [recentlyModifiedResult] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(trademarksTable)
+    .where(sql`${trademarksTable.updatedAt} >= NOW() - INTERVAL '7 days'`);
+
   res.json(
     GetTrademarkStatsResponse.parse({
       total: totalResult?.count ?? 0,
+      recentlyModified: recentlyModifiedResult?.count ?? 0,
       byStage: byStageResult.map((r) => ({
         stage: r.stage ?? "Unknown",
         count: r.count,
       })),
-      // Kept as an empty array for backwards-compatible mobile/web clients.
-      byCity: [],
+      byCity: byCityResult.map((r) => ({
+        city: r.city ?? "Unknown",
+        count: r.count,
+      })),
       duplicates: dupsResult?.count ?? 0,
       tm11Count: tm11Result?.count ?? 0,
       byNumericStage: byNumericStageResult.map((r) => ({
@@ -664,6 +700,7 @@ router.get("/trademarks/:id", async (req, res): Promise<void> => {
       date: row.date ?? null,
       prefix: row.prefix ?? null,
       clientNo: row.clientNo ?? null,
+      clientName: (row as any).clientName ?? null,
       caseNo: row.caseNo ?? null,
       folderNo: row.folderNo ?? null,
       appName: row.appName ?? null,
@@ -673,6 +710,7 @@ router.get("/trademarks/:id", async (req, res): Promise<void> => {
       stage: row.stage ?? null,
       subStage: row.subStage ?? null,
       status: row.status ?? null,
+      caseType: (row as any).caseType ?? null,
       notes: row.notes ?? null,
       imageUrl: row.imageUrl ?? null,
       pdfUrl: row.pdfUrl ?? null,
@@ -719,7 +757,7 @@ router.put("/trademarks/:id", async (req, res): Promise<void> => {
     .where(eq(trademarksTable.id, id))
     .returning();
 
-  // Log changes
+  // Log changes - per field, always 'Nadeem' as the actor
   for (const [key, newValue] of Object.entries(bodyParsed.data)) {
     const oldValue = (currentRow as any)[key];
     if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
@@ -728,7 +766,7 @@ router.put("/trademarks/:id", async (req, res): Promise<void> => {
         field: key,
         oldValue: oldValue ? String(oldValue) : null,
         newValue: newValue !== undefined && newValue !== null ? String(newValue) : "",
-        changedBy: "system",
+        changedBy: "Nadeem",
       });
     }
   }
@@ -789,6 +827,7 @@ router.put("/trademarks/:id", async (req, res): Promise<void> => {
       date: row.date ?? null,
       prefix: row.prefix ?? null,
       clientNo: row.clientNo ?? null,
+      clientName: (row as any).clientName ?? null,
       caseNo: row.caseNo ?? null,
       folderNo: row.folderNo ?? null,
       appName: row.appName ?? null,
@@ -798,6 +837,7 @@ router.put("/trademarks/:id", async (req, res): Promise<void> => {
       stage: row.stage ?? null,
       subStage: row.subStage ?? null,
       status: row.status ?? null,
+      caseType: (row as any).caseType ?? null,
       notes: row.notes ?? null,
       imageUrl: row.imageUrl ?? null,
       pdfUrl: row.pdfUrl ?? null,

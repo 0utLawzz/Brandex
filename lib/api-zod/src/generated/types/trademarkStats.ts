@@ -11,6 +11,7 @@ import type { SubStageCount } from './subStageCount';
 
 export interface TrademarkStats {
   total: number;
+  recentlyModified?: number;
   byStage: StageCount[];
   byCity: CityCount[];
   duplicates: number;

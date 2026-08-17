@@ -1,24 +1,43 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import NotFound from "@/pages/not-found";
 import { Route, Switch, Router as WouterRouter } from "wouter";
 
 import { Dashboard } from "./pages/Dashboard";
-import { Search } from "./pages/Search";
-import { FormPage } from "./pages/FormPage";
-import { Agents } from "./pages/Agents";
+import { SearchPage } from "./pages/SearchPage";
+import { DatabasePage } from "./pages/DatabasePage";
+import { LogsPage } from "./pages/LogsPage";
+import NotFound from "@/pages/not-found";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      retry: 1,
+    },
+  },
+});
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
-      <Route path="/search" component={Search} />
-      <Route path="/agents" component={Agents} />
-      <Route path="/new" component={FormPage} />
-      <Route path="/trademarks/:id" component={FormPage} />
+      <Route path="/search" component={SearchPage} />
+      <Route path="/database" component={DatabasePage} />
+      <Route path="/logs" component={LogsPage} />
+      {/* Legacy routes — redirect to database with edit modal */}
+      <Route path="/trademarks/:id">
+        {(params) => {
+          window.location.href = `/database?edit=${params.id}`;
+          return null;
+        }}
+      </Route>
+      <Route path="/new">
+        {() => {
+          window.location.href = `/database?new=1`;
+          return null;
+        }}
+      </Route>
       <Route component={NotFound} />
     </Switch>
   );

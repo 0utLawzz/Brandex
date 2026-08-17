@@ -11,6 +11,8 @@ export interface Trademark {
   date: string;
   prefix: string;
   clientNo: string;
+  /** @nullable */
+  clientName?: string | null;
   caseNo: string;
   /** @nullable */
   folderNo?: string | null;
@@ -25,6 +27,8 @@ export interface Trademark {
   /** @nullable */
   subStage?: string | null;
   status: string;
+  /** @nullable */
+  caseType?: string | null;
   isDuplicate: boolean;
   isTm11: boolean;
   /** @nullable */
