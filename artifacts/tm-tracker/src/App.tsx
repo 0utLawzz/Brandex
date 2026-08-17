@@ -25,19 +25,6 @@ function Router() {
       <Route path="/search" component={SearchPage} />
       <Route path="/database" component={DatabasePage} />
       <Route path="/logs" component={LogsPage} />
-      {/* Legacy routes — redirect to database with edit modal */}
-      <Route path="/trademarks/:id">
-        {(params) => {
-          window.location.href = `/database?edit=${params.id}`;
-          return null;
-        }}
-      </Route>
-      <Route path="/new">
-        {() => {
-          window.location.href = `/database?new=1`;
-          return null;
-        }}
-      </Route>
       <Route component={NotFound} />
     </Switch>
   );

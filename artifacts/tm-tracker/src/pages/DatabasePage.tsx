@@ -1,14 +1,17 @@
-import { useListTrademarks } from "@workspace/api-client-react";
+import { listTrademarks } from "@/lib/api";
+import type { TrademarkRecord } from "@/lib/api";
 import { AppShell } from "@/components/layout/AppShell";
 import { RecordModal } from "@/components/RecordModal";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { format, isValid } from "date-fns";
-import { Plus, Filter, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Filter, X, ChevronLeft, ChevronRight, Database as DatabaseIcon } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 
 const STAGES = ["STAGE 1", "STAGE 2", "STAGE 3", "STAGE 4"];
 const CITIES = ["Islamabad", "Karachi", "Lahore", "Peshawar", "Multan", "Quetta"];
 const CASE_TYPES = ["Trademark", "Copyright", "Design", "Patent", "Renewal", "Opposition", "Other"];
+const TYPES = ["TM", "X", "A", "N", "C"];
 
 const STAGE_BADGE: Record<string, string> = {
   "STAGE 1": "bg-[#0D9970] text-white",
@@ -26,169 +29,191 @@ function safeFmt(d: string | null | undefined) {
 const PAGE_SIZE = 50;
 
 interface Filters {
+  date: string;
+  type: string;
+  clientNo: string;
   stage: string;
   subStage: string;
-  city: string;
+  appClass: string;
   caseType: string;
+  city: string;
 }
 
 export function DatabasePage() {
   const [location] = useLocation();
   const [modalOpen, setModalOpen] = useState(false);
-  const [editId, setEditId] = useState<number | undefined>();
+  const [editId, setEditId] = useState<string | undefined>();
+  const [isNew, setIsNew] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [page, setPage] = useState(1);
-  const [filters, setFilters] = useState<Filters>({ stage: "", subStage: "", city: "", caseType: "" });
+  const [filters, setFilters] = useState<Filters>({
+    date: "", type: "", clientNo: "", stage: "", subStage: "", appClass: "", caseType: "", city: ""
+  });
 
-  // Open "new record" modal if ?new=1 is in URL
-  // Open "edit" modal if ?edit=ID is in URL (legacy redirect support)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("new") === "1") {
+      setIsNew(true);
       setEditId(undefined);
       setModalOpen(true);
     } else if (params.get("edit")) {
-      const id = parseInt(params.get("edit") ?? "", 10);
-      if (!isNaN(id)) {
-        setEditId(id);
-        setModalOpen(true);
-      }
+      setIsNew(false);
+      setEditId(params.get("edit") ?? undefined);
+      setModalOpen(true);
     }
   }, [location]);
 
-  const { data: trademarks = [], isLoading } = useListTrademarks({
-    stage: filters.stage || undefined,
-    city: filters.city || undefined,
-    caseType: filters.caseType || undefined,
-    subStage: filters.subStage || undefined,
-  } as any);
+  const { data: allTrademarks = [], isLoading } = useQuery<TrademarkRecord[]>({
+    queryKey: ["trademarks"],
+    queryFn: () => listTrademarks(),
+    staleTime: 60_000,
+  });
+
+  // Client-side filtering
+  const filtered = allTrademarks.filter((tm) => {
+    if (filters.date && !tm.date?.startsWith(filters.date)) return false;
+    if (filters.type && tm.prefix !== filters.type) return false;
+    if (filters.clientNo && !tm.clientNo?.toLowerCase().includes(filters.clientNo.toLowerCase())) return false;
+    if (filters.stage && tm.stage !== filters.stage) return false;
+    if (filters.subStage && !tm.subStage?.toLowerCase().includes(filters.subStage.toLowerCase())) return false;
+    if (filters.appClass && tm.appClass !== filters.appClass) return false;
+    if (filters.caseType && tm.caseType !== filters.caseType) return false;
+    if (filters.city && tm.city !== filters.city) return false;
+    return true;
+  });
+
+  const sorted = [...filtered].sort((a, b) => {
+    const dA = new Date(a.date || a.updatedAt || 0).getTime();
+    const dB = new Date(b.date || b.updatedAt || 0).getTime();
+    return dB - dA;
+  });
 
   const hasFilters = Object.values(filters).some(Boolean);
-  const totalPages = Math.max(1, Math.ceil(trademarks.length / PAGE_SIZE));
-  const paged = trademarks.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const paged = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const openNew = () => { setEditId(undefined); setModalOpen(true); };
-  const openEdit = (id: number) => { setEditId(id); setModalOpen(true); };
-  const closeModal = () => { setModalOpen(false); setEditId(undefined); };
-
-  const setFilter = (key: keyof Filters, value: string) => {
-    setFilters((f) => ({ ...f, [key]: value }));
-    setPage(1);
-  };
-
-  const clearFilters = () => { setFilters({ stage: "", subStage: "", city: "", caseType: "" }); setPage(1); };
+  const openNew = () => { setIsNew(true); setEditId(undefined); setModalOpen(true); };
+  const openEdit = (id: string) => { setIsNew(false); setEditId(id); setModalOpen(true); };
+  const closeModal = () => { setModalOpen(false); setEditId(undefined); setIsNew(false); };
+  const setFilter = (key: keyof Filters, val: string) => { setFilters((f) => ({ ...f, [key]: val })); setPage(1); };
+  const clearFilters = () => { setFilters({ date: "", type: "", clientNo: "", stage: "", subStage: "", appClass: "", caseType: "", city: "" }); setPage(1); };
 
   return (
     <AppShell>
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full bg-white">
         {/* Toolbar */}
-        <div className="shrink-0 flex items-center gap-3 px-5 py-3 bg-[#E8DFC7] border-b-2 border-[#0C0C0C]">
-          <h1 className="font-serif text-2xl uppercase tracking-widest text-[#0C0C0C] leading-none mr-auto">
-            DATABASE
-          </h1>
-          <span className="font-mono text-xs text-[#6d6658] font-bold">
-            {isLoading ? "..." : `${trademarks.length} RECORDS`}
+        <div className="shrink-0 flex items-center gap-4 px-6 py-4 bg-[#E8DFC7] border-b-2 border-[#0C0C0C]">
+          <DatabaseIcon className="w-5 h-5 text-[#0A6B52] hidden sm:block" />
+          <h1 className="font-serif text-2xl uppercase tracking-widest text-[#0C0C0C] leading-none mr-auto">DATABASE</h1>
+          <span className="font-mono text-[10px] text-[#6d6658] font-bold uppercase tracking-widest hidden md:inline">
+            {isLoading ? "LOADING..." : `${sorted.length} RECORDS`}
           </span>
           <button
             onClick={() => setShowFilters((v) => !v)}
-            className={`flex items-center gap-2 px-3 py-1.5 border-2 border-[#0C0C0C] font-mono font-bold text-xs uppercase tracking-wider transition-colors ${showFilters || hasFilters ? "bg-[#0C0C0C] text-[#F0E8D0]" : "bg-white"}`}
+            className={`flex items-center gap-2 px-4 h-10 border-2 border-[#0C0C0C] font-mono font-bold text-xs uppercase tracking-wider transition-colors ${showFilters || hasFilters ? "bg-[#0C0C0C] text-[#F0E8D0]" : "bg-white"}`}
           >
-            <Filter className="w-3.5 h-3.5" />
-            FILTERS{hasFilters ? " ●" : ""}
+            <Filter className="w-4 h-4" /> FILTERS{hasFilters ? " ●" : ""}
           </button>
           <button
             onClick={openNew}
-            className="flex items-center gap-2 px-3 py-1.5 bg-[#C94A00] text-white border-2 border-[#C94A00] font-mono font-bold text-xs uppercase tracking-wider hover:brightness-110 transition-all"
+            className="flex items-center gap-2 px-4 h-10 bg-[#C94A00] text-white border-2 border-[#C94A00] font-mono font-bold text-xs uppercase tracking-wider hover:brightness-110 transition-all"
           >
-            <Plus className="w-3.5 h-3.5" /> ADD RECORD
+            <Plus className="w-4 h-4" /> ADD RECORD
           </button>
         </div>
 
-        {/* Filter bar */}
+        {/* Filter Bar */}
         {showFilters && (
-          <div className="shrink-0 flex flex-wrap items-end gap-3 px-5 py-3 bg-[#F0E8D0] border-b-2 border-[#0C0C0C]">
-            {[
-              { key: "stage" as const, label: "STATUS", options: STAGES },
-              { key: "city" as const, label: "CITY", options: CITIES },
-              { key: "caseType" as const, label: "CASE TYPE", options: CASE_TYPES },
-            ].map(({ key, label, options }) => (
-              <div key={key} className="flex flex-col gap-1">
-                <label className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#6d6658]">{label}</label>
-                <select
-                  value={filters[key]}
-                  onChange={(e) => setFilter(key, e.target.value)}
-                  className="h-8 px-2 bg-white border-2 border-[#0C0C0C] font-mono text-xs focus:outline-2 focus:outline-[#C94A00] min-w-[130px]"
-                >
-                  <option value="">ALL</option>
-                  {options.map((o) => <option key={o} value={o}>{o.toUpperCase()}</option>)}
-                </select>
-              </div>
-            ))}
+          <div className="shrink-0 flex flex-wrap items-end gap-3 px-6 py-4 bg-[#F0E8D0] border-b-2 border-[#0C0C0C]">
+            <div className="flex flex-col gap-1.5">
+              <label className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#6d6658]">DATE</label>
+              <input type="date" value={filters.date} onChange={(e) => setFilter("date", e.target.value)} className="h-9 px-2 bg-white border-2 border-[#0C0C0C] font-mono text-xs focus:outline-2 focus:outline-[#C94A00]" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#6d6658]">TYPE</label>
+              <select value={filters.type} onChange={(e) => setFilter("type", e.target.value)} className="h-9 px-2 bg-white border-2 border-[#0C0C0C] font-mono text-xs focus:outline-2 focus:outline-[#C94A00] min-w-[80px]">
+                <option value="">ALL</option>
+                {TYPES.map((o) => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#6d6658]">CLIENT CODE</label>
+              <input type="text" placeholder="Code..." value={filters.clientNo} onChange={(e) => setFilter("clientNo", e.target.value)} className="h-9 px-2 bg-white border-2 border-[#0C0C0C] font-mono text-xs focus:outline-2 focus:outline-[#C94A00] w-[100px]" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#6d6658]">STATUS</label>
+              <select value={filters.stage} onChange={(e) => setFilter("stage", e.target.value)} className="h-9 px-2 bg-white border-2 border-[#0C0C0C] font-mono text-xs focus:outline-2 focus:outline-[#C94A00] min-w-[120px]">
+                <option value="">ALL</option>
+                {STAGES.map((o) => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#6d6658]">CLASS</label>
+              <select value={filters.appClass} onChange={(e) => setFilter("appClass", e.target.value)} className="h-9 px-2 bg-white border-2 border-[#0C0C0C] font-mono text-xs focus:outline-2 focus:outline-[#C94A00] min-w-[80px]">
+                <option value="">ALL</option>
+                {Array.from({ length: 45 }, (_, i) => String(i + 1)).map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#6d6658]">CASE TYPE</label>
+              <select value={filters.caseType} onChange={(e) => setFilter("caseType", e.target.value)} className="h-9 px-2 bg-white border-2 border-[#0C0C0C] font-mono text-xs focus:outline-2 focus:outline-[#C94A00] min-w-[120px]">
+                <option value="">ALL</option>
+                {CASE_TYPES.map((o) => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#6d6658]">CITY</label>
+              <select value={filters.city} onChange={(e) => setFilter("city", e.target.value)} className="h-9 px-2 bg-white border-2 border-[#0C0C0C] font-mono text-xs focus:outline-2 focus:outline-[#C94A00] min-w-[120px]">
+                <option value="">ALL</option>
+                {CITIES.map((o) => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
             {hasFilters && (
-              <button
-                onClick={clearFilters}
-                className="flex items-center gap-1.5 h-8 px-3 border-2 border-[#CC0000] text-[#CC0000] font-mono font-bold text-xs uppercase tracking-wider hover:bg-[#CC0000] hover:text-white transition-colors self-end"
-              >
-                <X className="w-3 h-3" /> CLEAR
+              <button onClick={clearFilters} className="flex items-center gap-1.5 h-9 px-4 border-2 border-[#CC0000] text-[#CC0000] font-mono font-bold text-xs uppercase tracking-wider hover:bg-[#CC0000] hover:text-white transition-colors">
+                <X className="w-3.5 h-3.5" /> CLEAR FILTERS
               </button>
             )}
           </div>
         )}
 
         {/* Table */}
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-auto bg-white">
           <table className="w-full text-left font-mono text-xs whitespace-nowrap border-collapse">
             <thead className="bg-[#0C0C0C] text-[#F0E8D0] sticky top-0 z-10">
               <tr>
-                {["DATE", "TYPE", "CLIENT CODE", "CLIENT NAME", "CASE NO", "APPLICATION NAME", "STATUS", "SUB-STATUS", "TM NO", "CLASS", "CASE TYPE", "LAST MODIFIED", "CITY", "NOTES"].map((h) => (
-                  <th key={h} className="px-3 py-3 border-r border-white/10 font-bold tracking-wider uppercase text-[10px] whitespace-nowrap">
-                    {h}
-                  </th>
+                {["DATE", "TYPE", "CLIENT CODE", "CLIENT NAME", "CASE NUMBER", "APPLICATION NAME", "STATUS", "SUB-STATUS", "TM NUMBER", "CLASS", "CASE TYPE", "LAST MODIFIED", "CITY", "NOTES"].map((h) => (
+                  <th key={h} className="px-3 py-3 border-r border-[#1A1A1A] font-bold tracking-wider uppercase text-[10px] last:border-r-0">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
-                <tr>
-                  <td colSpan={14} className="px-4 py-8 text-center font-bold text-[#6d6658]">
-                    LOADING RECORDS...
-                  </td>
-                </tr>
+                <tr><td colSpan={14} className="px-6 py-12 text-center font-bold text-[#6d6658] animate-pulse">LOADING RECORDS FROM GOOGLE SHEETS...</td></tr>
               ) : paged.length === 0 ? (
-                <tr>
-                  <td colSpan={14} className="px-4 py-8 text-center font-bold text-[#6d6658]">
-                    NO RECORDS FOUND.{hasFilters && " TRY CLEARING FILTERS."}
-                  </td>
-                </tr>
+                <tr><td colSpan={14} className="px-6 py-12 text-center font-bold text-[#6d6658]">NO RECORDS FOUND.{hasFilters && " TRY CLEARING FILTERS."}</td></tr>
               ) : (
                 paged.map((tm, i) => (
                   <tr
                     key={tm.id}
                     onClick={() => openEdit(tm.id)}
-                    className={`cursor-pointer border-b border-[#0C0C0C]/20 transition-colors ${
-                      i % 2 === 0 ? "bg-[#F0E8D0]" : "bg-[#E8DFC7]"
-                    } hover:bg-[#D9D0B7]`}
+                    className={`cursor-pointer border-b border-[#0C0C0C]/10 transition-colors ${i % 2 === 0 ? "bg-[#F0E8D0]" : "bg-white"} hover:bg-[#D9D0B7]`}
                   >
-                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10">{safeFmt(tm.date)}</td>
+                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10 text-[#6d6658]">{safeFmt(tm.date)}</td>
                     <td className="px-3 py-2 border-r border-[#0C0C0C]/10 font-bold text-[#C94A00]">{tm.prefix || "—"}</td>
                     <td className="px-3 py-2 border-r border-[#0C0C0C]/10 font-bold">{tm.clientNo || "—"}</td>
-                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10 max-w-[140px] truncate" title={(tm as any).clientName ?? ""}>{(tm as any).clientName || "—"}</td>
-                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10 font-bold text-[#0A6B52]">{tm.folderNo || `${tm.prefix}-${tm.clientNo}-${tm.caseNo}` || "—"}</td>
-                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10 max-w-[180px] truncate" title={tm.appName ?? ""}>{tm.appName || "—"}</td>
+                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10 max-w-[140px] truncate">{tm.clientName || "—"}</td>
+                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10 font-bold text-[#0A6B52]">{tm.folderNo || "—"}</td>
+                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10 max-w-[180px] truncate">{tm.appName || "—"}</td>
                     <td className="px-3 py-2 border-r border-[#0C0C0C]/10">
-                      {tm.stage && (
-                        <span className={`inline-block px-1.5 py-0.5 text-[9px] font-bold uppercase border border-[#0C0C0C]/30 ${STAGE_BADGE[tm.stage] ?? "bg-[#E8DFC7]"}`}>
-                          {tm.stage}
-                        </span>
-                      )}
+                      {tm.stage && <span className={`inline-block px-1.5 py-0.5 text-[9px] font-bold uppercase border border-[#0C0C0C]/20 ${STAGE_BADGE[tm.stage] ?? "bg-[#E8DFC7]"}`}>{tm.stage}</span>}
                     </td>
-                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10 text-[#6d6658] max-w-[120px] truncate" title={tm.subStage ?? ""}>{tm.subStage || "—"}</td>
+                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10 text-[#6d6658] max-w-[120px] truncate">{tm.subStage || "—"}</td>
                     <td className="px-3 py-2 border-r border-[#0C0C0C]/10 font-bold">{tm.tmNo || "—"}</td>
                     <td className="px-3 py-2 border-r border-[#0C0C0C]/10">{tm.appClass || "—"}</td>
-                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10">{(tm as any).caseType || "—"}</td>
+                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10">{tm.caseType || "—"}</td>
                     <td className="px-3 py-2 border-r border-[#0C0C0C]/10 text-[#6d6658]">{safeFmt(tm.updatedAt)}</td>
                     <td className="px-3 py-2 border-r border-[#0C0C0C]/10">{tm.city || "—"}</td>
-                    <td className="px-3 py-2 max-w-[160px] truncate text-[#6d6658]" title={tm.notes ?? ""}>{tm.notes || "—"}</td>
+                    <td className="px-3 py-2 max-w-[160px] truncate text-[#6d6658]">{tm.notes || "—"}</td>
                   </tr>
                 ))
               )}
@@ -198,37 +223,21 @@ export function DatabasePage() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="shrink-0 flex items-center justify-between px-5 py-2.5 bg-[#E8DFC7] border-t-2 border-[#0C0C0C]">
-            <span className="font-mono text-xs text-[#6d6658] font-bold">
-              PAGE {page} OF {totalPages} · {trademarks.length} RECORDS
-            </span>
+          <div className="shrink-0 flex items-center justify-between px-6 py-3 bg-[#E8DFC7] border-t-2 border-[#0C0C0C]">
+            <span className="font-mono text-[10px] text-[#6d6658] font-bold uppercase tracking-widest">PAGE {page} OF {totalPages} · {sorted.length} RECORDS</span>
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="flex items-center gap-1 px-2 py-1 border-2 border-[#0C0C0C] font-mono text-xs font-bold disabled:opacity-30 hover:bg-[#0C0C0C] hover:text-[#F0E8D0] transition-colors"
-              >
-                <ChevronLeft className="w-3 h-3" /> PREV
+              <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="flex items-center gap-1 px-3 py-1.5 border-2 border-[#0C0C0C] bg-white font-mono text-[10px] font-bold uppercase tracking-wider disabled:opacity-40 hover:bg-[#0C0C0C] hover:text-[#F0E8D0] transition-colors">
+                <ChevronLeft className="w-3.5 h-3.5" /> PREV
               </button>
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                className="flex items-center gap-1 px-2 py-1 border-2 border-[#0C0C0C] font-mono text-xs font-bold disabled:opacity-30 hover:bg-[#0C0C0C] hover:text-[#F0E8D0] transition-colors"
-              >
-                NEXT <ChevronRight className="w-3 h-3" />
+              <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="flex items-center gap-1 px-3 py-1.5 border-2 border-[#0C0C0C] bg-white font-mono text-[10px] font-bold uppercase tracking-wider disabled:opacity-40 hover:bg-[#0C0C0C] hover:text-[#F0E8D0] transition-colors">
+                NEXT <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
         )}
       </div>
 
-      {/* Record Modal */}
-      {modalOpen && (
-        <RecordModal
-          recordId={editId}
-          onClose={closeModal}
-        />
-      )}
+      {modalOpen && <RecordModal recordId={editId} isNew={isNew} onClose={closeModal} />}
     </AppShell>
   );
 }

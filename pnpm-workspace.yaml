@@ -33,10 +33,7 @@ minimumReleaseAgeExclude:
   - '@replit/*'
 
 packages:
-  - artifacts/*
-  - lib/*
-  - lib/integrations/*
-  - scripts
+  - artifacts/tm-tracker
 
 catalog:
   '@replit/vite-plugin-cartographer': ^0.5.21

@@ -1,24 +1,47 @@
 # Brandex Project Guidelines
 
-**Version 1.0.0**  
+**Version 2.0.0**  
 Engineering  
 August 2026
 
 > **Note:**  
-> This document provides project-level guidelines for the Brandex trademark tracker. It includes development practices, backup procedures, and operational standards for agents and developers working on this codebase.
+> This document provides project-level guidelines for the Brandex trademark tracker. Brandex is now a pure Google Sheets-backed application. There is no database server or backend API.
 
 ---
 
 ## Project Overview
 
-Brandex is a live trademark registry for law and brand operations teams. It turns a Google Sheet into a searchable, stage-aware workspace that works from a desktop browser and a native mobile companion.
+Brandex is a live trademark registry for law and brand operations teams. It is a single React web application (`artifacts/tm-tracker`) that communicates directly with a **Google Apps Script Web App**, which in turn reads and writes to a **Google Spreadsheet**.
 
 ### Key Technologies
-- **Frontend**: React (Expo for mobile, web for desktop)
-- **Backend**: Express API server
-- **Database**: PostgreSQL
-- **Package Manager**: pnpm workspaces
-- **Google Sheets Integration**: Google Sheets API + Apps Script
+- **Frontend**: React (Vite + TailwindCSS)
+- **Backend**: Google Apps Script (`google-apps-script/Code.gs`)
+- **Database**: Google Sheets (two tabs: `Database` and `Audit Log`)
+- **Package Manager**: pnpm
+
+### No Longer Used
+- ~~PostgreSQL / Neon~~ — removed
+- ~~Express API server~~ — removed (`artifacts/api-server` deleted)
+- ~~Expo mobile app~~ — removed (`artifacts/tm-tracker-mobile` deleted)
+- ~~`@workspace/db`, `@workspace/api-spec`, `@workspace/api-client-react`~~ — deleted
+
+---
+
+## Workspace Structure
+
+```
+Brandex/
+├── artifacts/
+│   └── tm-tracker/            # The only artifact — the web app
+│       └── src/
+│           ├── lib/api.ts     # Google Apps Script API client
+│           ├── pages/         # Dashboard, Search, Database, Logs
+│           └── components/    # RecordModal, Navbar, AppShell
+├── google-apps-script/
+│   └── Code.gs                # The full backend (deploy to GAS)
+├── .env                       # Only needs VITE_APPS_SCRIPT_URL
+└── .env.example               # Template
+```
 
 ---
 
@@ -27,33 +50,27 @@ Brandex is a live trademark registry for law and brand operations teams. It turn
 ### Prerequisites
 - Node.js (v18 or higher)
 - pnpm package manager
-- Git
-- Access to Google Sheets API and Apps Script
 
 ### Setup Commands
 ```bash
 # Install dependencies
 pnpm install
 
-# Type check libraries
-pnpm run typecheck:libs
+# Run the web app
+pnpm --filter @workspace/tm-tracker run dev
 
-# Build API server
-pnpm --filter @workspace/api-server run build
+# Type check
+pnpm --filter @workspace/tm-tracker run typecheck
 
-# Type check mobile app
-pnpm --filter @workspace/tm-tracker-mobile run typecheck
+# Build for production
+pnpm --filter @workspace/tm-tracker run build
 ```
 
-### Workspace Structure
+### Environment Variables
+Only one variable is required:
+
 ```
-Brandex/
-├── artifacts/
-│   ├── tm-tracker-mobile/    # Primary mobile command center
-│   ├── tm-tracker/           # Desktop web copy
-│   └── api-server/           # Shared Express API
-├── lib/                      # Shared API contracts and generated clients
-└── .agents/                  # Skills and automation tools
+VITE_APPS_SCRIPT_URL=https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec
 ```
 
 ---
@@ -62,16 +79,7 @@ Brandex/
 
 ### Automatic Commit and Push Policy
 
-**MANDATORY PRACTICE**: Always commit and push code to GitHub immediately after completing any work. This ensures:
-
-1. **Continuous Backup**: All work is safely backed up to GitHub
-2. **Collaboration**: Team members can access latest changes
-3. **Disaster Recovery**: Protection against local machine failures
-4. **Version History**: Complete audit trail of all changes
-
-### Git Workflow
-
-After any code changes, feature completion, or bug fixes:
+**MANDATORY PRACTICE**: Always commit and push code to GitHub immediately after completing any work.
 
 ```bash
 # 1. Check current status
@@ -88,64 +96,28 @@ git push origin main
 ```
 
 ### Commit Message Guidelines
-
-- Use clear, descriptive messages starting with a verb
 - Format: `[Type] Brief description`
 - Types: `Add`, `Fix`, `Update`, `Refactor`, `Remove`, `Docs`
-- Example: `Add search by folder number functionality`
 
-### Pre-Commit Checklist
+---
 
-Before committing and pushing, ensure:
-- [ ] Code follows project style guidelines
-- [ ] Type checking passes (`pnpm run typecheck:libs`)
-- [ ] Build succeeds (`pnpm --filter @workspace/api-server run build`)
-- [ ] No console errors or warnings
-- [ ] Secrets are not committed (use environment variables)
-- [ ] Dependencies are updated via pnpm (not manual package.json edits)
+## Google Sheets Structure
 
-### Branch Strategy
+### Tab 1 — `Database`
+Headers in row 1 (exact names required):
+`ID`, `DATE`, `TYPE`, `CLIENT CODE`, `CLIENT NAME`, `CASE NUMBER`, `APPLICATION NAME`, `STATUS`, `SUB STATUS`, `TM NUMBER`, `CLASS`, `CASE TYPE`, `CITY`, `NOTES`, `LAST MODIFIED`
 
-- **main**: Production-ready code
-- **feature/**: New features
-- **fix/**: Bug fixes
-- **docs/**: Documentation updates
-
-For any work outside of main:
-```bash
-# Create feature branch
-git checkout -b feature/your-feature-name
-
-# Work on changes...
-
-# Commit and push feature branch
-git add .
-git commit -m "Add your feature"
-git push origin feature/your-feature-name
-
-# After review and merge, return to main
-git checkout main
-git pull origin main
-```
+### Tab 2 — `Audit Log`
+Headers in row 1:
+`Timestamp`, `User`, `Action`, `Record`, `Field`, `Old Value`, `New Value`
 
 ---
 
 ## Security Guidelines
 
 ### Never Commit Secrets
-- Do not commit API keys, database credentials, or tokens
-- Use Replit Secrets for environment configuration
-- Required secrets:
-  - `GOOGLE_SHEETS_API_KEY`
-  - `GOOGLE_SHEETS_APPS_SCRIPT_URL`
-  - `DATABASE_URL`
-  - `DATABASE_URL_UNPOOLED` (optional, for migrations)
-
-### Security Best Practices
-- Use `pnpm audit` regularly to check for vulnerabilities
-- Keep dependencies updated
-- Validate data from Google Sheets before syncing
-- Use the unpooled database connection only for migrations/admin tooling
+- Do not commit the actual `VITE_APPS_SCRIPT_URL` with a deployed URL unless it's intentional (Apps Script URLs are public by design when "Anyone with the link" is set).
+- Ensure your Google Sheet access is appropriately restricted.
 
 ---
 
@@ -153,96 +125,33 @@ git pull origin main
 
 ### Design Language
 Brandex uses a neo-brutalist visual system:
-- Warm paper backgrounds
-- Black structural borders
-- Orange accents
-- Bold typography
-- Compact data cards
-- Direct operational labels
+- Warm paper backgrounds (`#F0E8D0`)
+- Black structural borders (`#0C0C0C`)
+- Orange accents (`#C94A00`)
+- Monospace bold typography
+- Compact data-dense tables
 
 ### TypeScript Guidelines
 - Use TypeScript for all new code
-- Enable strict type checking
+- All types are defined in `src/lib/api.ts`
 - Avoid `any` types
-- Use interfaces for object shapes
-- Provide type safety for API contracts
-
-### React Patterns
-- Follow React composition patterns (see `.agents/skills/vercel-composition-patterns/AGENTS.md`)
-- Avoid boolean prop proliferation
-- Use compound components for complex UI
-- Lift state into provider components
-- Decouple state management from UI
 
 ---
 
-## Testing and Quality Assurance
+## API Architecture (Google Apps Script)
 
-### Type Checking
-```bash
-# Check all libraries
-pnpm run typecheck:libs
+The `Code.gs` file acts as a REST-like API:
 
-# Check specific workspace
-pnpm --filter @workspace/tm-tracker-mobile run typecheck
-```
+| Method | Action | Description |
+|--------|--------|-------------|
+| `GET` | `?action=list` | Returns all database rows as JSON |
+| `GET` | `?action=stats` | Returns statistics (totals, by stage, by city) |
+| `GET` | `?action=listLogs&limit=N&offset=N` | Returns audit log entries |
+| `POST` | `{ action: "create", record: {...} }` | Creates a new row |
+| `POST` | `{ action: "update", id: "...", record: {...} }` | Updates a row by ID |
+| `POST` | `{ action: "delete", id: "..." }` | Deletes a row by ID |
 
-### Building
-```bash
-# Build API server
-pnpm --filter @workspace/api-server run build
-```
-
-### Manual Testing Checklist
-- [ ] Desktop web app functions correctly
-- [ ] Mobile app functions correctly
-- [ ] Google Sheets sync works
-- [ ] Search functionality works
-- [ ] CRUD operations work
-- [ ] Audit log records changes
-- [ ] Dashboard displays correct data
-
----
-
-## Google Sheets Integration
-
-### Sheet Format
-The sync expects columns in this order:
-`DATE`, `CASE NO`, `APP NAME`, `TM NO`, `CLASS`, `STATUS`, `SUB STATUS`, `Duplicate`, `TM-11`, `Notes`, `City`
-
-### Apps Script Setup
-- Configure the Apps Script web app URL in secrets
-- Ensure write-back permissions are properly set
-- Test sync functionality after any changes to sync logic
-
----
-
-## Troubleshooting
-
-### Common Issues
-
-**Type Errors**
-```bash
-# Run type check to identify issues
-pnpm run typecheck:libs
-```
-
-**Build Failures**
-```bash
-# Clean install
-rm -rf node_modules
-pnpm install
-```
-
-**Sync Issues**
-- Verify Google Sheets API key is valid
-- Check Apps Script URL is correct
-- Ensure sheet column order matches expected format
-
-**Database Connection Issues**
-- Verify `DATABASE_URL` is set correctly
-- Check database is accessible
-- Use `DATABASE_URL_UNPOOLED` for migrations only
+All create/update/delete operations automatically log to the `Audit Log` sheet.
 
 ---
 
@@ -256,14 +165,4 @@ pnpm install
 
 ## License
 
-MIT License - See LICENSE file for details.
-
----
-
-## Additional Documentation
-
-- [README.md](README.md) - Project overview and setup
-- [CONTRIBUTING.md](CONTRIBUTING.md) - Contribution guidelines
-- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) - Community guidelines
-- [SECURITY.md](SECURITY.md) - Security policy and reporting
-- [React Composition Patterns](.agents/skills/vercel-composition-patterns/AGENTS.md) - React component architecture guidelines
+MIT License — See LICENSE file for details.
