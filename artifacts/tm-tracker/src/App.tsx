@@ -3,10 +3,12 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Route, Switch, Router as WouterRouter } from "wouter";
 
-import { Dashboard } from "./pages/Dashboard";
-import { SearchPage } from "./pages/SearchPage";
+import { Dashboard }    from "./pages/Dashboard";
+import { SearchPage }   from "./pages/SearchPage";
 import { DatabasePage } from "./pages/DatabasePage";
-import { LogsPage } from "./pages/LogsPage";
+import { LogsPage }     from "./pages/LogsPage";
+import { RecordView }   from "./pages/RecordView";
+import { AssignedPage } from "./pages/AssignedPage";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -21,11 +23,13 @@ const queryClient = new QueryClient({
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Dashboard} />
-      <Route path="/search" component={SearchPage} />
-      <Route path="/database" component={DatabasePage} />
-      <Route path="/logs" component={LogsPage} />
-      <Route component={NotFound} />
+      <Route path="/"              component={Dashboard} />
+      <Route path="/search"        component={SearchPage} />
+      <Route path="/database"      component={DatabasePage} />
+      <Route path="/assigned"      component={AssignedPage} />
+      <Route path="/record/:id"    component={RecordView} />
+      <Route path="/logs"          component={LogsPage} />
+      <Route                       component={NotFound} />
     </Switch>
   );
 }

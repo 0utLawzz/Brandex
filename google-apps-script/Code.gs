@@ -1,5 +1,5 @@
 /**
- * Brandex Google Sheets Backend
+ * Brandex Google Sheets Backend — v2.0
  *
  * Deploy: Deploy > New deployment > Web app
  * Execute as: Me
@@ -7,37 +7,55 @@
  *
  * === SHEET STRUCTURE REQUIRED ===
  *
- * Tab 1 — "Database" (or Sheet1):
- *   Row 1 headers: ID | DATE | TYPE | CLIENT CODE | CLIENT NAME | CASE NUMBER |
- *                  APPLICATION NAME | STATUS | SUB STATUS | TM NUMBER | CLASS |
- *                  CASE TYPE | CITY | NOTES | LAST MODIFIED
+ * Tab "DATABASE":
+ *   ID | DATE | TYPE | CLIENT CODE | CASE NUMBER | CLIENT NAME | APPLICATION NAME |
+ *   TM/CPR NUMBER | CLASS | STATUS | SUB STATUS | CASE TYPE | AGENT | CITY | NOTES |
+ *   TM5 | TM6 | TM11 | TM16 | TM56 | JOURNAL NUMBER | JOURNAL DATE | LAST MODIFIED | IMAGE
  *
- * Tab 2 — "Audit Log" (exact name):
- *   Row 1 headers: Timestamp | User | Action | Record | Field | Old Value | New Value
+ * Tab "CLIENTS":
+ *   CLIENT CODE | CLIENT NAME | ...
+ *
+ * Tabs "TM5", "TM6", "TM11", "TM16", "TM56":
+ *   TM NUMBER | ... (other columns)
+ *
+ * Tab "JOURNAL":
+ *   Application No | Journal No | Journal Date | Title | Class |
+ *   Applicant Name and Address | Agent Name and Address | Date of Filing
+ *
+ * Tab "LOGS" (was "Audit Log"):
+ *   Timestamp | User | Action | Record ID | Case Number | Field | Old Value | New Value
  *
  * === API ===
  *
- * GET  ?action=list              → returns all database rows as JSON array
- * GET  ?action=stats             → returns summary statistics
- * GET  ?action=listLogs&limit=N  → returns last N audit log rows
+ * GET  ?action=list                          → all DATABASE rows (24 cols) as JSON
+ * GET  ?action=stats                         → summary statistics
+ * GET  ?action=getRecord&id=X               → single enriched record (TM matches + Journal)
+ * GET  ?action=searchTm&tmNo=X              → TM card: record + TM matches + Journal
+ * GET  ?action=listLogs&limit=N&offset=N    → LOGS rows (newest first)
+ * GET  ?action=listAgents                   → distinct agent list from DATABASE
  *
- * POST { action: "create", record: {...} }             → create new row
- * POST { action: "update", id: "...", record: {...} }  → update row by ID
- * POST { action: "delete", id: "..." }                 → delete row by ID
+ * POST { action: "create", record: {...} }   → create new row
+ * POST { action: "update", id: "...", record: {...} }  → update by ID
+ * POST { action: "delete", id: "..." }       → delete by ID
  */
 
-var DB_SHEET_NAME = "Database";
-var LOG_SHEET_NAME = "Audit Log";
+var DB_SHEET_NAME  = "DATABASE";
+var LOG_SHEET_NAME = "LOGS";
 
 var DB_HEADERS = [
-  "ID", "DATE", "TYPE", "CLIENT CODE", "CLIENT NAME", "CASE NUMBER",
-  "APPLICATION NAME", "STATUS", "SUB STATUS", "TM NUMBER", "CLASS",
-  "CASE TYPE", "CITY", "NOTES", "LAST MODIFIED"
+  "ID", "DATE", "TYPE", "CLIENT CODE", "CASE NUMBER", "CLIENT NAME",
+  "APPLICATION NAME", "TM/CPR NUMBER", "CLASS", "STATUS", "SUB STATUS",
+  "CASE TYPE", "AGENT", "CITY", "NOTES",
+  "TM5", "TM6", "TM11", "TM16", "TM56",
+  "JOURNAL NUMBER", "JOURNAL DATE", "LAST MODIFIED", "IMAGE"
 ];
 
 var LOG_HEADERS = [
-  "Timestamp", "User", "Action", "Record", "Field", "Old Value", "New Value"
+  "Timestamp", "User", "Action", "Record ID", "Case Number",
+  "Field", "Old Value", "New Value"
 ];
+
+var TM_SHEETS = ["TM5", "TM6", "TM11", "TM16", "TM56"];
 
 // ---------------------------------------------------------------------------
 // GET handler — read-only operations
@@ -58,11 +76,31 @@ function doGet(e) {
       return json({ ok: true, data: stats });
     }
 
+    if (action === "getRecord") {
+      var id = params.id;
+      if (!id) return json({ ok: false, error: "id is required" });
+      var record = getEnrichedRecord(id);
+      if (!record) return json({ ok: false, error: "Record not found: " + id });
+      return json({ ok: true, data: record });
+    }
+
+    if (action === "searchTm") {
+      var tmNo = String(params.tmNo || "").trim();
+      if (!tmNo) return json({ ok: false, error: "tmNo is required" });
+      var result = searchByTmNumber(tmNo);
+      return json({ ok: true, data: result });
+    }
+
     if (action === "listLogs") {
-      var limit = parseInt(params.limit || "100", 10);
-      var offset = parseInt(params.offset || "0", 10);
+      var limit  = parseInt(params.limit  || "100", 10);
+      var offset = parseInt(params.offset || "0",   10);
       var logs = getLogRows(limit, offset);
       return json({ ok: true, data: logs });
+    }
+
+    if (action === "listAgents") {
+      var agents = getDistinctValues("AGENT");
+      return json({ ok: true, data: agents });
     }
 
     return json({ ok: false, error: "Unknown GET action: " + action });
@@ -76,7 +114,7 @@ function doGet(e) {
 // ---------------------------------------------------------------------------
 function doPost(e) {
   try {
-    var body = JSON.parse(e.postData.contents || "{}");
+    var body   = JSON.parse(e.postData.contents || "{}");
     var action = body.action;
 
     if (action === "create") {
@@ -94,36 +132,6 @@ function doPost(e) {
       return json({ ok: true });
     }
 
-    // Legacy compat for old upsertTrademark calls
-    if (action === "upsertTrademark" || action === "updateTrademark") {
-      var tm = body.trademark || {};
-      var legacyRecord = {
-        date: tm.date,
-        prefix: tm.prefix,
-        clientNo: tm.clientNo,
-        clientName: tm.clientName,
-        caseNo: tm.caseNo,
-        folderNo: tm.folderNo,
-        appName: tm.appName,
-        stage: tm.stage,
-        subStage: tm.subStage,
-        tmNo: tm.tmNo,
-        appClass: tm.appClass,
-        caseType: tm.caseType,
-        city: tm.city,
-        notes: tm.notes,
-      };
-
-      var existing = findRowById(tm.id);
-      if (existing) {
-        var result = updateRecord(tm.id, legacyRecord);
-        return json({ ok: true, data: result });
-      } else {
-        var result = createRecord(legacyRecord);
-        return json({ ok: true, data: result });
-      }
-    }
-
     return json({ ok: false, error: "Unknown POST action: " + action });
   } catch (err) {
     return json({ ok: false, error: String(err) });
@@ -136,12 +144,10 @@ function doPost(e) {
 function getDbSheet() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(DB_SHEET_NAME) || ss.getSheets()[0];
-  // Ensure headers exist
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(DB_HEADERS);
   } else {
-    var firstRow = sheet.getRange(1, 1, 1, DB_HEADERS.length).getValues()[0];
-    var firstCell = String(firstRow[0]).trim();
+    var firstCell = String(sheet.getRange(1, 1).getValue()).trim();
     if (firstCell !== "ID") {
       sheet.insertRowBefore(1);
       sheet.getRange(1, 1, 1, DB_HEADERS.length).setValues([DB_HEADERS]);
@@ -151,7 +157,7 @@ function getDbSheet() {
 }
 
 function getLogSheet() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss    = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(LOG_SHEET_NAME);
   if (!sheet) {
     sheet = ss.insertSheet(LOG_SHEET_NAME);
@@ -169,22 +175,32 @@ function getHeaderMap(sheet) {
   return map;
 }
 
+function normalizeTmNo(val) {
+  return String(val || "").trim().replace(/\.0$/, "").replace(/^["']|["']$/g, "");
+}
+
 function getDbRows() {
   var sheet = getDbSheet();
-  var last = sheet.getLastRow();
+  var last  = sheet.getLastRow();
   if (last < 2) return [];
 
-  var data = sheet.getRange(2, 1, last - 1, sheet.getLastColumn()).getValues();
+  var data    = sheet.getRange(2, 1, last - 1, sheet.getLastColumn()).getValues();
   var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
 
   return data
-    .filter(function (row) { return String(row[0]).trim() !== ""; })
+    .filter(function (row) {
+      return String(row[0]).trim() !== "";
+    })
     .map(function (row) {
       var obj = {};
       headers.forEach(function (h, i) {
         var key = String(h).trim();
         var val = row[i];
-        obj[key] = val instanceof Date ? val.toISOString().split("T")[0] : String(val || "");
+        if (val instanceof Date) {
+          obj[key] = Utilities.formatDate(val, Session.getScriptTimeZone(), "yyyy-MM-dd'T'HH:mm:ss");
+        } else {
+          obj[key] = String(val === null || val === undefined ? "" : val);
+        }
       });
       return obj;
     });
@@ -192,13 +208,13 @@ function getDbRows() {
 
 function findRowById(id) {
   var sheet = getDbSheet();
-  var last = sheet.getLastRow();
+  var last  = sheet.getLastRow();
   if (last < 2) return null;
 
   var idCol = sheet.getRange(2, 1, last - 1, 1).getValues();
   for (var i = 0; i < idCol.length; i++) {
     if (String(idCol[i][0]).trim() === String(id).trim()) {
-      return { rowIndex: i + 2 }; // 1-based row
+      return { rowIndex: i + 2 };
     }
   }
   return null;
@@ -208,32 +224,71 @@ function generateId() {
   return "BX-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
 }
 
+// ---------------------------------------------------------------------------
+// Field mapping helper — maps API field names to DB_HEADERS
+// ---------------------------------------------------------------------------
+function buildRowFromRecord(record, existing) {
+  var tz  = Session.getScriptTimeZone();
+  var now = Utilities.formatDate(new Date(), tz, "yyyy-MM-dd'T'HH:mm:ss");
+
+  var row = existing ? existing.slice() : new Array(DB_HEADERS.length).fill("");
+
+  function set(header, val) {
+    var idx = DB_HEADERS.indexOf(header);
+    if (idx >= 0 && val !== undefined && val !== null) row[idx] = val;
+  }
+
+  if (record.date      !== undefined) set("DATE",           record.date);
+  if (record.type      !== undefined) set("TYPE",           record.type);
+  // legacy prefix field
+  if (record.prefix    !== undefined) set("TYPE",           record.prefix);
+  if (record.clientCode !== undefined) set("CLIENT CODE",   record.clientCode);
+  // legacy clientNo field
+  if (record.clientNo  !== undefined) set("CLIENT CODE",    record.clientNo);
+  if (record.caseNumber !== undefined) set("CASE NUMBER",   record.caseNumber);
+  // legacy caseNo / folderNo field
+  if (record.caseNo    !== undefined) set("CASE NUMBER",    record.caseNo);
+  if (record.folderNo  !== undefined) set("CASE NUMBER",    record.folderNo);
+  if (record.clientName !== undefined) set("CLIENT NAME",   record.clientName);
+  if (record.appName   !== undefined) set("APPLICATION NAME", record.appName);
+  if (record.tmCprNo   !== undefined) set("TM/CPR NUMBER",  record.tmCprNo);
+  // legacy tmNo field
+  if (record.tmNo      !== undefined) set("TM/CPR NUMBER",  record.tmNo);
+  if (record.appClass  !== undefined) set("CLASS",          record.appClass);
+  if (record.stage     !== undefined) set("STATUS",         record.stage);
+  if (record.subStage  !== undefined) set("SUB STATUS",     record.subStage);
+  if (record.caseType  !== undefined) set("CASE TYPE",      record.caseType);
+  if (record.agent     !== undefined) set("AGENT",          record.agent);
+  if (record.city      !== undefined) set("CITY",           record.city);
+  if (record.notes     !== undefined) set("NOTES",          record.notes);
+  if (record.image     !== undefined) set("IMAGE",          record.image);
+
+  // Always update LAST MODIFIED
+  set("LAST MODIFIED", now);
+
+  return row;
+}
+
 function createRecord(record) {
-  var sheet = getDbSheet();
-  var headerMap = getHeaderMap(sheet);
-  var id = record.id || generateId();
-  var now = new Date().toISOString();
+  var sheet     = getDbSheet();
+  var id        = record.id || generateId();
+  var tz        = Session.getScriptTimeZone();
+  var now       = Utilities.formatDate(new Date(), tz, "yyyy-MM-dd'T'HH:mm:ss");
 
   var row = new Array(DB_HEADERS.length).fill("");
-  row[headerMap["ID"]] = id;
-  row[headerMap["DATE"]] = record.date || now.split("T")[0];
-  row[headerMap["TYPE"]] = record.prefix || record.type || "";
-  row[headerMap["CLIENT CODE"]] = record.clientNo || "";
-  row[headerMap["CLIENT NAME"]] = record.clientName || "";
-  row[headerMap["CASE NUMBER"]] = record.folderNo || record.caseNo || "";
-  row[headerMap["APPLICATION NAME"]] = record.appName || "";
-  row[headerMap["STATUS"]] = record.stage || "";
-  row[headerMap["SUB STATUS"]] = record.subStage || "";
-  row[headerMap["TM NUMBER"]] = record.tmNo || "";
-  row[headerMap["CLASS"]] = record.appClass || "";
-  row[headerMap["CASE TYPE"]] = record.caseType || "";
-  row[headerMap["CITY"]] = record.city || "";
-  row[headerMap["NOTES"]] = record.notes || "";
-  row[headerMap["LAST MODIFIED"]] = now;
+  row[DB_HEADERS.indexOf("ID")]   = id;
+  row[DB_HEADERS.indexOf("DATE")] = record.date || Utilities.formatDate(new Date(), tz, "yyyy-MM-dd");
+
+  row = buildRowFromRecord(record, row);
+  row[DB_HEADERS.indexOf("ID")]   = id; // Ensure ID is not overwritten
+  row[DB_HEADERS.indexOf("LAST MODIFIED")] = now;
 
   sheet.appendRow(row);
-  appendLog("CREATE", id, record.appName || id, "CREATE", "", "CREATED", record);
-  return { id: id, folderNo: row[headerMap["CASE NUMBER"]] };
+
+  var caseNo = row[DB_HEADERS.indexOf("CASE NUMBER")] || "";
+  appendLog("CREATE", id, caseNo, record.appName || id, "CREATE", "", "CREATED");
+
+  return { id: id, caseNumber: caseNo };
 }
 
 function updateRecord(id, record) {
@@ -241,47 +296,35 @@ function updateRecord(id, record) {
   var found = findRowById(id);
   if (!found) throw new Error("Record not found: " + id);
 
-  var rowNum = found.rowIndex;
-  var headerMap = getHeaderMap(sheet);
-  var now = new Date().toISOString();
+  var rowNum    = found.rowIndex;
+  var lastCol   = sheet.getLastColumn();
+  var oldRowArr = sheet.getRange(rowNum, 1, 1, lastCol).getValues()[0];
 
-  // Read old values for audit
-  var oldRow = sheet.getRange(rowNum, 1, 1, sheet.getLastColumn()).getValues()[0];
-  var oldRecord = {};
-  DB_HEADERS.forEach(function (h, i) { oldRecord[h] = String(oldRow[headerMap[h]] || ""); });
+  // Pad to full DB_HEADERS length if sheet has fewer cols
+  while (oldRowArr.length < DB_HEADERS.length) oldRowArr.push("");
 
-  // Map of fields to update
-  var fieldMap = {
-    "DATE": record.date,
-    "TYPE": record.prefix || record.type,
-    "CLIENT CODE": record.clientNo,
-    "CLIENT NAME": record.clientName,
-    "CASE NUMBER": record.folderNo || record.caseNo,
-    "APPLICATION NAME": record.appName,
-    "STATUS": record.stage,
-    "SUB STATUS": record.subStage,
-    "TM NUMBER": record.tmNo,
-    "CLASS": record.appClass,
-    "CASE TYPE": record.caseType,
-    "CITY": record.city,
-    "NOTES": record.notes,
-    "LAST MODIFIED": now,
-  };
+  var newRowArr = buildRowFromRecord(record, oldRowArr.slice());
 
-  var label = record.appName || id;
+  var label  = record.appName || id;
+  var caseNo = oldRowArr[DB_HEADERS.indexOf("CASE NUMBER")] || "";
 
-  Object.keys(fieldMap).forEach(function (header) {
-    var newVal = fieldMap[header];
-    if (newVal === undefined || newVal === null) return;
-    var colIndex = headerMap[header];
-    if (colIndex === undefined) return;
-    var oldVal = oldRecord[header] || "";
-    var newValStr = String(newVal);
-    if (oldVal !== newValStr) {
-      sheet.getRange(rowNum, colIndex + 1).setValue(newVal);
-      appendLog("UPDATE", id, label, header, oldVal, newValStr, {});
+  // Write changed cells and log each change
+  for (var i = 0; i < DB_HEADERS.length; i++) {
+    var header = DB_HEADERS[i];
+    if (header === "ID" || header === "LAST MODIFIED") continue;
+    var oldVal = String(oldRowArr[i] || "");
+    var newVal = String(newRowArr[i] === undefined ? "" : newRowArr[i]);
+    if (oldVal !== newVal) {
+      sheet.getRange(rowNum, i + 1).setValue(newRowArr[i]);
+      appendLog("UPDATE", id, caseNo, label, header, oldVal, newVal);
     }
-  });
+  }
+
+  // Always update LAST MODIFIED
+  var lmIdx = DB_HEADERS.indexOf("LAST MODIFIED") + 1;
+  var tz  = Session.getScriptTimeZone();
+  var now = Utilities.formatDate(new Date(), tz, "yyyy-MM-dd'T'HH:mm:ss");
+  sheet.getRange(rowNum, lmIdx).setValue(now);
 
   return { id: id };
 }
@@ -290,51 +333,215 @@ function deleteRecord(id) {
   var sheet = getDbSheet();
   var found = findRowById(id);
   if (!found) throw new Error("Record not found: " + id);
-  appendLog("DELETE", id, id, "DELETE", "", "DELETED", {});
-  sheet.deleteRow(found.rowIndex);
+
+  var rowNum = found.rowIndex;
+  var caseNo = String(sheet.getRange(rowNum, DB_HEADERS.indexOf("CASE NUMBER") + 1).getValue() || "");
+  appendLog("DELETE", id, caseNo, id, "DELETE", "", "DELETED");
+  sheet.deleteRow(rowNum);
+}
+
+// ---------------------------------------------------------------------------
+// Enriched record (single record with TM matching + Journal)
+// ---------------------------------------------------------------------------
+function getEnrichedRecord(id) {
+  var rows = getDbRows();
+  var record = null;
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i]["ID"]).trim() === String(id).trim()) {
+      record = rows[i];
+      break;
+    }
+  }
+  if (!record) return null;
+  return enrichRecord(record);
+}
+
+function enrichRecord(record) {
+  var tmNo   = normalizeTmNo(record["TM/CPR NUMBER"]);
+  var matches = getTmSheetMatches(tmNo);
+  var journal = tmNo ? getJournalMatch(tmNo) : null;
+  record["_tmMatches"]  = matches;
+  record["_journal"]    = journal;
+  return record;
+}
+
+// ---------------------------------------------------------------------------
+// Search by TM Number (for the Search TM card)
+// ---------------------------------------------------------------------------
+function searchByTmNumber(tmNo) {
+  var normalized = normalizeTmNo(tmNo);
+  var rows  = getDbRows();
+  var found = [];
+
+  for (var i = 0; i < rows.length; i++) {
+    if (normalizeTmNo(rows[i]["TM/CPR NUMBER"]) === normalized) {
+      found.push(rows[i]);
+    }
+  }
+
+  var matches = getTmSheetMatches(normalized);
+  var journal = getJournalMatch(normalized);
+
+  return {
+    records: found,
+    tmMatches: matches,
+    journal: journal
+  };
+}
+
+// ---------------------------------------------------------------------------
+// TM Sheet matching
+// ---------------------------------------------------------------------------
+function getTmSheetMatches(tmNo) {
+  if (!tmNo) return { TM5: false, TM6: false, TM11: false, TM16: false, TM56: false };
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var result = {};
+
+  TM_SHEETS.forEach(function (sheetName) {
+    var sheet = ss.getSheetByName(sheetName);
+    if (!sheet) { result[sheetName] = false; return; }
+
+    var last = sheet.getLastRow();
+    if (last < 2) { result[sheetName] = false; return; }
+
+    // Find "TM NUMBER" column
+    var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    var tmColIdx = -1;
+    for (var i = 0; i < headers.length; i++) {
+      var h = String(headers[i]).trim().toUpperCase();
+      if (h === "TM NUMBER" || h === "TM/CPR NUMBER" || h === "TM NO") {
+        tmColIdx = i + 1;
+        break;
+      }
+    }
+    if (tmColIdx < 0) { result[sheetName] = false; return; }
+
+    var tmValues = sheet.getRange(2, tmColIdx, last - 1, 1).getValues();
+    var found = false;
+    for (var j = 0; j < tmValues.length; j++) {
+      if (normalizeTmNo(tmValues[j][0]) === tmNo) {
+        found = true;
+        break;
+      }
+    }
+    result[sheetName] = found;
+  });
+
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// Journal matching
+// ---------------------------------------------------------------------------
+function getJournalMatch(tmNo) {
+  if (!tmNo) return null;
+  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("JOURNAL");
+  if (!sheet) return null;
+
+  var last = sheet.getLastRow();
+  if (last < 2) return null;
+
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var headerMap = {};
+  headers.forEach(function (h, i) {
+    headerMap[String(h).trim().toUpperCase()] = i;
+  });
+
+  var appNoIdx = headerMap["APPLICATION NO"] !== undefined ? headerMap["APPLICATION NO"] : -1;
+  if (appNoIdx < 0) {
+    // Try alternate names
+    for (var key in headerMap) {
+      if (key.indexOf("APPLICATION") >= 0 && key.indexOf("NO") >= 0) {
+        appNoIdx = headerMap[key];
+        break;
+      }
+    }
+  }
+  if (appNoIdx < 0) return null;
+
+  var data = sheet.getRange(2, 1, last - 1, sheet.getLastColumn()).getValues();
+
+  for (var i = 0; i < data.length; i++) {
+    var row = data[i];
+    if (normalizeTmNo(row[appNoIdx]) === tmNo) {
+      var result = { found: true };
+      headers.forEach(function (h, idx) {
+        var val = row[idx];
+        result[String(h).trim()] = val instanceof Date
+          ? Utilities.formatDate(val, Session.getScriptTimeZone(), "yyyy-MM-dd")
+          : String(val || "");
+      });
+      return result;
+    }
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Distinct values helper
+// ---------------------------------------------------------------------------
+function getDistinctValues(columnHeader) {
+  var rows = getDbRows();
+  var seen = {};
+  var result = [];
+  rows.forEach(function (row) {
+    var val = String(row[columnHeader] || "").trim();
+    if (val && !seen[val]) {
+      seen[val] = true;
+      result.push(val);
+    }
+  });
+  return result.sort();
 }
 
 // ---------------------------------------------------------------------------
 // Audit Log
 // ---------------------------------------------------------------------------
-function appendLog(action, recordId, label, field, oldVal, newVal, payload) {
+function appendLog(action, recordId, caseNo, label, field, oldVal, newVal) {
   var sheet = getLogSheet();
-  var user = "Brandex";
+  var user  = "Brandex";
   try { user = Session.getActiveUser().getEmail() || "Brandex"; } catch (e) {}
+  var tz  = Session.getScriptTimeZone();
+  var now = Utilities.formatDate(new Date(), tz, "yyyy-MM-dd'T'HH:mm:ss");
   sheet.appendRow([
-    new Date(),
+    now,
     user,
     action,
-    label || recordId,
-    field,
-    oldVal || "",
-    newVal || ""
+    recordId || "",
+    caseNo   || "",
+    field    || "",
+    oldVal   || "",
+    newVal   || ""
   ]);
 }
 
 function getLogRows(limit, offset) {
   var sheet = getLogSheet();
-  var last = sheet.getLastRow();
+  var last  = sheet.getLastRow();
   if (last < 2) return [];
 
-  var totalData = last - 1;
   var startRow = Math.max(2, last - offset - limit + 1);
-  var numRows = Math.min(limit, last - startRow);
+  var numRows  = Math.min(limit, last - startRow);
   if (numRows < 1) return [];
 
-  var data = sheet.getRange(startRow, 1, numRows, 7).getValues();
+  var data   = sheet.getRange(startRow, 1, numRows, 8).getValues();
   var result = [];
   for (var i = data.length - 1; i >= 0; i--) {
     var row = data[i];
+    var ts  = row[0];
     result.push({
-      id: startRow + i - 1,
-      changedAt: row[0] instanceof Date ? row[0].toISOString() : String(row[0]),
-      changedBy: String(row[1] || ""),
-      action: String(row[2] || ""),
-      record: String(row[3] || ""),
-      field: String(row[4] || ""),
-      oldValue: String(row[5] || ""),
-      newValue: String(row[6] || ""),
+      id:         startRow + i - 1,
+      changedAt:  ts instanceof Date ? Utilities.formatDate(ts, Session.getScriptTimeZone(), "yyyy-MM-dd'T'HH:mm:ss") : String(ts || ""),
+      changedBy:  String(row[1] || ""),
+      action:     String(row[2] || ""),
+      recordId:   String(row[3] || ""),
+      caseNo:     String(row[4] || ""),
+      field:      String(row[5] || ""),
+      oldValue:   String(row[6] || ""),
+      newValue:   String(row[7] || ""),
+      // Legacy compat: "record" field for old log format
+      record:     String(row[4] || row[3] || ""),
     });
   }
   return result;
@@ -344,9 +551,9 @@ function getLogRows(limit, offset) {
 // Stats
 // ---------------------------------------------------------------------------
 function computeStats(rows) {
-  var total = rows.length;
-  var byStatus = {};
-  var byCity = {};
+  var total      = rows.length;
+  var byStatus   = {};
+  var byCity     = {};
   var stageCounts = {};
   var sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -359,9 +566,9 @@ function computeStats(rows) {
     var city = row["CITY"] || "UNSPECIFIED";
     byCity[city] = (byCity[city] || 0) + 1;
 
-    var stage = row["STATUS"] || "";
-    if (stage.match(/STAGE \d/i)) {
-      stageCounts[stage.toUpperCase()] = (stageCounts[stage.toUpperCase()] || 0) + 1;
+    if (status.match(/STAGE \d/i)) {
+      var s = status.toUpperCase();
+      stageCounts[s] = (stageCounts[s] || 0) + 1;
     }
 
     var lastMod = row["LAST MODIFIED"];
@@ -371,16 +578,12 @@ function computeStats(rows) {
     }
   });
 
-  var byStage = Object.keys(byStatus).map(function (k) { return { stage: k, count: byStatus[k] }; });
-  var byCityArr = Object.keys(byCity).map(function (k) { return { city: k, count: byCity[k] }; });
-  var byNumericStage = Object.keys(stageCounts).map(function (k) { return { stage: k, count: stageCounts[k] }; });
-
   return {
-    total: total,
+    total:           total,
     recentlyModified: recentlyModified,
-    byStage: byStage,
-    byCity: byCityArr,
-    byNumericStage: byNumericStage
+    byStage:         Object.keys(byStatus).map(function (k) { return { stage: k, count: byStatus[k] }; }),
+    byCity:          Object.keys(byCity).map(function (k) { return { city: k, count: byCity[k] }; }),
+    byNumericStage:  Object.keys(stageCounts).map(function (k) { return { stage: k, count: stageCounts[k] }; })
   };
 }
 

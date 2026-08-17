@@ -2,7 +2,7 @@ import { getStats } from "@/lib/api";
 import type { TrademarkStats } from "@/lib/api";
 import { AppShell } from "@/components/layout/AppShell";
 import { Link } from "wouter";
-import { Plus, Search, Database, ScrollText, Clock, AlertCircle } from "lucide-react";
+import { Plus, Search, Database, ScrollText, Clock, AlertCircle, Users2 } from "lucide-react";
 import { format, isValid } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 import { listAuditLogs } from "@/lib/api";
@@ -120,10 +120,11 @@ export function Dashboard() {
 
               <div className="lg:col-span-4 space-y-6">
                 <div className="grid grid-cols-2 gap-3">
-                  <QuickAction href="/database?new=1" icon={Plus} label="ADD RECORD" color="bg-[#C94A00] text-white" />
-                  <QuickAction href="/search" icon={Search} label="SEARCH TM" color="bg-[#E8DFC7] text-[#0C0C0C]" />
-                  <QuickAction href="/database" icon={Database} label="DATABASE" color="bg-[#0A6B52] text-white" />
-                  <QuickAction href="/logs" icon={ScrollText} label="AUDIT LOGS" color="bg-[#0C0C0C] text-[#F0E8D0]" />
+                  <QuickAction href="/database?new=1" icon={Plus}      label="ADD RECORD" color="bg-[#C94A00] text-white" />
+                  <QuickAction href="/search"         icon={Search}    label="SEARCH TM"  color="bg-[#E8DFC7] text-[#0C0C0C]" />
+                  <QuickAction href="/database"       icon={Database}  label="DATABASE"   color="bg-[#0A6B52] text-white" />
+                  <QuickAction href="/assigned"       icon={Users2}    label="ASSIGNED"   color="bg-[#D4A800] text-[#0C0C0C]" />
+                  <QuickAction href="/logs"           icon={ScrollText} label="AUDIT LOGS" color="bg-[#0C0C0C] text-[#F0E8D0]" />
                 </div>
 
                 <div className="border-2 border-[#0C0C0C] bg-white">

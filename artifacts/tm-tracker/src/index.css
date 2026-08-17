@@ -149,3 +149,100 @@
   outline: 2px solid var(--nb-orange);
   outline-offset: 2px;
 }
+
+/* ── Subtle page/view transitions ───────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide {
+  0%   { transform: translateX(-100%); }
+  50%  { transform: translateX(200%); }
+  100% { transform: translateX(-100%); }
+}
+
+.animate-page-in {
+  animation: fadeIn 0.18s ease-out both;
+}
+
+/* ── Print Stylesheet ───────────────────────────────────────────────────── */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 18mm 16mm 18mm 16mm;
+  }
+
+  /* Hide everything that is not the record body */
+  header,
+  nav,
+  .print\:hidden,
+  [data-no-print] {
+    display: none !important;
+  }
+
+  /* Reset body */
+  body {
+    background: #fff !important;
+    color: #000 !important;
+    font-size: 10pt;
+  }
+
+  /* AppShell */
+  .min-h-screen {
+    min-height: unset !important;
+  }
+
+  main {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Record view body — allow full expansion */
+  #record-view-body {
+    overflow: visible !important;
+    height: auto !important;
+    background: #fff !important;
+  }
+
+  /* Max width */
+  .max-w-5xl {
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+
+  /* Table printing */
+  table {
+    page-break-inside: auto;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  /* Hide overflow truncation in print */
+  .truncate {
+    overflow: visible !important;
+    text-overflow: unset !important;
+    white-space: normal !important;
+  }
+
+  /* Border colors in print */
+  .border-\[\#0C0C0C\] {
+    border-color: #000 !important;
+  }
+
+  /* Preserve status badge backgrounds */
+  .bg-\[\#0D9970\],
+  .bg-\[\#D4A800\],
+  .bg-\[\#C94A00\],
+  .bg-\[\#0A6B52\] {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

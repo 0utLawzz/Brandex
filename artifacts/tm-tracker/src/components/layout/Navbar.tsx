@@ -10,13 +10,15 @@ import {
   BriefcaseBusiness,
   Menu,
   X,
+  Users2,
 } from "lucide-react";
 
 const NAV_ITEMS = [
-  { href: "/", label: "DASHBOARD", icon: LayoutDashboard },
-  { href: "/search", label: "SEARCH TM", icon: Search },
-  { href: "/database", label: "DATABASE", icon: Database },
-  { href: "/logs", label: "LOGS", icon: ScrollText },
+  { href: "/",         label: "DASHBOARD", icon: LayoutDashboard },
+  { href: "/search",   label: "SEARCH TM", icon: Search },
+  { href: "/database", label: "DATABASE",  icon: Database },
+  { href: "/assigned", label: "ASSIGNED",  icon: Users2 },
+  { href: "/logs",     label: "LOGS",      icon: ScrollText },
 ];
 
 export function Navbar() {
@@ -36,10 +38,10 @@ export function Navbar() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-[#0C0C0C] border-b-2 border-[#1A1A1A] text-[#F0E8D0] shadow-md">
+      <header className="sticky top-0 z-40 bg-[#0C0C0C] border-b-2 border-[#1A1A1A] text-[#F0E8D0] shadow-md print:hidden">
         <div className="flex items-center justify-between px-4 h-16 w-full">
           {/* Logo */}
-          <div className="flex items-center gap-3 w-48 shrink-0">
+          <div className="flex items-center gap-3 w-44 shrink-0">
             <BriefcaseBusiness className="w-6 h-6 text-[#C94A00]" strokeWidth={2.5} />
             <div className="hidden sm:block">
               <div className="font-serif text-lg leading-none text-[#F0E8D0] tracking-widest">BRANDEX</div>
@@ -48,20 +50,20 @@ export function Navbar() {
           </div>
 
           {/* Desktop Nav */}
-          <nav className="hidden lg:flex flex-1 justify-center items-center gap-2">
+          <nav className="hidden lg:flex flex-1 justify-center items-center gap-1">
             {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
               const active = isActive(href);
               return (
                 <Link
                   key={href}
                   href={href}
-                  className={`flex items-center gap-2 px-4 py-2 font-mono font-bold text-xs tracking-widest uppercase transition-all border-2 ${
+                  className={`flex items-center gap-2 px-3 py-2 font-mono font-bold text-[11px] tracking-widest uppercase transition-all border-2 ${
                     active
                       ? "bg-[#C94A00] border-[#C94A00] text-white"
                       : "border-transparent text-[#C5B89A] hover:bg-[#1A1A1A] hover:border-[#333] hover:text-[#F0E8D0]"
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
+                  <Icon className="w-3.5 h-3.5" />
                   {label}
                 </Link>
               );
@@ -69,7 +71,7 @@ export function Navbar() {
           </nav>
 
           {/* Right Actions */}
-          <div className="flex items-center justify-end gap-3 w-48 shrink-0">
+          <div className="flex items-center justify-end gap-3 w-44 shrink-0">
             <button
               onClick={handleRefresh}
               disabled={refreshing}
@@ -92,7 +94,7 @@ export function Navbar() {
       </header>
 
       {mobileOpen && (
-        <div className="lg:hidden fixed inset-0 top-16 z-30 bg-[#0C0C0C] border-t-2 border-[#1A1A1A] flex flex-col p-4">
+        <div className="lg:hidden fixed inset-0 top-16 z-30 bg-[#0C0C0C] border-t-2 border-[#1A1A1A] flex flex-col p-4 print:hidden">
           <nav className="flex-1 space-y-2">
             {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
               const active = isActive(href);
