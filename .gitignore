@@ -58,3 +58,4 @@ Thumbs.db
 
 # Mobile static build output
 static-build/
+.vercel
