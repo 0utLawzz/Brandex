@@ -3,7 +3,7 @@ import type { TrademarkStats } from "@/lib/api";
 import { AppShell } from "@/components/layout/AppShell";
 import { Link } from "wouter";
 import { Plus, Search, Database, ScrollText, Clock, AlertCircle } from "lucide-react";
-import { format } from "date-fns";
+import { format, isValid } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 import { listAuditLogs } from "@/lib/api";
 import type { AuditLogEntry } from "@/lib/api";
@@ -144,7 +144,7 @@ export function Dashboard() {
                               <div className="flex items-center justify-between gap-2 mb-1">
                                 <span className={`font-mono text-[9px] font-bold uppercase ${color}`}>{log.action}</span>
                                 <span className="font-mono text-[9px] text-[#6d6658]">
-                                  {log.changedAt ? format(new Date(log.changedAt), "MMM d, HH:mm") : "—"}
+                                  {log.changedAt && isValid(new Date(log.changedAt)) ? format(new Date(log.changedAt), "MMM d, HH:mm") : log.changedAt || "—"}
                                 </span>
                               </div>
                               <div className="font-mono text-xs font-bold text-[#0C0C0C] truncate">{log.record}</div>
