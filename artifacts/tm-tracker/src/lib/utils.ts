@@ -17,42 +17,30 @@ export function cn(...inputs: ClassValue[]) {
  *  - null / undefined / empty → returns "—"
  */
 export function formatDate(d: string | Date | null | undefined): string {
-  if (!d) return "—";
+  if (!d) return "";
+  const s = String(d).trim();
+  if (!s || s === "—" || s === "null" || s === "undefined") return "";
   try {
     let date: Date;
     if (d instanceof Date) {
       date = d;
     } else {
-      // Try ISO parse first
-      date = parseISO(d);
-      if (!isValid(date)) date = new Date(d);
+      date = parseISO(s);
+      if (!isValid(date)) date = new Date(s);
     }
-    if (!isValid(date)) return String(d);
-    return format(date, "dd-MMM-yy hh:mm aa");
+    if (!isValid(date)) return s;
+    return format(date, "dd-MMM-yy");
   } catch {
-    return String(d);
+    return s;
   }
 }
 
 /**
- * Format a date string for display in short form.
- * Output: DD-MMM-YY  e.g. "18-Aug-26"
+ * Format a date string for display in short form (DD-MMM-YY).
+ * Output: DD-MMM-YY e.g. "18-Aug-26"
  */
 export function formatDateShort(d: string | Date | null | undefined): string {
-  if (!d) return "—";
-  try {
-    let date: Date;
-    if (d instanceof Date) {
-      date = d;
-    } else {
-      date = parseISO(d);
-      if (!isValid(date)) date = new Date(d);
-    }
-    if (!isValid(date)) return String(d);
-    return format(date, "dd-MMM-yy");
-  } catch {
-    return String(d);
-  }
+  return formatDate(d);
 }
 
 /**

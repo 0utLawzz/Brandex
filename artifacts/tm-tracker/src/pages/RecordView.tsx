@@ -24,8 +24,8 @@ function Field({ label, value, wide }: { label: string; value: string | undefine
       <div className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#6d6658] mb-1">
         {label}
       </div>
-      <div className="font-mono text-sm text-[#0C0C0C] font-bold border-b border-[#0C0C0C]/10 pb-1 break-all">
-        {value || "—"}
+      <div className="font-mono text-sm text-[#0C0C0C] font-bold border-b border-[#0C0C0C]/10 pb-1 break-all min-h-[22px]">
+        {value || ""}
       </div>
     </div>
   );
@@ -45,6 +45,7 @@ const STATUS_COLOR: Record<string, string> = {
   "STAGE 2": "bg-[#D4A800] text-[#0C0C0C]",
   "STAGE 3": "bg-[#C94A00] text-white",
   "STAGE 4": "bg-[#0A6B52] text-white",
+  "STOPPED": "bg-[#CC0000] text-white",
 };
 
 function TmBadge({ name, matched }: { name: string; matched: boolean }) {
@@ -101,27 +102,27 @@ function JournalSection({ journal }: { journal: JournalRecord | null | undefined
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs font-mono">
           <div>
             <div className="text-[9px] font-bold uppercase tracking-widest text-[#6d6658] mb-0.5">Journal No</div>
-            <div className="font-bold">{journal["Journal No"] || "—"}</div>
+            <div className="font-bold">{String(journal["Journal No"] || "")}</div>
           </div>
           <div>
             <div className="text-[9px] font-bold uppercase tracking-widest text-[#6d6658] mb-0.5">Journal Date</div>
-            <div className="font-bold">{journal["Journal Date"] ? formatDateShort(journal["Journal Date"] as string) : "—"}</div>
+            <div className="font-bold">{journal["Journal Date"] ? formatDateShort(journal["Journal Date"] as string) : ""}</div>
           </div>
           <div>
             <div className="text-[9px] font-bold uppercase tracking-widest text-[#6d6658] mb-0.5">Application No</div>
-            <div className="font-bold">{journal["Application No"] || "—"}</div>
+            <div className="font-bold">{String(journal["Application No"] || "")}</div>
           </div>
           <div className="col-span-2 sm:col-span-3">
             <div className="text-[9px] font-bold uppercase tracking-widest text-[#6d6658] mb-0.5">Title</div>
-            <div className="font-bold">{journal["Title"] || "—"}</div>
+            <div className="font-bold">{String(journal["Title"] || "")}</div>
           </div>
           <div>
             <div className="text-[9px] font-bold uppercase tracking-widest text-[#6d6658] mb-0.5">Class</div>
-            <div className="font-bold">{journal["Class"] || "—"}</div>
+            <div className="font-bold">{String(journal["Class"] || "")}</div>
           </div>
           <div>
             <div className="text-[9px] font-bold uppercase tracking-widest text-[#6d6658] mb-0.5">Date of Filing</div>
-            <div className="font-bold">{journal["Date of Filing"] ? formatDateShort(journal["Date of Filing"] as string) : "—"}</div>
+            <div className="font-bold">{journal["Date of Filing"] ? formatDateShort(journal["Date of Filing"] as string) : ""}</div>
           </div>
         </div>
         {(journal["Applicant Name and Address"] || journal["Agent Name and Address"]) && (
@@ -342,10 +343,10 @@ export function RecordView({ params }: Props) {
                 {record.caseNumber || record.id}
               </div>
               <h1 className="font-serif text-3xl uppercase tracking-wide text-[#0C0C0C] leading-tight">
-                {record.appName || "—"}
+                {record.appName || ""}
               </h1>
               <div className="font-mono text-sm text-[#6d6658] mt-1">
-                {record.clientName} · {record.clientCode}
+                {record.clientName}{record.clientCode ? ` · ${record.clientCode}` : ""}
               </div>
             </div>
             <div className="flex flex-col items-end gap-2 shrink-0">

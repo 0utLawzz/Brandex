@@ -170,39 +170,82 @@ export interface TmSearchResult {
 }
 
 // ---------------------------------------------------------------------------
+// Authoritative Constants
+// ---------------------------------------------------------------------------
+export const STAGES = ["STAGE 1", "STAGE 2", "STAGE 3", "STAGE 4", "STOPPED"] as const;
+export type StageType = typeof STAGES[number];
+
+export const STATUS_WORKFLOW: Record<string, string[]> = {
+  "STAGE 1": [
+    "Acknowledgment",
+    "Examination",
+  ],
+  "STAGE 2": [
+    "Assigned",
+    "Accepted",
+    "Hearing",
+  ],
+  "STAGE 3": [
+    "D-Note Submitted",
+    "D-Note Received",
+    "OPPO: Filed",
+    "OPPO: Received",
+    "OPPO: Withdrawn",
+    "Published",
+  ],
+  "STAGE 4": [
+    "CER Dispatch",
+    "CER Received",
+    "CER Acknowledge",
+  ],
+  "STOPPED": [
+    "Case Stopped",
+  ],
+};
+
+export const CITIES = ["Islamabad", "Karachi", "Lahore", "Peshawar"] as const;
+export const VALID_TYPES = ["X", "A", "N"] as const;
+
+export interface UploadImageResult {
+  fileId: string;
+  url: string;
+  thumbnailUrl: string;
+}
+
+// ---------------------------------------------------------------------------
 // Mappers
 // ---------------------------------------------------------------------------
 export function mapRowToRecord(row: Trademark): TrademarkRecord {
   return {
-    id:          row["ID"]                ?? "",
-    date:        row["DATE"]              ?? "",
-    type:        row["TYPE"]              ?? "",
-    prefix:      row["TYPE"]              ?? "",   // compat alias
-    clientCode:  row["CLIENT CODE"]       ?? "",
-    clientNo:    row["CLIENT CODE"]       ?? "",   // compat alias
-    caseNumber:  row["CASE NUMBER"]       ?? "",
-    folderNo:    row["CASE NUMBER"]       ?? "",   // compat alias
-    caseNo:      row["CASE NUMBER"]       ?? "",   // compat alias
-    clientName:  row["CLIENT NAME"]       ?? "",
-    appName:     row["APPLICATION NAME"]  ?? "",
-    tmCprNo:     row["TM/CPR NUMBER"]     ?? "",
-    tmNo:        row["TM/CPR NUMBER"]     ?? "",   // compat alias
-    appClass:    row["CLASS"]             ?? "",
-    stage:       row["STATUS"]            ?? "",
-    subStage:    row["SUB STATUS"]        ?? "",
-    caseType:    row["CASE TYPE"]         ?? "",
-    agent:       row["AGENT"]             ?? "",
-    city:        row["CITY"]              ?? "",
-    notes:       row["NOTES"]             ?? "",
-    tm5:         row["TM5"]               ?? "",
-    tm6:         row["TM6"]               ?? "",
-    tm11:        row["TM11"]              ?? "",
-    tm16:        row["TM16"]              ?? "",
-    tm56:        row["TM56"]              ?? "",
-    journalNumber: row["JOURNAL NUMBER"]  ?? "",
-    journalDate:   row["JOURNAL DATE"]    ?? "",
-    updatedAt:   row["LAST MODIFIED"]     ?? "",
-    image:       row["IMAGE"]             ?? "",
+    id:          String(row["ID"] ?? "").trim(),
+    date:        String(row["DATE"] ?? "").trim(),
+    type:        String(row["TYPE"] ?? "").trim(),
+    prefix:      String(row["TYPE"] ?? "").trim(),   // compat alias
+    clientCode:  String(row["CLIENT CODE"] ?? "").trim(),
+    clientNo:    String(row["CLIENT CODE"] ?? "").trim(),   // compat alias
+    caseNumber:  String(row["CASE NUMBER"] ?? "").trim(),
+    folderNo:    String(row["CASE NUMBER"] ?? "").trim(),   // compat alias
+    caseNo:      String(row["CASE NUMBER"] ?? "").trim(),   // compat alias
+    clientName:  String(row["CLIENT NAME"] ?? "").trim(),
+    appName:     String(row["APPLICATION NAME"] ?? "").trim(),
+    tmCprNo:     String(row["TM/CPR NUMBER"] ?? "").trim(),
+    tmNo:        String(row["TM/CPR NUMBER"] ?? "").trim(),   // compat alias
+    appClass:    String(row["CLASS"] ?? "").trim(),
+    stage:       String(row["STATUS"] ?? "").trim(),
+    subStage:    String(row["SUB STATUS"] ?? "").trim(),
+    caseType:    String(row["CASE TYPE"] ?? "").trim(),
+    agent:       String(row["AGENT"] ?? "").trim(),
+    city:        String(row["CITY"] ?? "").trim(),
+    notes:       String(row["NOTES"] ?? "").trim(),
+    tm5:         String(row["TM5"] ?? "").trim(),
+    tm6:         String(row["TM6"] ?? "").trim(),
+    tm11:        String(row["TM11"] ?? "").trim(),
+    tm16:        String(row["TM16"] ?? "").trim(),
+    tm56:        String(row["TM56"] ?? "").trim(),
+    journalNumber: String(row["JOURNAL NUMBER"] ?? "").trim(),
+    journalDate:   String(row["JOURNAL DATE"] ?? "").trim(),
+    updatedAt:   String(row["LAST MODIFIED"] ?? "").trim(),
+    image:       String(row["IMAGE"] ?? "").trim(),
     tmMatches:   row["_tmMatches"],
     journal:     row["_journal"],
   };
@@ -331,4 +374,56 @@ export async function listAuditLogs(limit = 100, offset = 0): Promise<AuditLogEn
 
 export async function listAgents(): Promise<string[]> {
   return gasGet<string[]>({ action: "listAgents" });
+}
+
+export interface ClientRef {
+  code: string;
+  name: string;
+}
+
+export async function listClients(): Promise<ClientRef[]> {
+  try {
+    return await gasGet<ClientRef[]>({ action: "listClients" });
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Upload an image to Google Drive via Google Apps Script.
+ * Returns the Drive file ID, shareable URL, and thumbnail preview URL.
+ */
+export async function uploadImage(
+  file: File,
+  onProgress?: (progressPercent: number) => void
+): Promise<UploadImageResult> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Failed to read file from disk"));
+    reader.onload = async () => {
+      try {
+        const dataUrl = reader.result as string;
+        const parts = dataUrl.split(",");
+        const base64Data = parts[1];
+        if (!base64Data) {
+          throw new Error("Unable to encode image data");
+        }
+
+        if (onProgress) onProgress(30);
+
+        const result = await gasPost<UploadImageResult>({
+          action: "uploadImage",
+          fileName: file.name,
+          mimeType: file.type || "image/jpeg",
+          base64Data: base64Data,
+        });
+
+        if (onProgress) onProgress(100);
+        resolve(result);
+      } catch (err) {
+        reject(err);
+      }
+    };
+    reader.readAsDataURL(file);
+  });
 }

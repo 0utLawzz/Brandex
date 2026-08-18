@@ -1,10 +1,10 @@
-import { listTrademarks } from "@/lib/api";
+import { listTrademarks, STAGES, CITIES } from "@/lib/api";
 import type { TrademarkRecord } from "@/lib/api";
 import { AppShell } from "@/components/layout/AppShell";
 import { RecordModal } from "@/components/RecordModal";
 import { formatDateShort } from "@/lib/utils";
 import { useState, useEffect, useMemo } from "react";
-import { useLocation, useRoute } from "wouter";
+import { useLocation } from "wouter";
 import { Plus, Filter, X, ChevronLeft, ChevronRight, Database as DatabaseIcon } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
@@ -15,6 +15,7 @@ const STAGE_BADGE: Record<string, string> = {
   "STAGE 2": "bg-[#D4A800] text-[#0C0C0C]",
   "STAGE 3": "bg-[#C94A00] text-white",
   "STAGE 4": "bg-[#0A6B52] text-white",
+  "STOPPED": "bg-[#CC0000] text-white",
 };
 
 const TABLE_HEADERS = [
@@ -63,23 +64,19 @@ export function DatabasePage() {
 
   // Build distinct dropdown options from live data
   const distinct = useMemo(() => {
-    const stages    = new Set<string>();
-    const cities    = new Set<string>();
     const caseTypes = new Set<string>();
     const agents    = new Set<string>();
     const classes   = new Set<string>();
     const types     = new Set<string>();
     for (const tm of allTrademarks) {
-      if (tm.stage)    stages.add(tm.stage);
-      if (tm.city)     cities.add(tm.city);
       if (tm.caseType) caseTypes.add(tm.caseType);
       if (tm.agent)    agents.add(tm.agent);
       if (tm.appClass) classes.add(tm.appClass);
       if (tm.type)     types.add(tm.type);
     }
     return {
-      stages:    [...stages].sort(),
-      cities:    [...cities].sort(),
+      stages:    Array.from(STAGES),
+      cities:    Array.from(CITIES),
       caseTypes: [...caseTypes].sort(),
       agents:    [...agents].sort(),
       classes:   [...classes].sort((a, b) => Number(a) - Number(b)),
@@ -295,11 +292,11 @@ export function DatabasePage() {
                     } hover:bg-[#D9D0B7]`}
                   >
                     <td className="px-3 py-2 border-r border-[#0C0C0C]/10 text-[#6d6658]">{formatDateShort(tm.date)}</td>
-                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10 font-bold text-[#C94A00]">{tm.type || "—"}</td>
-                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10 font-bold">{tm.clientCode || "—"}</td>
-                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10 max-w-[140px] truncate">{tm.clientName || "—"}</td>
-                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10 font-bold text-[#0A6B52]">{tm.caseNumber || "—"}</td>
-                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10 max-w-[180px] truncate">{tm.appName || "—"}</td>
+                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10 font-bold text-[#C94A00]">{tm.type || ""}</td>
+                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10 font-bold">{tm.clientCode || ""}</td>
+                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10 max-w-[140px] truncate">{tm.clientName || ""}</td>
+                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10 font-bold text-[#0A6B52]">{tm.caseNumber || ""}</td>
+                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10 max-w-[180px] truncate">{tm.appName || ""}</td>
                     <td className="px-3 py-2 border-r border-[#0C0C0C]/10">
                       {tm.stage && (
                         <span className={`inline-block px-1.5 py-0.5 text-[9px] font-bold uppercase border border-[#0C0C0C]/20 ${STAGE_BADGE[tm.stage] ?? "bg-[#E8DFC7]"}`}>
@@ -307,12 +304,12 @@ export function DatabasePage() {
                         </span>
                       )}
                     </td>
-                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10 text-[#6d6658] max-w-[120px] truncate">{tm.subStage || "—"}</td>
-                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10 font-bold">{tm.tmCprNo || "—"}</td>
-                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10">{tm.appClass || "—"}</td>
-                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10">{tm.caseType || "—"}</td>
-                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10 max-w-[100px] truncate">{tm.agent || "—"}</td>
-                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10">{tm.city || "—"}</td>
+                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10 text-[#6d6658] max-w-[120px] truncate">{tm.subStage || ""}</td>
+                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10 font-bold">{tm.tmCprNo || ""}</td>
+                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10">{tm.appClass || ""}</td>
+                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10">{tm.caseType || ""}</td>
+                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10 max-w-[100px] truncate">{tm.agent || ""}</td>
+                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10">{tm.city || ""}</td>
                     <td className="px-3 py-2 text-[#6d6658]">{formatDateShort(tm.updatedAt)}</td>
                   </tr>
                 ))

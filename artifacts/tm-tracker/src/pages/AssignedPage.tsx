@@ -1,4 +1,4 @@
-import { listTrademarks } from "@/lib/api";
+import { listTrademarks, STAGES, CITIES } from "@/lib/api";
 import type { TrademarkRecord } from "@/lib/api";
 import { AppShell } from "@/components/layout/AppShell";
 import { formatDateShort } from "@/lib/utils";
@@ -14,6 +14,7 @@ const STAGE_BADGE: Record<string, string> = {
   "STAGE 2": "bg-[#D4A800] text-[#0C0C0C]",
   "STAGE 3": "bg-[#C94A00] text-white",
   "STAGE 4": "bg-[#0A6B52] text-white",
+  "STOPPED": "bg-[#CC0000] text-white",
 };
 
 interface Filters {
@@ -33,7 +34,7 @@ function FilterSelect({
 }: {
   label: string;
   value: string;
-  options: string[];
+  options: string[] | readonly string[];
   onChange: (v: string) => void;
 }) {
   return (
@@ -67,19 +68,15 @@ export function AssignedPage() {
   // Build distinct options from live data
   const distinct = useMemo(() => {
     const agents  = new Set<string>();
-    const cities  = new Set<string>();
-    const stages  = new Set<string>();
     const classes = new Set<string>();
     for (const r of allRecords) {
       if (r.agent)    agents.add(r.agent);
-      if (r.city)     cities.add(r.city);
-      if (r.stage)    stages.add(r.stage);
       if (r.appClass) classes.add(r.appClass);
     }
     return {
       agents:  [...agents].sort(),
-      cities:  [...cities].sort(),
-      stages:  [...stages].sort(),
+      cities:  Array.from(CITIES),
+      stages:  Array.from(STAGES),
       classes: [...classes].sort((a, b) => Number(a) - Number(b)),
     };
   }, [allRecords]);
@@ -206,20 +203,20 @@ export function AssignedPage() {
                     } hover:bg-[#D9D0B7]`}
                   >
                     <td className="px-3 py-2 border-r border-[#0C0C0C]/10 font-bold text-[#0A6B52]">
-                      {r.caseNumber || "—"}
+                      {r.caseNumber || ""}
                     </td>
                     <td className="px-3 py-2 border-r border-[#0C0C0C]/10 max-w-[140px]">
-                      <div className="font-bold truncate">{r.clientName || "—"}</div>
-                      <div className="text-[#6d6658] text-[10px]">{r.clientCode}</div>
+                      <div className="font-bold truncate">{r.clientName || ""}</div>
+                      <div className="text-[#6d6658] text-[10px]">{r.clientCode || ""}</div>
                     </td>
                     <td className="px-3 py-2 border-r border-[#0C0C0C]/10 max-w-[200px] truncate">
-                      {r.appName || "—"}
+                      {r.appName || ""}
                     </td>
                     <td className="px-3 py-2 border-r border-[#0C0C0C]/10 font-bold">
-                      {r.tmCprNo || "—"}
+                      {r.tmCprNo || ""}
                     </td>
                     <td className="px-3 py-2 border-r border-[#0C0C0C]/10">
-                      {r.appClass || "—"}
+                      {r.appClass || ""}
                     </td>
                     <td className="px-3 py-2 border-r border-[#0C0C0C]/10">
                       {r.stage && (
@@ -229,13 +226,13 @@ export function AssignedPage() {
                       )}
                     </td>
                     <td className="px-3 py-2 border-r border-[#0C0C0C]/10 text-[#6d6658] max-w-[120px] truncate">
-                      {r.subStage || "—"}
+                      {r.subStage || ""}
                     </td>
                     <td className="px-3 py-2 border-r border-[#0C0C0C]/10">
-                      {r.city || "—"}
+                      {r.city || ""}
                     </td>
                     <td className="px-3 py-2 border-r border-[#0C0C0C]/10 font-bold">
-                      {r.agent || "—"}
+                      {r.agent || ""}
                     </td>
                     <td className="px-3 py-2 text-[#6d6658]">
                       {formatDateShort(r.date)}

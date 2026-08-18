@@ -2,7 +2,7 @@ import { listAuditLogs } from "@/lib/api";
 import type { AuditLogEntry } from "@/lib/api";
 import { AppShell } from "@/components/layout/AppShell";
 import { useState } from "react";
-import { format, isValid } from "date-fns";
+import { formatDate } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, ScrollText, Filter } from "lucide-react";
 
@@ -27,9 +27,8 @@ export function LogsPage() {
   const hasNext = logs.length === PAGE_SIZE;
 
   function safeFmt(d: string | null | undefined) {
-    if (!d) return "—";
-    const date = new Date(d);
-    return isValid(date) ? format(date, "dd MMM yyyy HH:mm") : d;
+    if (!d) return "";
+    return formatDate(d);
   }
 
   function getAction(action: string): { label: string; color: string } {
@@ -79,17 +78,17 @@ export function LogsPage() {
                   return (
                     <tr key={log.id} className={`border-b border-[#0C0C0C]/10 ${i % 2 === 0 ? "bg-[#F0E8D0]" : "bg-white"} hover:bg-[#D9D0B7] transition-colors`}>
                       <td className="px-4 py-3 border-r border-[#0C0C0C]/10 text-[#6d6658]">{safeFmt(log.changedAt)}</td>
-                      <td className="px-4 py-3 border-r border-[#0C0C0C]/10 font-bold">{log.changedBy || "—"}</td>
+                      <td className="px-4 py-3 border-r border-[#0C0C0C]/10 font-bold">{log.changedBy || ""}</td>
                       <td className="px-4 py-3 border-r border-[#0C0C0C]/10">
                         <span className={`inline-block px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider border border-[#0C0C0C]/20 ${action.color}`}>{action.label}</span>
                       </td>
-                      <td className="px-4 py-3 border-r border-[#0C0C0C]/10 font-bold max-w-[200px] truncate">{log.record || "—"}</td>
-                      <td className="px-4 py-3 border-r border-[#0C0C0C]/10 font-bold">{log.field || "—"}</td>
+                      <td className="px-4 py-3 border-r border-[#0C0C0C]/10 font-bold max-w-[200px] truncate">{log.record || ""}</td>
+                      <td className="px-4 py-3 border-r border-[#0C0C0C]/10 font-bold">{log.field || ""}</td>
                       <td className="px-4 py-3 border-r border-[#0C0C0C]/10 max-w-[250px]">
-                        <span className="text-[#CC0000] truncate block max-w-[250px]">{log.oldValue || <span className="text-[#6d6658]">—</span>}</span>
+                        <span className="text-[#CC0000] truncate block max-w-[250px]">{log.oldValue || ""}</span>
                       </td>
                       <td className="px-4 py-3 max-w-[250px]">
-                        <span className="text-[#0A6B52] font-bold truncate block max-w-[250px]">{log.newValue || <span className="text-[#6d6658]">—</span>}</span>
+                        <span className="text-[#0A6B52] font-bold truncate block max-w-[250px]">{log.newValue || ""}</span>
                       </td>
                     </tr>
                   );

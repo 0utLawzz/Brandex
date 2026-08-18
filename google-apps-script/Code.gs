@@ -106,6 +106,11 @@ function doGet(e) {
       return json({ ok: true, data: agents });
     }
 
+    if (action === "listClients") {
+      var clients = getClientsList();
+      return json({ ok: true, data: clients });
+    }
+
     return json({ ok: false, error: "Unknown GET action: " + action });
   } catch (err) {
     return json({ ok: false, error: String(err) });
@@ -133,6 +138,11 @@ function doPost(e) {
     if (action === "delete") {
       deleteRecord(body.id);
       return json({ ok: true });
+    }
+
+    if (action === "uploadImage") {
+      var uploadResult = uploadImageToDrive(body.fileName, body.mimeType, body.base64Data);
+      return json({ ok: true, data: uploadResult });
     }
 
     return json({ ok: false, error: "Unknown POST action: " + action });
@@ -636,6 +646,83 @@ function computeStats(rows) {
     byCity:          Object.keys(byCity).map(function (k) { return { city: k, count: byCity[k] }; }),
     byNumericStage:  Object.keys(stageCounts).map(function (k) { return { stage: k, count: stageCounts[k] }; })
   };
+}
+
+// ---------------------------------------------------------------------------
+// Image Upload (Google Drive)
+// ---------------------------------------------------------------------------
+function uploadImageToDrive(fileName, mimeType, base64Data) {
+  if (!base64Data) throw new Error("No image data provided");
+  var folderName = "Brandex Trademark Images";
+  var folders = DriveApp.getFoldersByName(folderName);
+  var folder = folders.hasNext() ? folders.next() : DriveApp.createFolder(folderName);
+
+  var decoded = Utilities.base64Decode(base64Data);
+  var blob = Utilities.newBlob(decoded, mimeType || "image/jpeg", fileName || ("trademark-" + Date.now() + ".jpg"));
+  var file = folder.createFile(blob);
+  
+  try {
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  } catch (e) {
+    // If domain restricts public sharing, file will still have view access by owner
+  }
+
+  var fileId = file.getId();
+  return {
+    fileId: fileId,
+    url: file.getUrl(),
+    thumbnailUrl: "https://drive.google.com/thumbnail?id=" + fileId + "&sz=w400"
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Client reference list
+// ---------------------------------------------------------------------------
+function getClientsList() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = findSheet("CLIENTS", ["Clients", "clients", "Client List"]);
+  var clientMap = {};
+  var result = [];
+
+  if (sheet && sheet.getLastRow() >= 2) {
+    var last = sheet.getLastRow();
+    var data = sheet.getRange(2, 1, last - 1, Math.min(sheet.getLastColumn(), 5)).getValues();
+    var headers = sheet.getRange(1, 1, 1, Math.min(sheet.getLastColumn(), 5)).getValues()[0];
+    
+    var codeIdx = -1;
+    var nameIdx = -1;
+    for (var i = 0; i < headers.length; i++) {
+      var h = String(headers[i]).trim().toUpperCase();
+      if (h.indexOf("CODE") >= 0 || h === "CLIENT CODE") codeIdx = i;
+      if (h.indexOf("NAME") >= 0 || h === "CLIENT NAME") nameIdx = i;
+    }
+    if (codeIdx < 0) codeIdx = 0;
+    if (nameIdx < 0) nameIdx = 1;
+
+    for (var j = 0; j < data.length; j++) {
+      var code = String(data[j][codeIdx] || "").trim();
+      var name = String(data[j][nameIdx] || "").trim();
+      if (code && !clientMap[code]) {
+        clientMap[code] = name;
+        result.push({ code: code, name: name });
+      }
+    }
+  }
+
+  // Also extract from DATABASE rows to ensure existing client codes are mapped
+  var dbRows = getDbRows();
+  dbRows.forEach(function (r) {
+    var code = String(r["CLIENT CODE"] || "").trim();
+    var name = String(r["CLIENT NAME"] || "").trim();
+    if (code && !clientMap[code]) {
+      clientMap[code] = name;
+      result.push({ code: code, name: name });
+    }
+  });
+
+  return result.sort(function (a, b) {
+    return a.code.localeCompare(b.code);
+  });
 }
 
 // ---------------------------------------------------------------------------

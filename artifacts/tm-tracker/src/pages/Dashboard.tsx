@@ -8,11 +8,14 @@ import { useQuery } from "@tanstack/react-query";
 import { listAuditLogs } from "@/lib/api";
 import type { AuditLogEntry } from "@/lib/api";
 
+import { formatDate } from "@/lib/utils";
+
 const STAGE_COLORS: Record<string, string> = {
   "STAGE 1": "bg-[#0D9970] text-white",
   "STAGE 2": "bg-[#D4A800] text-[#0C0C0C]",
   "STAGE 3": "bg-[#C94A00] text-white",
   "STAGE 4": "bg-[#0A6B52] text-white",
+  "STOPPED": "bg-[#CC0000] text-white",
 };
 
 function StatBox({ label, value, color }: { label: string; value: number | string; color?: string }) {
@@ -145,7 +148,7 @@ export function Dashboard() {
                               <div className="flex items-center justify-between gap-2 mb-1">
                                 <span className={`font-mono text-[9px] font-bold uppercase ${color}`}>{log.action}</span>
                                 <span className="font-mono text-[9px] text-[#6d6658]">
-                                  {log.changedAt && isValid(new Date(log.changedAt)) ? format(new Date(log.changedAt), "MMM d, HH:mm") : log.changedAt || "—"}
+                                  {formatDate(log.changedAt)}
                                 </span>
                               </div>
                               <div className="font-mono text-xs font-bold text-[#0C0C0C] truncate">{log.record}</div>

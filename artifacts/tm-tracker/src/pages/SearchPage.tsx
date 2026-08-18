@@ -1,4 +1,4 @@
-import { listTrademarks, searchTm } from "@/lib/api";
+import { listTrademarks, searchTm, STAGES, CITIES } from "@/lib/api";
 import type { TrademarkRecord, TmSearchResult } from "@/lib/api";
 import { AppShell } from "@/components/layout/AppShell";
 import { formatDateShort } from "@/lib/utils";
@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import {
   SearchIcon, X, Filter, CheckCircle2, MinusCircle,
-  BookOpen, ArrowRight, AlertCircle,
+  ArrowRight, AlertCircle,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
@@ -15,6 +15,7 @@ const STAGE_BADGE: Record<string, string> = {
   "STAGE 2": "bg-[#D4A800] text-[#0C0C0C]",
   "STAGE 3": "bg-[#C94A00] text-white",
   "STAGE 4": "bg-[#0A6B52] text-white",
+  "STOPPED": "bg-[#CC0000] text-white",
 };
 
 function useDebounce<T>(value: T, delay: number): T {
@@ -71,40 +72,76 @@ function TmCard({ result, onViewRecord }: {
           key={rec.id}
           className="border-2 border-[#0C0C0C] bg-white shadow-[4px_4px_0_#0C0C0C]"
         >
-          {/* Card Header */}
-          <div className="flex items-start justify-between gap-4 px-4 py-3 bg-[#0C0C0C] text-[#F0E8D0]">
+          {/* Card Header: Orange / Prominent Application Name + Clearly visible TM Number */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 py-3 bg-[#0C0C0C] text-[#F0E8D0] border-b-2 border-[#0C0C0C]">
             <div>
-              <div className="font-mono text-[9px] text-[#C5B89A] uppercase tracking-widest">
-                TM {rec.tmCprNo || "—"}
+              <div className="font-mono text-xs font-bold text-[#E8DFC7] uppercase tracking-widest flex items-center gap-2">
+                <span>TM NO:</span>
+                <span className="text-white text-sm bg-[#1A1A1A] px-2 py-0.5 border border-[#333]">
+                  {rec.tmCprNo || ""}
+                </span>
+                {rec.type && (
+                  <span className="text-[#D4A800] text-[10px] uppercase ml-1">
+                    ({rec.type})
+                  </span>
+                )}
               </div>
-              <div className="font-serif text-xl uppercase tracking-wide leading-tight">
-                {rec.appName}
+              <div className="font-serif text-2xl uppercase tracking-wide leading-tight text-[#C94A00] mt-1">
+                {rec.appName || ""}
               </div>
             </div>
-            <span className="shrink-0 font-mono text-xs font-bold text-[#0D9970] bg-[#0D9970]/20 px-2 py-1 border border-[#0D9970]/40">
-              ✓ FOUND
-            </span>
+            <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+              <span className="font-mono text-xs font-bold text-[#0D9970] bg-[#0D9970]/20 px-2.5 py-1 border border-[#0D9970]/40">
+                ✓ FOUND
+              </span>
+            </div>
           </div>
 
           {/* Card Body */}
-          <div className="px-4 py-3 space-y-3">
-            {/* Basic info row */}
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs">
-              <span className="font-bold text-[#0A6B52]">{rec.clientName}</span>
-              <span className="text-[#6d6658]">{rec.clientCode}</span>
-              {rec.appClass && <span className="font-bold">Class {rec.appClass}</span>}
-              {rec.city && <span className="text-[#6d6658]">{rec.city}</span>}
+          <div className="px-4 py-4 space-y-4">
+            {/* Visual Hierarchy: Client Code & Case Number & Status */}
+            <div className="flex flex-wrap items-center gap-3 font-mono text-xs">
+              {/* Visually enhanced Case Number */}
+              <div className="flex items-center gap-1 bg-[#0D9970]/10 border-2 border-[#0A6B52] px-2.5 py-1 text-[#0A6B52] font-bold">
+                <span className="text-[9px] uppercase tracking-wider opacity-80">CASE:</span>
+                <span className="text-xs">{rec.caseNumber || ""}</span>
+              </div>
+
+              {/* Visually enhanced Client Code */}
+              <div className="flex items-center gap-1 bg-[#E8DFC7] border-2 border-[#0C0C0C] px-2.5 py-1 text-[#0C0C0C] font-bold">
+                <span className="text-[9px] uppercase tracking-wider opacity-80">CLIENT:</span>
+                <span className="text-xs">{rec.clientCode || ""}</span>
+              </div>
+
+              {/* Client Name */}
+              {rec.clientName && (
+                <span className="font-bold text-[#0C0C0C] max-w-[200px] truncate">
+                  {rec.clientName}
+                </span>
+              )}
+
+              {rec.appClass && (
+                <span className="border border-[#0C0C0C]/30 px-2 py-0.5 text-[#0C0C0C] font-bold bg-[#F0E8D0]">
+                  Class {rec.appClass}
+                </span>
+              )}
+
+              {rec.city && (
+                <span className="text-[#6d6658]">
+                  {rec.city}
+                </span>
+              )}
             </div>
 
-            {/* Status */}
-            <div className="flex flex-wrap items-center gap-2">
+            {/* Highly Prominent Status & Sub Status */}
+            <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-[#0C0C0C]/10">
               {rec.stage && (
-                <span className={`inline-block px-2 py-0.5 font-mono text-[9px] font-bold uppercase border border-[#0C0C0C]/20 ${STAGE_BADGE[rec.stage] ?? "bg-[#E8DFC7]"}`}>
+                <span className={`inline-block px-3 py-1 font-mono text-xs font-bold uppercase tracking-wider border-2 border-[#0C0C0C] shadow-[2px_2px_0_#0C0C0C] ${STAGE_BADGE[rec.stage] ?? "bg-[#E8DFC7]"}`}>
                   {rec.stage}
                 </span>
               )}
               {rec.subStage && (
-                <span className="inline-block px-2 py-0.5 font-mono text-[9px] font-bold uppercase border-2 border-[#0C0C0C]/15 text-[#6d6658] bg-[#F0E8D0]">
+                <span className="inline-block px-3 py-1 font-mono text-xs font-bold uppercase tracking-wider border-2 border-[#0C0C0C] text-[#0C0C0C] bg-[#F0E8D0]">
                   {rec.subStage}
                 </span>
               )}
@@ -119,7 +156,7 @@ function TmCard({ result, onViewRecord }: {
                 {(["TM5", "TM6", "TM11", "TM16", "TM56"] as const).map((s) => (
                   <span
                     key={s}
-                    className={`flex items-center gap-1 px-2 py-1 font-mono text-[10px] font-bold border-2 ${
+                    className={`flex items-center gap-1 px-2.5 py-1 font-mono text-[10px] font-bold border-2 ${
                       tmMatches[s]
                         ? "border-[#0A6B52] text-[#0A6B52] bg-[#0D9970]/10"
                         : "border-[#0C0C0C]/20 text-[#9d9488] bg-[#F0E8D0]"
@@ -139,8 +176,8 @@ function TmCard({ result, onViewRecord }: {
                   <CheckCircle2 className="w-3 h-3" /> JOURNAL FOUND
                 </div>
                 <div className="font-mono text-xs text-[#0C0C0C] space-x-3">
-                  <span>Journal No: <strong>{journal["Journal No"] || "—"}</strong></span>
-                  <span>Date: <strong>{journal["Journal Date"] ? formatDateShort(journal["Journal Date"] as string) : "—"}</strong></span>
+                  <span>Journal No: <strong>{String(journal["Journal No"] || "")}</strong></span>
+                  <span>Date: <strong>{journal["Journal Date"] ? formatDateShort(journal["Journal Date"] as string) : ""}</strong></span>
                 </div>
               </div>
             ) : (
@@ -374,10 +411,10 @@ export function SearchPage() {
                         onClick={() => goToRecord(tm.id)}
                         className={`cursor-pointer border-b border-[#0C0C0C]/10 hover:bg-[#D9D0B7] transition-colors ${i % 2 === 0 ? "bg-[#F0E8D0]" : "bg-white"}`}
                       >
-                        <td className="px-4 py-3 border-r border-[#0C0C0C]/10 font-bold">{tm.clientCode || "—"}</td>
-                        <td className="px-4 py-3 border-r border-[#0C0C0C]/10 max-w-[150px] truncate">{tm.clientName || "—"}</td>
-                        <td className="px-4 py-3 border-r border-[#0C0C0C]/10 font-bold text-[#0A6B52]">{tm.caseNumber || "—"}</td>
-                        <td className="px-4 py-3 border-r border-[#0C0C0C]/10 max-w-[200px] truncate">{tm.appName || "—"}</td>
+                        <td className="px-4 py-3 border-r border-[#0C0C0C]/10 font-bold">{tm.clientCode || ""}</td>
+                        <td className="px-4 py-3 border-r border-[#0C0C0C]/10 max-w-[150px] truncate">{tm.clientName || ""}</td>
+                        <td className="px-4 py-3 border-r border-[#0C0C0C]/10 font-bold text-[#0A6B52]">{tm.caseNumber || ""}</td>
+                        <td className="px-4 py-3 border-r border-[#0C0C0C]/10 max-w-[200px] truncate">{tm.appName || ""}</td>
                         <td className="px-4 py-3 border-r border-[#0C0C0C]/10">
                           {tm.stage && (
                             <span className={`inline-block px-1.5 py-0.5 text-[9px] font-bold uppercase border border-[#0C0C0C]/20 ${STAGE_BADGE[tm.stage] ?? "bg-[#E8DFC7]"}`}>
@@ -385,11 +422,11 @@ export function SearchPage() {
                             </span>
                           )}
                         </td>
-                        <td className="px-4 py-3 border-r border-[#0C0C0C]/10 text-[#6d6658] max-w-[120px] truncate">{tm.subStage || "—"}</td>
-                        <td className="px-4 py-3 border-r border-[#0C0C0C]/10 font-bold">{tm.tmCprNo || "—"}</td>
-                        <td className="px-4 py-3 border-r border-[#0C0C0C]/10">{tm.appClass || "—"}</td>
-                        <td className="px-4 py-3 border-r border-[#0C0C0C]/10 max-w-[100px] truncate">{tm.agent || "—"}</td>
-                        <td className="px-4 py-3 border-r border-[#0C0C0C]/10">{tm.city || "—"}</td>
+                        <td className="px-4 py-3 border-r border-[#0C0C0C]/10 text-[#6d6658] max-w-[120px] truncate">{tm.subStage || ""}</td>
+                        <td className="px-4 py-3 border-r border-[#0C0C0C]/10 font-bold">{tm.tmCprNo || ""}</td>
+                        <td className="px-4 py-3 border-r border-[#0C0C0C]/10">{tm.appClass || ""}</td>
+                        <td className="px-4 py-3 border-r border-[#0C0C0C]/10 max-w-[100px] truncate">{tm.agent || ""}</td>
+                        <td className="px-4 py-3 border-r border-[#0C0C0C]/10">{tm.city || ""}</td>
                         <td className="px-4 py-3 text-[#6d6658]">{formatDateShort(tm.updatedAt)}</td>
                       </tr>
                     ))}

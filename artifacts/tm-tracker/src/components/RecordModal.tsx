@@ -1,25 +1,37 @@
-import { createTrademark, updateTrademark, deleteTrademark, getTrademark } from "@/lib/api";
+import {
+  createTrademark,
+  updateTrademark,
+  deleteTrademark,
+  getTrademark,
+  listTrademarks,
+  listClients,
+  uploadImage,
+  STAGES,
+  STATUS_WORKFLOW,
+  CITIES,
+  VALID_TYPES,
+} from "@/lib/api";
 import type { TrademarkInput, TrademarkRecord } from "@/lib/api";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { X, Save, Trash2, AlertCircle } from "lucide-react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import {
+  X,
+  Save,
+  Trash2,
+  AlertCircle,
+  UploadCloud,
+  Eye,
+  Image as ImageIcon,
+  CheckCircle2,
+  RefreshCw,
+} from "lucide-react";
 
-const STAGES = ["STAGE 1", "STAGE 2", "STAGE 3", "STAGE 4"];
-const SUB_STAGES: Record<string, string[]> = {
-  "STAGE 1": ["Application Filed", "Acknowledgement", "Examination"],
-  "STAGE 2": ["D-Note Received", "D-Note Submitted", "Hearing", "Accepted", "Published"],
-  "STAGE 3": ["Opposition Filed", "Opposition Withdrawn", "CER Received"],
-  "STAGE 4": ["CER Dispatch", "Certificate Received", "Completed"],
-};
-const CITIES    = ["Islamabad", "Karachi", "Lahore", "Peshawar", "Multan", "Quetta"];
 const CASE_TYPES = ["Trademark", "Copyright", "Design", "Patent", "Renewal", "Opposition", "Other"];
-const TYPES      = ["TM", "X", "A", "N", "C"];
 
 const schema = z.object({
   date:       z.string().min(1, "Date is required"),
@@ -90,12 +102,44 @@ export function RecordModal({ recordId, isNew: forceNew, onClose, onSaved }: Rec
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
+
   const { data: trademark, isLoading } = useQuery<TrademarkRecord | null>({
     queryKey: ["trademark", recordId],
     queryFn: () => getTrademark(recordId!),
     enabled: !creating && !!recordId,
     staleTime: 30_000,
   });
+
+  // Client references for auto-population
+  const { data: clientRefs = [] } = useQuery({
+    queryKey: ["clients-ref"],
+    queryFn: listClients,
+    staleTime: 5 * 60_000,
+  });
+
+  const { data: allTrademarks = [] } = useQuery<TrademarkRecord[]>({
+    queryKey: ["trademarks"],
+    queryFn: () => listTrademarks(),
+    staleTime: 60_000,
+  });
+
+  // Build client code -> client name map
+  const clientMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of clientRefs) {
+      if (c.code && c.name) map.set(c.code.trim().toUpperCase(), c.name.trim());
+    }
+    for (const tm of allTrademarks) {
+      if (tm.clientCode && tm.clientName && !map.has(tm.clientCode.trim().toUpperCase())) {
+        map.set(tm.clientCode.trim().toUpperCase(), tm.clientName.trim());
+      }
+    }
+    return map;
+  }, [clientRefs, allTrademarks]);
 
   const createMutation = useMutation({
     mutationFn: (input: TrademarkInput) => createTrademark(input),
@@ -129,7 +173,7 @@ export function RecordModal({ recordId, isNew: forceNew, onClose, onSaved }: Rec
     resolver: zodResolver(schema),
     defaultValues: {
       date:       format(new Date(), "yyyy-MM-dd"),
-      type:       "TM",
+      type:       "X",
       clientCode: "",
       clientName: "",
       caseNumber: "",
@@ -150,18 +194,18 @@ export function RecordModal({ recordId, isNew: forceNew, onClose, onSaved }: Rec
     if (trademark && !creating) {
       form.reset({
         date:       trademark.date?.split("T")[0] ?? format(new Date(), "yyyy-MM-dd"),
-        type:       trademark.type ?? "TM",
+        type:       trademark.type || "X",
         clientCode: trademark.clientCode ?? "",
         clientName: trademark.clientName ?? "",
         caseNumber: trademark.caseNumber ?? "",
         appName:    trademark.appName ?? "",
         tmCprNo:    trademark.tmCprNo ?? "",
         appClass:   trademark.appClass ?? "",
-        stage:      trademark.stage ?? "STAGE 1",
+        stage:      trademark.stage || "STAGE 1",
         subStage:   trademark.subStage ?? "",
-        caseType:   trademark.caseType ?? "Trademark",
+        caseType:   trademark.caseType || "Trademark",
         agent:      trademark.agent ?? "",
-        city:       trademark.city ?? "Islamabad",
+        city:       trademark.city || "Islamabad",
         notes:      trademark.notes ?? "",
         image:      trademark.image ?? "",
       });
@@ -169,7 +213,47 @@ export function RecordModal({ recordId, isNew: forceNew, onClose, onSaved }: Rec
   }, [trademark, creating, form]);
 
   const watchStage = form.watch("stage");
-  const availableSubStages = SUB_STAGES[watchStage] ?? [];
+  const watchImage = form.watch("image");
+  const availableSubStages = STATUS_WORKFLOW[watchStage] ?? [];
+
+  // Auto-populate Client Name when Client Code changes
+  const handleClientCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    form.setValue("clientCode", val);
+    if (val.trim()) {
+      const match = clientMap.get(val.trim().toUpperCase());
+      if (match) {
+        form.setValue("clientName", match);
+      }
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const file = files[0];
+
+    try {
+      setUploading(true);
+      setUploadProgress(20);
+      const res = await uploadImage(file, (pct) => setUploadProgress(pct));
+      form.setValue("image", res.fileId);
+      toast({
+        title: "✓ Image Uploaded",
+        description: `Uploaded ${file.name} to Google Drive.`,
+      });
+    } catch (err: any) {
+      toast({
+        title: "⚠ Upload Failed",
+        description: err?.message || "Failed to upload image. You can manually enter a Drive link or File ID below.",
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   const onSubmit = (data: FormValues) => {
     const payload: TrademarkInput = {
@@ -200,7 +284,7 @@ export function RecordModal({ recordId, isNew: forceNew, onClose, onSaved }: Rec
           onSaved?.();
           onClose();
         },
-        onError: (e) =>
+        onError: () =>
           toast({
             title: "⚠ Save Failed",
             description: "Unable to save record. Please check your connection and try again.",
@@ -217,7 +301,7 @@ export function RecordModal({ recordId, isNew: forceNew, onClose, onSaved }: Rec
           onSaved?.();
           onClose();
         },
-        onError: (e) =>
+        onError: () =>
           toast({
             title: "⚠ Update Failed",
             description: "Unable to update record. Please check your connection and try again.",
@@ -234,7 +318,7 @@ export function RecordModal({ recordId, isNew: forceNew, onClose, onSaved }: Rec
         toast({ title: "Record Deleted" });
         onClose();
       },
-      onError: (e) =>
+      onError: () =>
         toast({
           title: "⚠ Delete Failed",
           description: "Unable to delete record. Please check your connection and try again.",
@@ -244,6 +328,13 @@ export function RecordModal({ recordId, isNew: forceNew, onClose, onSaved }: Rec
   };
 
   const isPending = createMutation.isPending || updateMutation.isPending;
+
+  // Types list: include standard series ["X", "A", "N"] plus any existing record type
+  const availableTypes = useMemo(() => {
+    const set = new Set<string>(VALID_TYPES);
+    if (trademark?.type) set.add(trademark.type);
+    return Array.from(set);
+  }, [trademark]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/60 animate-in fade-in duration-150">
@@ -285,14 +376,18 @@ export function RecordModal({ recordId, isNew: forceNew, onClose, onSaved }: Rec
                     )}
                   </div>
                   <div>
-                    <FieldLabel required>TYPE</FieldLabel>
+                    <FieldLabel required>TYPE (Series)</FieldLabel>
                     <FormSelect {...form.register("type")}>
-                      {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                      {availableTypes.map((t) => <option key={t} value={t}>{t}</option>)}
                     </FormSelect>
                   </div>
                   <div>
                     <FieldLabel required>CLIENT CODE</FieldLabel>
-                    <FormInput placeholder="e.g. 284" {...form.register("clientCode")} />
+                    <FormInput
+                      placeholder="e.g. 284"
+                      {...form.register("clientCode")}
+                      onChange={handleClientCodeChange}
+                    />
                     {form.formState.errors.clientCode && (
                       <p className="mt-1 text-[10px] font-mono text-[#CC0000]">{form.formState.errors.clientCode.message}</p>
                     )}
@@ -306,7 +401,7 @@ export function RecordModal({ recordId, isNew: forceNew, onClose, onSaved }: Rec
                   </div>
                   <div className="sm:col-span-2">
                     <FieldLabel>CLIENT NAME</FieldLabel>
-                    <FormInput placeholder="Full client name" {...form.register("clientName")} />
+                    <FormInput placeholder="Full client name (auto-filled from code)" {...form.register("clientName")} />
                   </div>
                   <div className="sm:col-span-2">
                     <FieldLabel required>APPLICATION NAME</FieldLabel>
@@ -327,8 +422,13 @@ export function RecordModal({ recordId, isNew: forceNew, onClose, onSaved }: Rec
                     <FormSelect
                       {...form.register("stage")}
                       onChange={(e) => {
-                        form.setValue("stage", e.target.value);
-                        form.setValue("subStage", "");
+                        const newStage = e.target.value;
+                        form.setValue("stage", newStage);
+                        const validSubs = STATUS_WORKFLOW[newStage] ?? [];
+                        const currentSub = form.getValues("subStage");
+                        if (!currentSub || !validSubs.includes(currentSub)) {
+                          form.setValue("subStage", "");
+                        }
                       }}
                     >
                       {STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -370,7 +470,7 @@ export function RecordModal({ recordId, isNew: forceNew, onClose, onSaved }: Rec
                   <div>
                     <FieldLabel required>CITY</FieldLabel>
                     <FormSelect {...form.register("city")}>
-                      {CITIES.map((c) => <option key={c} value={c}>{c.toUpperCase()}</option>)}
+                      {CITIES.map((c) => <option key={c} value={c}>{c}</option>)}
                     </FormSelect>
                   </div>
                   <div>
@@ -388,24 +488,147 @@ export function RecordModal({ recordId, isNew: forceNew, onClose, onSaved }: Rec
                     <FieldLabel>NOTES</FieldLabel>
                     <textarea
                       {...form.register("notes")}
-                      rows={4}
+                      rows={3}
                       placeholder="Enter any notes here..."
                       className="w-full p-3 bg-white border-2 border-[#0C0C0C] font-mono text-sm focus:outline-2 focus:outline-[#C94A00] focus:outline-offset-0 resize-none"
                     />
                   </div>
+
+                  {/* Image Upload / Preview */}
                   <div>
-                    <FieldLabel>IMAGE (Google Drive URL or File ID)</FieldLabel>
-                    <FormInput
-                      placeholder="https://drive.google.com/... or file ID"
-                      {...form.register("image")}
-                    />
-                    <p className="mt-1 font-mono text-[9px] text-[#6d6658]">
-                      Paste a Google Drive shareable link or file ID. The image will appear in the Record View.
-                    </p>
+                    <FieldLabel>TRADEMARK IMAGE</FieldLabel>
+                    <div className="border-2 border-[#0C0C0C] bg-white p-4 space-y-3">
+                      {/* Hidden File Input */}
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        accept="image/png, image/jpeg, image/webp"
+                        className="hidden"
+                        onChange={handleFileUpload}
+                      />
+
+                      <div className="flex flex-wrap items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={uploading}
+                          className="flex items-center gap-2 px-4 h-10 bg-[#0C0C0C] text-[#F0E8D0] border-2 border-[#0C0C0C] font-mono font-bold text-xs uppercase tracking-wider hover:bg-[#C94A00] hover:border-[#C94A00] hover:text-white transition-colors disabled:opacity-50"
+                        >
+                          <UploadCloud className="w-4 h-4" />
+                          {uploading ? "UPLOADING TO DRIVE…" : watchImage ? "REPLACE IMAGE" : "BROWSE / UPLOAD IMAGE"}
+                        </button>
+
+                        {watchImage && (
+                          <button
+                            type="button"
+                            onClick={() => form.setValue("image", "")}
+                            className="px-3 h-10 border-2 border-[#CC0000] text-[#CC0000] font-mono font-bold text-xs uppercase tracking-wider hover:bg-[#CC0000] hover:text-white transition-colors"
+                          >
+                            REMOVE IMAGE
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Upload Progress Bar */}
+                      {uploading && (
+                        <div className="space-y-1">
+                          <div className="flex justify-between font-mono text-[10px] text-[#6d6658]">
+                            <span>Uploading to Google Drive…</span>
+                            <span>{uploadProgress}%</span>
+                          </div>
+                          <div className="w-full h-2 bg-[#E8DFC7] border border-[#0C0C0C] overflow-hidden">
+                            <div
+                              className="h-full bg-[#C94A00] transition-all duration-300"
+                              style={{ width: `${uploadProgress}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Thumbnail Preview */}
+                      {watchImage && (
+                        <div className="flex items-center gap-4 pt-2 border-t border-[#0C0C0C]/10">
+                          <div
+                            onClick={() => setPreviewModalOpen(true)}
+                            className="w-16 h-16 border-2 border-[#0C0C0C] bg-[#F0E8D0] flex items-center justify-center cursor-pointer hover:border-[#C94A00] overflow-hidden"
+                            title="Click to enlarge"
+                          >
+                            <img
+                              src={
+                                watchImage.startsWith("http")
+                                  ? watchImage
+                                  : `https://drive.google.com/thumbnail?id=${watchImage}&sz=w200`
+                              }
+                              alt="Preview"
+                              className="w-full h-full object-contain"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = "none";
+                              }}
+                            />
+                          </div>
+                          <div className="flex flex-col gap-1 font-mono text-xs">
+                            <div className="flex items-center gap-1.5 text-[#0A6B52] font-bold text-[10px] uppercase">
+                              <CheckCircle2 className="w-3.5 h-3.5" /> Image Attached
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setPreviewModalOpen(true)}
+                              className="flex items-center gap-1 text-[#C94A00] text-[11px] font-bold hover:underline"
+                            >
+                              <Eye className="w-3.5 h-3.5" /> View Large Preview
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Manual Drive link / ID fallback */}
+                      <div className="pt-2 border-t border-[#0C0C0C]/10">
+                        <label className="block font-mono text-[9px] text-[#6d6658] uppercase tracking-wider mb-1">
+                          Drive File ID / URL (Manual Reference)
+                        </label>
+                        <FormInput
+                          placeholder="https://drive.google.com/... or File ID"
+                          {...form.register("image")}
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
+
+            {/* Enlarged Image Preview Modal */}
+            {previewModalOpen && watchImage && (
+              <div
+                className="fixed inset-0 z-60 bg-black/80 flex items-center justify-center p-4"
+                onClick={() => setPreviewModalOpen(false)}
+              >
+                <div
+                  className="relative max-w-3xl max-h-[85vh] bg-[#F0E8D0] border-4 border-[#0C0C0C] shadow-[10px_10px_0_#0C0C0C] overflow-hidden"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between px-4 py-2 bg-[#0C0C0C] text-[#F0E8D0]">
+                    <span className="font-mono font-bold text-xs uppercase tracking-widest">Image Preview</span>
+                    <button
+                      onClick={() => setPreviewModalOpen(false)}
+                      className="font-mono text-xs text-[#C5B89A] hover:text-white"
+                    >
+                      ✕ CLOSE
+                    </button>
+                  </div>
+                  <img
+                    src={
+                      watchImage.startsWith("http")
+                        ? watchImage
+                        : `https://drive.google.com/thumbnail?id=${watchImage}&sz=w800`
+                    }
+                    alt="Full Preview"
+                    className="max-h-[75vh] w-auto mx-auto block p-2"
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Footer */}
             <div className="shrink-0 flex items-center justify-between px-6 py-4 bg-[#E8DFC7] border-t-2 border-[#0C0C0C]">
