@@ -166,11 +166,11 @@
   animation: fadeIn 0.18s ease-out both;
 }
 
-/* ── Print Stylesheet ───────────────────────────────────────────────────── */
+/* ── Print Stylesheet (Dark Blue Typography & Theme Accents for A4) ────── */
 @media print {
   @page {
     size: A4 portrait;
-    margin: 18mm 16mm 18mm 16mm;
+    margin: 8mm 10mm 8mm 10mm;
   }
 
   /* Hide everything that is not the record body */
@@ -181,11 +181,14 @@
     display: none !important;
   }
 
-  /* Reset body */
+  /* Reset body with Dark Blue text and white background */
   body {
-    background: #fff !important;
-    color: #000 !important;
-    font-size: 10pt;
+    background: #FFFFFF !important;
+    color: #0A1931 !important;
+    font-size: 9pt;
+    line-height: 1.3;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   /* AppShell */
@@ -196,13 +199,16 @@
   main {
     height: auto !important;
     overflow: visible !important;
+    background: #FFFFFF !important;
+    padding: 0 !important;
   }
 
   /* Record view body — allow full expansion */
   #record-view-body {
     overflow: visible !important;
     height: auto !important;
-    background: #fff !important;
+    background: #FFFFFF !important;
+    padding: 0 !important;
   }
 
   /* Max width */
@@ -211,14 +217,14 @@
     padding: 0 !important;
   }
 
-  /* Table printing */
-  table {
-    page-break-inside: auto;
+  /* Prevent awkward page breaks */
+  table, .print-avoid-break {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 
   tr {
-    page-break-inside: avoid;
-    page-break-after: auto;
+    page-break-inside: avoid !important;
   }
 
   thead {
@@ -232,17 +238,26 @@
     white-space: normal !important;
   }
 
-  /* Border colors in print */
-  .border-\[\#0C0C0C\] {
-    border-color: #000 !important;
+  /* All black text & borders replaced with theme dark blue and brand accents */
+  .text-\[\#0C0C0C\],
+  .text-black {
+    color: #0A1931 !important;
   }
 
-  /* Preserve status badge backgrounds */
+  .border-\[\#0C0C0C\],
+  .border-black {
+    border-color: #1E3E62 !important;
+  }
+
+  /* Preserve badge backgrounds & theme styling in print */
   .bg-\[\#0D9970\],
   .bg-\[\#D4A800\],
   .bg-\[\#C94A00\],
-  .bg-\[\#0A6B52\] {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+  .bg-\[\#0A6B52\],
+  .bg-\[\#CC0000\],
+  .bg-\[\#E8DFC7\],
+  .bg-\[\#F0E8D0\] {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 }

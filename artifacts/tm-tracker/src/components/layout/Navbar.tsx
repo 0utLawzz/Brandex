@@ -40,14 +40,26 @@ export function Navbar() {
     <>
       <header className="sticky top-0 z-40 bg-[#0C0C0C] border-b-2 border-[#1A1A1A] text-[#F0E8D0] shadow-md print:hidden">
         <div className="flex items-center justify-between px-4 h-16 w-full">
-          {/* Logo */}
-          <div className="flex items-center gap-3 w-44 shrink-0">
-            <BriefcaseBusiness className="w-6 h-6 text-[#C94A00]" strokeWidth={2.5} />
+          {/* Logo & Brand */}
+          <Link href="/" className="flex items-center gap-2.5 shrink-0 hover:opacity-90 transition-opacity">
+            <img
+              src="/brandex-logo.png"
+              alt="Brandex Law Associates Logo"
+              className="w-9 h-9 object-contain bg-white rounded-sm p-0.5 border border-[#C94A00]/40"
+              onError={(e) => {
+                // Fallback icon if logo not loaded
+                (e.target as HTMLImageElement).style.display = "none";
+              }}
+            />
             <div className="hidden sm:block">
-              <div className="font-serif text-lg leading-none text-[#F0E8D0] tracking-widest">BRANDEX</div>
-              <div className="font-mono text-[9px] text-[#C94A00] tracking-widest uppercase">Google Sheets</div>
+              <div className="font-serif text-base leading-none text-[#F0E8D0] tracking-wider whitespace-nowrap">
+                BRANDEX LAW ASSOCIATES
+              </div>
+              <div className="font-mono text-[8px] text-[#C94A00] tracking-widest uppercase font-bold mt-0.5">
+                Trademark & IP Registry
+              </div>
             </div>
-          </div>
+          </Link>
 
           {/* Desktop Nav */}
           <nav className="hidden lg:flex flex-1 justify-center items-center gap-1">

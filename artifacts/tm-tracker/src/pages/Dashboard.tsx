@@ -62,11 +62,20 @@ export function Dashboard() {
       <div className="flex-1 overflow-auto bg-[#F0E8D0] p-6">
         <div className="max-w-6xl mx-auto space-y-6">
           <div className="flex items-center justify-between border-b-2 border-[#0C0C0C] pb-4">
-            <div>
-              <h1 className="font-serif text-3xl text-[#0C0C0C] uppercase tracking-wide leading-none">DASHBOARD</h1>
-              <p className="font-mono text-[10px] text-[#6d6658] mt-1 uppercase tracking-widest font-bold">
-                {format(new Date(), "EEEE, d MMMM yyyy")}
-              </p>
+            <div className="flex items-center gap-3">
+              <img
+                src="/brandex-logo.png"
+                alt="Brandex Law Associates"
+                className="w-11 h-11 object-contain bg-white rounded p-1 border-2 border-[#0C0C0C] shadow-[2px_2px_0_#0C0C0C]"
+              />
+              <div>
+                <h1 className="font-serif text-3xl text-[#0C0C0C] uppercase tracking-wide leading-none">
+                  BRANDEX LAW ASSOCIATES
+                </h1>
+                <p className="font-mono text-[10px] text-[#6d6658] mt-1 uppercase tracking-widest font-bold">
+                  TRADEMARK REGISTRY · {format(new Date(), "EEEE, d MMMM yyyy")}
+                </p>
+              </div>
             </div>
           </div>
 
