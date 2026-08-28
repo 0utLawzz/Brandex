@@ -10,6 +10,7 @@ import { LogsPage }     from "./pages/LogsPage";
 import { RecordView }   from "./pages/RecordView";
 import { AssignedPage } from "./pages/AssignedPage";
 import NotFound from "@/pages/not-found";
+import { AuthGate } from "@/components/AuthGate";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -38,9 +39,11 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
+        <AuthGate>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <Router />
+          </WouterRouter>
+        </AuthGate>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>

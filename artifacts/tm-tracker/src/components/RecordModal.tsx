@@ -106,6 +106,7 @@ export function RecordModal({ recordId, isNew: forceNew, onClose, onSaved }: Rec
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  const [imagePreview, setImagePreview] = useState("");
 
   const { data: trademark, isLoading } = useQuery<TrademarkRecord | null>({
     queryKey: ["trademark", recordId],
@@ -207,8 +208,9 @@ export function RecordModal({ recordId, isNew: forceNew, onClose, onSaved }: Rec
         agent:      trademark.agent ?? "",
         city:       trademark.city || "Islamabad",
         notes:      trademark.notes ?? "",
-        image:      trademark.image ?? "",
+        image:      trademark.imagePath ?? "",
       });
+      setImagePreview(trademark.image ?? "");
     }
   }, [trademark, creating, form]);
 
@@ -238,14 +240,15 @@ export function RecordModal({ recordId, isNew: forceNew, onClose, onSaved }: Rec
       setUploadProgress(20);
       const res = await uploadImage(file, (pct) => setUploadProgress(pct));
       form.setValue("image", res.fileId);
+      setImagePreview(res.thumbnailUrl);
       toast({
         title: "✓ Image Uploaded",
-        description: `Uploaded ${file.name} to Google Drive.`,
+        description: `Uploaded ${file.name} to secure storage.`,
       });
     } catch (err: any) {
       toast({
         title: "⚠ Upload Failed",
-        description: err?.message || "Failed to upload image. You can manually enter a Drive link or File ID below.",
+        description: err?.message || "Failed to upload image.",
         variant: "destructive",
       });
     } finally {
@@ -279,7 +282,7 @@ export function RecordModal({ recordId, isNew: forceNew, onClose, onSaved }: Rec
         onSuccess: () => {
           toast({
             title: "✓ Record Created",
-            description: `${data.appName} added to Google Sheets.`,
+            description: `${data.appName} saved to the secure Datasheet.`,
           });
           onSaved?.();
           onClose();
@@ -296,7 +299,7 @@ export function RecordModal({ recordId, isNew: forceNew, onClose, onSaved }: Rec
         onSuccess: () => {
           toast({
             title: "✓ Record Updated",
-            description: "Changes saved to Google Sheets.",
+            description: "Changes saved to the secure Datasheet.",
           });
           onSaved?.();
           onClose();
@@ -312,7 +315,7 @@ export function RecordModal({ recordId, isNew: forceNew, onClose, onSaved }: Rec
   };
 
   const handleDelete = () => {
-    if (!confirm("Delete this record permanently from Google Sheets?\n\nThis action cannot be undone.")) return;
+    if (!confirm("Delete this record permanently?\n\nThis action cannot be undone.")) return;
     deleteMutation.mutate(undefined, {
       onSuccess: () => {
         toast({ title: "Record Deleted" });
@@ -347,7 +350,7 @@ export function RecordModal({ recordId, isNew: forceNew, onClose, onSaved }: Rec
             </div>
             {!creating && trademark && (
               <div className="font-mono text-[10px] text-[#C5B89A] uppercase tracking-widest mt-1">
-                {trademark.caseNumber || trademark.id} · GOOGLE SHEETS
+                {trademark.caseNumber || trademark.id} · SECURE DATASHEET
               </div>
             )}
           </div>
@@ -515,13 +518,13 @@ export function RecordModal({ recordId, isNew: forceNew, onClose, onSaved }: Rec
                           className="flex items-center gap-2 px-4 h-10 bg-[#0C0C0C] text-[#F0E8D0] border-2 border-[#0C0C0C] font-mono font-bold text-xs uppercase tracking-wider hover:bg-[#C94A00] hover:border-[#C94A00] hover:text-white transition-colors disabled:opacity-50"
                         >
                           <UploadCloud className="w-4 h-4" />
-                          {uploading ? "UPLOADING TO DRIVE…" : watchImage ? "REPLACE IMAGE" : "BROWSE / UPLOAD IMAGE"}
+                          {uploading ? "UPLOADING…" : watchImage ? "REPLACE IMAGE" : "BROWSE / UPLOAD IMAGE"}
                         </button>
 
                         {watchImage && (
                           <button
                             type="button"
-                            onClick={() => form.setValue("image", "")}
+                            onClick={() => { form.setValue("image", ""); setImagePreview(""); }}
                             className="px-3 h-10 border-2 border-[#CC0000] text-[#CC0000] font-mono font-bold text-xs uppercase tracking-wider hover:bg-[#CC0000] hover:text-white transition-colors"
                           >
                             REMOVE IMAGE
@@ -533,7 +536,7 @@ export function RecordModal({ recordId, isNew: forceNew, onClose, onSaved }: Rec
                       {uploading && (
                         <div className="space-y-1">
                           <div className="flex justify-between font-mono text-[10px] text-[#6d6658]">
-                            <span>Uploading to Google Drive…</span>
+                            <span>Uploading to secure storage…</span>
                             <span>{uploadProgress}%</span>
                           </div>
                           <div className="w-full h-2 bg-[#E8DFC7] border border-[#0C0C0C] overflow-hidden">
@@ -554,11 +557,7 @@ export function RecordModal({ recordId, isNew: forceNew, onClose, onSaved }: Rec
                             title="Click to enlarge"
                           >
                             <img
-                              src={
-                                watchImage.startsWith("http")
-                                  ? watchImage
-                                  : `https://drive.google.com/thumbnail?id=${watchImage}&sz=w200`
-                              }
+                              src={imagePreview || watchImage}
                               alt="Preview"
                               className="w-full h-full object-contain"
                               onError={(e) => {
@@ -581,17 +580,7 @@ export function RecordModal({ recordId, isNew: forceNew, onClose, onSaved }: Rec
                         </div>
                       )}
 
-                      {/* Manual Drive link / ID fallback */}
-                      <div className="pt-2 border-t border-[#0C0C0C]/10">
-                        <label className="block font-mono text-[9px] text-[#6d6658] uppercase tracking-wider mb-1">
-                          Drive File ID / URL (Manual Reference)
-                        </label>
-                        <FormInput
-                          placeholder="https://drive.google.com/... or File ID"
-                          {...form.register("image")}
-                          className="h-8 text-xs"
-                        />
-                      </div>
+                      <input type="hidden" {...form.register("image")} />
                     </div>
                   </div>
                 </div>
@@ -618,11 +607,7 @@ export function RecordModal({ recordId, isNew: forceNew, onClose, onSaved }: Rec
                     </button>
                   </div>
                   <img
-                    src={
-                      watchImage.startsWith("http")
-                        ? watchImage
-                        : `https://drive.google.com/thumbnail?id=${watchImage}&sz=w800`
-                    }
+                    src={imagePreview || watchImage}
                     alt="Full Preview"
                     className="max-h-[75vh] w-auto mx-auto block p-2"
                   />

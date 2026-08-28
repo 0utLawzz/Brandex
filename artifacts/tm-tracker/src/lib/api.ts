@@ -1,18 +1,6 @@
-/**
- * Brandex API client — talks directly to Google Apps Script Web App.
- *
- * Set VITE_APPS_SCRIPT_URL in your .env file:
- *   VITE_APPS_SCRIPT_URL=https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec
- */
+/** Brandex browser data layer — Supabase is primary; Sheet mirroring is server-side. */
 
-const GAS_URL = import.meta.env.VITE_APPS_SCRIPT_URL as string;
-
-if (!GAS_URL) {
-  console.warn(
-    "[Brandex] VITE_APPS_SCRIPT_URL is not set. API calls will fail. " +
-    "Add it to your .env file: VITE_APPS_SCRIPT_URL=https://script.google.com/macros/s/..."
-  );
-}
+import { isSupabaseConfigured, supabase, TRADEMARK_FILES_BUCKET } from "./supabase";
 
 // ---------------------------------------------------------------------------
 // Types — 24-column DATABASE schema
@@ -78,6 +66,8 @@ export interface TrademarkRecord {
   notes: string;
   updatedAt: string;
   image: string;
+  /** Private Supabase Storage path; image is the temporary signed display URL. */
+  imagePath?: string;
   // Stored reference fields (set by GAS after matching)
   tm5: string;
   tm6: string;
@@ -251,38 +241,129 @@ export function mapRowToRecord(row: Trademark): TrademarkRecord {
   };
 }
 
-// ---------------------------------------------------------------------------
-// HTTP helpers
-// ---------------------------------------------------------------------------
-async function gasGet<T>(params: Record<string, string>): Promise<T> {
-  const url = new URL(GAS_URL);
-  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-  const res = await fetch(url.toString(), { redirect: "follow" });
-  if (!res.ok) throw new Error(`GAS GET failed: ${res.status}`);
-  const data = await res.json();
-  if (!data.ok) throw new Error(data.error || "GAS error");
-  return data.data as T;
+type SupabaseTrademarkRow = {
+  id: string;
+  filing_date: string;
+  type: string;
+  client_code: string;
+  client_name: string | null;
+  case_number: string;
+  application_name: string;
+  tm_cpr_number: string | null;
+  nice_class: string | null;
+  status: string;
+  sub_status: string | null;
+  case_type: string | null;
+  agent: string | null;
+  city: string;
+  notes: string | null;
+  tm5: boolean;
+  tm6: boolean;
+  tm11: boolean;
+  tm16: boolean;
+  tm56: boolean;
+  journal_number: string | null;
+  journal_date: string | null;
+  journal_data: JournalRecord | null;
+  logo_path: string | null;
+  legacy_image_url: string | null;
+  updated_at: string;
+};
+
+function ensureConfigured() {
+  if (!isSupabaseConfigured) {
+    throw new Error("Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY.");
+  }
 }
 
-async function gasPost<T>(body: object): Promise<T> {
-  // GAS CORS: send as text/plain to avoid preflight
-  const res = await fetch(GAS_URL, {
-    method: "POST",
-    redirect: "follow",
-    headers: { "Content-Type": "text/plain" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`GAS POST failed: ${res.status}`);
-  const data = await res.json();
-  if (!data.ok) throw new Error(data.error || "GAS error");
-  return data.data as T;
+function throwIfError(error: { message: string } | null) {
+  if (error) throw new Error(error.message);
+}
+
+function rowToRecord(row: SupabaseTrademarkRow, signedImage = ""): TrademarkRecord {
+  const matches: TmMatches = {
+    TM5: row.tm5,
+    TM6: row.tm6,
+    TM11: row.tm11,
+    TM16: row.tm16,
+    TM56: row.tm56,
+  };
+  return {
+    id: row.id,
+    date: row.filing_date,
+    type: row.type,
+    prefix: row.type,
+    clientCode: row.client_code,
+    clientNo: row.client_code,
+    caseNumber: row.case_number,
+    folderNo: row.case_number,
+    caseNo: row.case_number,
+    clientName: row.client_name ?? "",
+    appName: row.application_name,
+    tmCprNo: row.tm_cpr_number ?? "",
+    tmNo: row.tm_cpr_number ?? "",
+    appClass: row.nice_class ?? "",
+    stage: row.status,
+    subStage: row.sub_status ?? "",
+    caseType: row.case_type ?? "",
+    agent: row.agent ?? "",
+    city: row.city,
+    notes: row.notes ?? "",
+    updatedAt: row.updated_at,
+    image: signedImage || row.legacy_image_url || "",
+    imagePath: row.logo_path || row.legacy_image_url || "",
+    tm5: row.tm5 ? "YES" : "",
+    tm6: row.tm6 ? "YES" : "",
+    tm11: row.tm11 ? "YES" : "",
+    tm16: row.tm16 ? "YES" : "",
+    tm56: row.tm56 ? "YES" : "",
+    journalNumber: row.journal_number ?? "",
+    journalDate: row.journal_date ?? "",
+    tmMatches: matches,
+    journal: row.journal_data,
+  };
+}
+
+async function mapRows(rows: SupabaseTrademarkRow[]): Promise<TrademarkRecord[]> {
+  const paths = rows.map((row) => row.logo_path).filter((path): path is string => Boolean(path));
+  const signedByPath = new Map<string, string>();
+  if (paths.length) {
+    const { data } = await supabase.storage.from(TRADEMARK_FILES_BUCKET).createSignedUrls(paths, 3600);
+    data?.forEach((item, index) => {
+      if (item.signedUrl) signedByPath.set(paths[index], item.signedUrl);
+    });
+  }
+  return rows.map((row) => rowToRecord(row, row.logo_path ? signedByPath.get(row.logo_path) ?? "" : ""));
+}
+
+export function inputToRow(input: TrademarkInput) {
+  const image = input.image?.trim() || null;
+  const externalImage = image?.startsWith("http") ?? false;
+  return {
+    filing_date: input.date,
+    type: input.type ?? input.prefix,
+    client_code: input.clientCode ?? input.clientNo,
+    client_name: input.clientName ?? null,
+    case_number: input.caseNumber ?? input.caseNo ?? input.folderNo,
+    application_name: input.appName,
+    tm_cpr_number: input.tmCprNo ?? input.tmNo ?? null,
+    nice_class: input.appClass ?? null,
+    status: input.stage,
+    sub_status: input.subStage ?? null,
+    case_type: input.caseType ?? null,
+    agent: input.agent ?? null,
+    city: input.city,
+    notes: input.notes ?? null,
+    logo_path: externalImage ? null : image,
+    legacy_image_url: externalImage ? image : null,
+  };
 }
 
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
-/** List all records with optional client-side filtering */
+/** List records using indexed database filters. */
 export async function listTrademarks(params?: {
   search?: string;
   stage?: string;
@@ -291,18 +372,16 @@ export async function listTrademarks(params?: {
   agent?: string;
   appClass?: string;
 }): Promise<TrademarkRecord[]> {
-  const rows = await gasGet<Trademark[]>({ action: "list" });
-
-  // Filter out blank rows defensively (GAS already does this, but be safe)
-  let records = rows
-    .filter((r) => r["ID"] && String(r["ID"]).trim() !== "")
-    .map(mapRowToRecord);
-
-  if (params?.stage)    records = records.filter((r) => r.stage === params.stage);
-  if (params?.city)     records = records.filter((r) => r.city === params.city);
-  if (params?.caseType) records = records.filter((r) => r.caseType === params.caseType);
-  if (params?.agent)    records = records.filter((r) => r.agent === params.agent);
-  if (params?.appClass) records = records.filter((r) => r.appClass === params.appClass);
+  ensureConfigured();
+  let query = supabase.from("trademarks").select("*").order("updated_at", { ascending: false });
+  if (params?.stage) query = query.eq("status", params.stage);
+  if (params?.city) query = query.eq("city", params.city);
+  if (params?.caseType) query = query.eq("case_type", params.caseType);
+  if (params?.agent) query = query.eq("agent", params.agent);
+  if (params?.appClass) query = query.eq("nice_class", params.appClass);
+  const { data, error } = await query;
+  throwIfError(error);
+  let records = await mapRows((data ?? []) as SupabaseTrademarkRow[]);
   if (params?.search) {
     const q = params.search.toLowerCase();
     records = records.filter(
@@ -321,12 +400,11 @@ export async function listTrademarks(params?: {
 
 /** Fetch a single record enriched with TM matches and Journal data */
 export async function getRecord(id: string): Promise<TrademarkRecord | null> {
-  try {
-    const row = await gasGet<Trademark>({ action: "getRecord", id });
-    return mapRowToRecord(row);
-  } catch {
-    return null;
-  }
+  ensureConfigured();
+  const { data, error } = await supabase.from("trademarks").select("*").eq("id", id).maybeSingle();
+  throwIfError(error);
+  if (!data) return null;
+  return (await mapRows([data as SupabaseTrademarkRow]))[0];
 }
 
 /** Legacy alias used by RecordModal */
@@ -336,44 +414,90 @@ export async function getTrademark(id: string): Promise<TrademarkRecord | null> 
 
 /** Search by TM/CPR Number — returns compact card data */
 export async function searchTm(tmNo: string): Promise<TmSearchResult> {
-  const raw = await gasGet<{
-    records: Trademark[];
-    tmMatches: TmMatches;
-    journal: JournalRecord | null;
-  }>({ action: "searchTm", tmNo });
+  ensureConfigured();
+  const { data, error } = await supabase
+    .from("trademarks")
+    .select("*")
+    .ilike("tm_cpr_number", tmNo.trim())
+    .order("updated_at", { ascending: false });
+  throwIfError(error);
+  const records = await mapRows((data ?? []) as SupabaseTrademarkRow[]);
+  const first = records[0];
   return {
-    records: raw.records.map(mapRowToRecord),
-    tmMatches: raw.tmMatches,
-    journal: raw.journal,
+    records,
+    tmMatches: first?.tmMatches ?? { TM5: false, TM6: false, TM11: false, TM16: false, TM56: false },
+    journal: first?.journal ?? null,
   };
 }
 
 export async function createTrademark(input: TrademarkInput): Promise<{ id: string; caseNumber: string }> {
-  return gasPost({ action: "create", record: input });
+  ensureConfigured();
+  const { data: authData } = await supabase.auth.getUser();
+  const { data, error } = await supabase
+    .from("trademarks")
+    .insert({ ...inputToRow(input), created_by: authData.user?.id, updated_by: authData.user?.id })
+    .select("id,case_number")
+    .single();
+  throwIfError(error);
+  if (!data) throw new Error("Supabase did not return the created record.");
+  return { id: data.id, caseNumber: data.case_number };
 }
 
 export async function updateTrademark(id: string, input: TrademarkInput): Promise<{ id: string }> {
-  return gasPost({ action: "update", id, record: input });
+  ensureConfigured();
+  const { data, error } = await supabase.from("trademarks").update(inputToRow(input)).eq("id", id).select("id").single();
+  throwIfError(error);
+  if (!data) throw new Error("Supabase did not return the updated record.");
+  return { id: data.id };
 }
 
 export async function deleteTrademark(id: string): Promise<void> {
-  await gasPost({ action: "delete", id });
+  ensureConfigured();
+  const { error } = await supabase.from("trademarks").delete().eq("id", id);
+  throwIfError(error);
 }
 
 export async function getStats(): Promise<TrademarkStats> {
-  return gasGet<TrademarkStats>({ action: "stats" });
+  const records = await listTrademarks();
+  const countBy = (key: "stage" | "city") => Object.entries(records.reduce<Record<string, number>>((acc, row) => {
+    const value = row[key] || "Unspecified";
+    acc[value] = (acc[value] ?? 0) + 1;
+    return acc;
+  }, {})).map(([name, count]) => ({ stage: name, city: name, count }));
+  const recentCutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  return {
+    total: records.length,
+    recentlyModified: records.filter((record) => Date.parse(record.updatedAt) >= recentCutoff).length,
+    byStage: countBy("stage").map(({ stage, count }) => ({ stage, count })),
+    byCity: countBy("city").map(({ city, count }) => ({ city, count })),
+    byNumericStage: countBy("stage").filter(({ stage }) => /^STAGE \d+$/.test(stage)).map(({ stage, count }) => ({ stage, count })),
+  };
 }
 
 export async function listAuditLogs(limit = 100, offset = 0): Promise<AuditLogEntry[]> {
-  return gasGet<AuditLogEntry[]>({
-    action: "listLogs",
-    limit: String(limit),
-    offset: String(offset),
-  });
+  ensureConfigured();
+  const { data, error } = await supabase.from("audit_logs").select("*")
+    .order("changed_at", { ascending: false }).range(offset, offset + limit - 1);
+  throwIfError(error);
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    changedAt: row.changed_at,
+    changedBy: row.changed_by ?? "system",
+    action: row.action,
+    recordId: row.trademark_id ?? "",
+    caseNo: row.new_record?.case_number ?? row.old_record?.case_number ?? "",
+    record: row.new_record?.case_number ?? row.old_record?.case_number ?? row.trademark_id ?? "",
+    field: "RECORD",
+    oldValue: row.old_record ? JSON.stringify(row.old_record) : "",
+    newValue: row.new_record ? JSON.stringify(row.new_record) : "",
+  }));
 }
 
 export async function listAgents(): Promise<string[]> {
-  return gasGet<string[]>({ action: "listAgents" });
+  ensureConfigured();
+  const { data, error } = await supabase.from("trademarks").select("agent").not("agent", "is", null).order("agent");
+  throwIfError(error);
+  return Array.from(new Set((data ?? []).map((row) => row.agent).filter((agent): agent is string => Boolean(agent))));
 }
 
 export interface ClientRef {
@@ -382,48 +506,33 @@ export interface ClientRef {
 }
 
 export async function listClients(): Promise<ClientRef[]> {
-  try {
-    return await gasGet<ClientRef[]>({ action: "listClients" });
-  } catch {
-    return [];
-  }
+  ensureConfigured();
+  const { data, error } = await supabase.from("clients").select("code,name").order("code");
+  throwIfError(error);
+  return data ?? [];
 }
 
 /**
- * Upload an image to Google Drive via Google Apps Script.
- * Returns the Drive file ID, shareable URL, and thumbnail preview URL.
+ * Upload a private logo/image to Supabase Storage.
  */
 export async function uploadImage(
   file: File,
   onProgress?: (progressPercent: number) => void
 ): Promise<UploadImageResult> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("Failed to read file from disk"));
-    reader.onload = async () => {
-      try {
-        const dataUrl = reader.result as string;
-        const parts = dataUrl.split(",");
-        const base64Data = parts[1];
-        if (!base64Data) {
-          throw new Error("Unable to encode image data");
-        }
-
-        if (onProgress) onProgress(30);
-
-        const result = await gasPost<UploadImageResult>({
-          action: "uploadImage",
-          fileName: file.name,
-          mimeType: file.type || "image/jpeg",
-          base64Data: base64Data,
-        });
-
-        if (onProgress) onProgress(100);
-        resolve(result);
-      } catch (err) {
-        reject(err);
-      }
-    };
-    reader.readAsDataURL(file);
+  ensureConfigured();
+  const { data: authData } = await supabase.auth.getUser();
+  if (!authData.user) throw new Error("Please sign in before uploading files.");
+  if (file.size > 10 * 1024 * 1024) throw new Error("File must be 10 MB or smaller.");
+  const extension = file.name.split(".").pop()?.toLowerCase() || "bin";
+  const path = `pending/${authData.user.id}/${crypto.randomUUID()}.${extension}`;
+  onProgress?.(20);
+  const { error } = await supabase.storage.from(TRADEMARK_FILES_BUCKET).upload(path, file, {
+    contentType: file.type,
+    upsert: false,
   });
+  throwIfError(error);
+  onProgress?.(80);
+  const { data } = await supabase.storage.from(TRADEMARK_FILES_BUCKET).createSignedUrl(path, 3600);
+  onProgress?.(100);
+  return { fileId: path, url: data?.signedUrl ?? "", thumbnailUrl: data?.signedUrl ?? "" };
 }
