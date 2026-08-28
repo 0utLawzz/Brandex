@@ -136,6 +136,10 @@ overrides:
 importers:
 
   .:
+    dependencies:
+      '@supabase/supabase-js':
+        specifier: ^2.112.4
+        version: 2.112.4
     devDependencies:
       prettier:
         specifier: ^3.9.6
