@@ -53,13 +53,13 @@ create table public.trademarks (
   updated_by uuid references auth.users(id),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  version integer not null default 1,
-  unique (type, client_code, case_number)
+  version integer not null default 1
 );
 
 create index trademarks_updated_at_idx on public.trademarks (updated_at desc);
 create index trademarks_tm_number_idx on public.trademarks (tm_cpr_number);
 create index trademarks_client_code_idx on public.trademarks (client_code);
+create index trademarks_case_reference_idx on public.trademarks (type, client_code, case_number);
 create index trademarks_status_idx on public.trademarks (status);
 create index trademarks_agent_idx on public.trademarks (agent);
 create index trademarks_city_idx on public.trademarks (city);
