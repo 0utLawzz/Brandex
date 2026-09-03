@@ -256,7 +256,7 @@ type SupabaseTrademarkRow = {
   case_type: string | null;
   agent: string | null;
   city: string;
-  notes: string | null;
+  notes?: string | null;
   tm5: boolean;
   tm6: boolean;
   tm11: boolean;
@@ -264,9 +264,9 @@ type SupabaseTrademarkRow = {
   tm56: boolean;
   journal_number: string | null;
   journal_date: string | null;
-  journal_data: JournalRecord | null;
-  logo_path: string | null;
-  legacy_image_url: string | null;
+  journal_data?: JournalRecord | null;
+  logo_path?: string | null;
+  legacy_image_url?: string | null;
   updated_at: string;
 };
 
@@ -324,7 +324,9 @@ function rowToRecord(row: SupabaseTrademarkRow, signedImage = ""): TrademarkReco
   };
 }
 
-async function mapRows(rows: SupabaseTrademarkRow[]): Promise<TrademarkRecord[]> {
+async function mapRows(rows: SupabaseTrademarkRow[], signImages = false): Promise<TrademarkRecord[]> {
+  if (!signImages) return rows.map((row) => rowToRecord(row));
+
   const paths = rows.map((row) => row.logo_path).filter((path): path is string => Boolean(path));
   const signedByPath = new Map<string, string>();
   if (paths.length) {
@@ -335,6 +337,15 @@ async function mapRows(rows: SupabaseTrademarkRow[]): Promise<TrademarkRecord[]>
   }
   return rows.map((row) => rowToRecord(row, row.logo_path ? signedByPath.get(row.logo_path) ?? "" : ""));
 }
+
+// List pages only need these fields. Excluding notes, journal JSON and image signing
+// keeps the 1,000+ row response small; full data is fetched when a record is opened.
+const TRADEMARK_LIST_COLUMNS = [
+  "id", "filing_date", "type", "client_code", "client_name", "case_number",
+  "application_name", "tm_cpr_number", "nice_class", "status", "sub_status",
+  "case_type", "agent", "city", "tm5", "tm6", "tm11", "tm16", "tm56",
+  "journal_number", "journal_date", "updated_at",
+].join(",");
 
 export function inputToRow(input: TrademarkInput) {
   const image = input.image?.trim() || null;
@@ -373,7 +384,7 @@ export async function listTrademarks(params?: {
   appClass?: string;
 }): Promise<TrademarkRecord[]> {
   ensureConfigured();
-  let query = supabase.from("trademarks").select("*").order("updated_at", { ascending: false });
+  let query = supabase.from("trademarks").select(TRADEMARK_LIST_COLUMNS).order("updated_at", { ascending: false });
   if (params?.stage) query = query.eq("status", params.stage);
   if (params?.city) query = query.eq("city", params.city);
   if (params?.caseType) query = query.eq("case_type", params.caseType);
@@ -381,7 +392,7 @@ export async function listTrademarks(params?: {
   if (params?.appClass) query = query.eq("nice_class", params.appClass);
   const { data, error } = await query;
   throwIfError(error);
-  let records = await mapRows((data ?? []) as SupabaseTrademarkRow[]);
+  let records = await mapRows((data ?? []) as unknown as SupabaseTrademarkRow[]);
   if (params?.search) {
     const q = params.search.toLowerCase();
     records = records.filter(
@@ -404,7 +415,7 @@ export async function getRecord(id: string): Promise<TrademarkRecord | null> {
   const { data, error } = await supabase.from("trademarks").select("*").eq("id", id).maybeSingle();
   throwIfError(error);
   if (!data) return null;
-  return (await mapRows([data as SupabaseTrademarkRow]))[0];
+  return (await mapRows([data as SupabaseTrademarkRow], true))[0];
 }
 
 /** Legacy alias used by RecordModal */
@@ -458,19 +469,26 @@ export async function deleteTrademark(id: string): Promise<void> {
 }
 
 export async function getStats(): Promise<TrademarkStats> {
-  const records = await listTrademarks();
-  const countBy = (key: "stage" | "city") => Object.entries(records.reduce<Record<string, number>>((acc, row) => {
+  ensureConfigured();
+  // Stats need only three small scalar columns. The old implementation downloaded
+  // every record, journal payload and then generated signed URLs for every logo.
+  const { data, error, count } = await supabase
+    .from("trademarks")
+    .select("status,city,updated_at", { count: "exact" });
+  throwIfError(error);
+  const rows = data ?? [];
+  const countBy = (key: "status" | "city") => Object.entries(rows.reduce<Record<string, number>>((acc, row) => {
     const value = row[key] || "Unspecified";
     acc[value] = (acc[value] ?? 0) + 1;
     return acc;
   }, {})).map(([name, count]) => ({ stage: name, city: name, count }));
   const recentCutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
   return {
-    total: records.length,
-    recentlyModified: records.filter((record) => Date.parse(record.updatedAt) >= recentCutoff).length,
-    byStage: countBy("stage").map(({ stage, count }) => ({ stage, count })),
+    total: count ?? rows.length,
+    recentlyModified: rows.filter((row) => Date.parse(row.updated_at) >= recentCutoff).length,
+    byStage: countBy("status").map(({ stage, count }) => ({ stage, count })),
     byCity: countBy("city").map(({ city, count }) => ({ city, count })),
-    byNumericStage: countBy("stage").filter(({ stage }) => /^STAGE \d+$/.test(stage)).map(({ stage, count }) => ({ stage, count })),
+    byNumericStage: countBy("status").filter(({ stage }) => /^STAGE \d+$/.test(stage)).map(({ stage, count }) => ({ stage, count })),
   };
 }
 
