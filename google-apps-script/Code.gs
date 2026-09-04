@@ -44,6 +44,7 @@
 // so existing sheets named "Database" or "Audit Log" will be found correctly.
 var DB_SHEET_NAME  = "DATABASE";
 var LOG_SHEET_NAME = "LOGS";
+var ARCHIVE_SHEET_NAME = "ARCHIVE";
 
 var DB_HEADERS = [
   "ID", "DATE", "TYPE", "CLIENT CODE", "CASE NUMBER", "CLIENT NAME",
@@ -64,57 +65,7 @@ var TM_SHEETS = ["TM5", "TM6", "TM11", "TM16", "TM56"];
 // GET handler — read-only operations
 // ---------------------------------------------------------------------------
 function doGet(e) {
-  try {
-    var params = e.parameter || {};
-    var action = params.action || "list";
-
-    if (action === "list") {
-      var rows = getDbRows();
-      return json({ ok: true, data: rows });
-    }
-
-    if (action === "stats") {
-      var rows = getDbRows();
-      var stats = computeStats(rows);
-      return json({ ok: true, data: stats });
-    }
-
-    if (action === "getRecord") {
-      var id = params.id;
-      if (!id) return json({ ok: false, error: "id is required" });
-      var record = getEnrichedRecord(id);
-      if (!record) return json({ ok: false, error: "Record not found: " + id });
-      return json({ ok: true, data: record });
-    }
-
-    if (action === "searchTm") {
-      var tmNo = String(params.tmNo || "").trim();
-      if (!tmNo) return json({ ok: false, error: "tmNo is required" });
-      var result = searchByTmNumber(tmNo);
-      return json({ ok: true, data: result });
-    }
-
-    if (action === "listLogs") {
-      var limit  = parseInt(params.limit  || "100", 10);
-      var offset = parseInt(params.offset || "0",   10);
-      var logs = getLogRows(limit, offset);
-      return json({ ok: true, data: logs });
-    }
-
-    if (action === "listAgents") {
-      var agents = getDistinctValues("AGENT");
-      return json({ ok: true, data: agents });
-    }
-
-    if (action === "listClients") {
-      var clients = getClientsList();
-      return json({ ok: true, data: clients });
-    }
-
-    return json({ ok: false, error: "Unknown GET action: " + action });
-  } catch (err) {
-    return json({ ok: false, error: String(err) });
-  }
+  return json({ ok: true, data: { service: "Brandex Sheet Mirror", writeMode: "Supabase only" } });
 }
 
 // ---------------------------------------------------------------------------
@@ -125,29 +76,33 @@ function doPost(e) {
     var body   = JSON.parse(e.postData.contents || "{}");
     var action = body.action;
 
-    if (action === "create") {
-      var result = createRecord(body.record || {});
-      return json({ ok: true, data: result });
-    }
-
-    if (action === "update") {
-      var result = updateRecord(body.id, body.record || {});
-      return json({ ok: true, data: result });
-    }
-
-    if (action === "delete") {
-      deleteRecord(body.id);
+    // Supabase -> Google Sheet mirror operations are authenticated with a
+    // server-side secret stored in Apps Script Properties. The secret must
+    // never be placed in a VITE_* environment variable.
+    if (action === "mirrorUpsert" || action === "mirrorDelete" || action === "mirrorExport") {
+      requireMirrorSecret(body.secret);
+      if (action === "mirrorExport") {
+        return json({ ok: true, data: getDbRows() });
+      }
+      if (action === "mirrorUpsert") {
+        var mirrorResult = mirrorUpsertRecord(body.id, body.record || {});
+        return json({ ok: true, data: mirrorResult });
+      }
+      mirrorDeleteRecord(body.id);
       return json({ ok: true });
     }
 
-    if (action === "uploadImage") {
-      var uploadResult = uploadImageToDrive(body.fileName, body.mimeType, body.base64Data);
-      return json({ ok: true, data: uploadResult });
-    }
-
-    return json({ ok: false, error: "Unknown POST action: " + action });
+    return json({ ok: false, error: "Legacy writes are disabled; use the secure Datasheet" });
   } catch (err) {
     return json({ ok: false, error: String(err) });
+  }
+}
+
+function requireMirrorSecret(providedSecret) {
+  var expectedSecret = PropertiesService.getScriptProperties().getProperty("BRANDEX_MIRROR_SECRET");
+  if (!expectedSecret) throw new Error("BRANDEX_MIRROR_SECRET is not configured");
+  if (!providedSecret || String(providedSecret) !== String(expectedSecret)) {
+    throw new Error("Unauthorized mirror request");
   }
 }
 
@@ -212,6 +167,19 @@ function getDbSheet() {
       sheet.insertRowBefore(1);
       sheet.getRange(1, 1, 1, DB_HEADERS.length).setValues([DB_HEADERS]);
     }
+  }
+  return sheet;
+}
+
+function getArchiveSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = findSheet(ARCHIVE_SHEET_NAME, ["Archive", "archive"]);
+  var headers = DB_HEADERS.concat(["DELETED AT"]);
+  if (!sheet) {
+    sheet = ss.insertSheet(ARCHIVE_SHEET_NAME);
+    sheet.appendRow(headers);
+  } else if (sheet.getLastRow() === 0) {
+    sheet.appendRow(headers);
   }
   return sheet;
 }
@@ -328,6 +296,81 @@ function buildRowFromRecord(record, existing) {
   set("LAST MODIFIED", now);
 
   return row;
+}
+
+// Maps the Supabase snake_case record to the existing 24-column Sheet layout.
+function buildRowFromSupabase(record, existing) {
+  var mapped = {
+    date: record.filing_date,
+    type: record.type,
+    clientCode: record.client_code,
+    clientName: record.client_name,
+    caseNumber: record.case_number,
+    appName: record.application_name,
+    tmCprNo: record.tm_cpr_number,
+    appClass: record.nice_class,
+    stage: record.status,
+    subStage: record.sub_status,
+    caseType: record.case_type,
+    agent: record.agent,
+    city: record.city,
+    notes: record.notes,
+    image: record.logo_path || record.legacy_image_url
+  };
+
+  var row = buildRowFromRecord(mapped, existing);
+  row[DB_HEADERS.indexOf("TM5")] = record.tm5 ? "YES" : "";
+  row[DB_HEADERS.indexOf("TM6")] = record.tm6 ? "YES" : "";
+  row[DB_HEADERS.indexOf("TM11")] = record.tm11 ? "YES" : "";
+  row[DB_HEADERS.indexOf("TM16")] = record.tm16 ? "YES" : "";
+  row[DB_HEADERS.indexOf("TM56")] = record.tm56 ? "YES" : "";
+  row[DB_HEADERS.indexOf("JOURNAL NUMBER")] = record.journal_number || "";
+  row[DB_HEADERS.indexOf("JOURNAL DATE")] = record.journal_date || "";
+  return row;
+}
+
+function mirrorUpsertRecord(id, record) {
+  if (!id) throw new Error("Mirror record id is required");
+
+  var lock = LockService.getDocumentLock();
+  lock.waitLock(30000);
+  try {
+    var sheet = getDbSheet();
+    var found = findRowById(id);
+    var row;
+
+    if (found) {
+      var existing = sheet.getRange(found.rowIndex, 1, 1, DB_HEADERS.length).getValues()[0];
+      row = buildRowFromSupabase(record, existing);
+      row[DB_HEADERS.indexOf("ID")] = id;
+      sheet.getRange(found.rowIndex, 1, 1, DB_HEADERS.length).setValues([row]);
+    } else {
+      row = buildRowFromSupabase(record, new Array(DB_HEADERS.length).fill(""));
+      row[DB_HEADERS.indexOf("ID")] = id;
+      sheet.appendRow(row);
+    }
+    return { id: id };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function mirrorDeleteRecord(id) {
+  if (!id) throw new Error("Mirror record id is required");
+
+  var lock = LockService.getDocumentLock();
+  lock.waitLock(30000);
+  try {
+    var sheet = getDbSheet();
+    var found = findRowById(id);
+    if (found) {
+      var row = sheet.getRange(found.rowIndex, 1, 1, DB_HEADERS.length).getValues()[0];
+      getArchiveSheet().appendRow(row.concat([new Date().toISOString()]));
+      sheet.deleteRow(found.rowIndex);
+    }
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function createRecord(record) {

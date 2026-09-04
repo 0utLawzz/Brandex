@@ -153,13 +153,8 @@ function ImageSection({ record }: { record: TrademarkRecord }) {
   const img = record.image;
   if (!img) return null;
 
-  const isUrl = img.startsWith("http");
-  const thumbUrl = isUrl
-    ? img
-    : `https://drive.google.com/thumbnail?id=${img}&sz=w200`;
-  const fullUrl = isUrl
-    ? img
-    : `https://drive.google.com/file/d/${img}/view`;
+  const thumbUrl = img;
+  const fullUrl = img;
 
   return (
     <div className="print-avoid-break">
@@ -190,7 +185,7 @@ function ImageSection({ record }: { record: TrademarkRecord }) {
             rel="noopener noreferrer"
             className="flex items-center gap-1 text-[#C94A00] font-bold mt-0.5 hover:underline print:hidden"
           >
-            <ExternalLink className="w-3 h-3" /> Open in Drive
+            <ExternalLink className="w-3 h-3" /> Open Full Image
           </a>
         </div>
       </div>
@@ -217,7 +212,7 @@ function ImageSection({ record }: { record: TrademarkRecord }) {
               </button>
             </div>
             <img
-              src={isUrl ? img : `https://drive.google.com/thumbnail?id=${img}&sz=w800`}
+              src={img}
               alt={record.appName}
               className="max-h-[80vh] w-auto mx-auto block"
             />
@@ -312,7 +307,7 @@ export function RecordView({ params }: Props) {
         <div className="flex items-center justify-center h-full bg-[#F0E8D0]">
           <div className="text-center space-y-3">
             <div className="font-mono font-bold text-[#3A506B] animate-pulse uppercase tracking-widest text-sm">
-              Loading record from Google Sheets…
+              Loading secure record…
             </div>
             <div className="w-48 h-1 bg-[#1E3E62]/10 mx-auto overflow-hidden">
               <div className="h-full bg-[#C94A00] animate-[slide_1.2s_ease-in-out_infinite]" style={{ width: "40%" }} />

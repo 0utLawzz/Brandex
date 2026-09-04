@@ -6,11 +6,16 @@
     "preinstall": "node -e \"if (!/pnpm/.test(process.env.npm_config_user_agent || '')) { console.error('Use pnpm instead'); process.exit(1); }\"",
     "build": "pnpm --filter @workspace/tm-tracker run build",
     "dev": "pnpm --filter @workspace/tm-tracker run dev",
-    "typecheck": "pnpm --filter @workspace/tm-tracker run typecheck"
+    "typecheck": "pnpm --filter @workspace/tm-tracker run typecheck",
+    "test": "pnpm --filter @workspace/tm-tracker run test",
+    "import:sheet": "node scripts/import-google-sheet.mjs"
   },
   "private": true,
   "devDependencies": {
     "prettier": "^3.9.6",
     "typescript": "~5.9.3"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.112.4"
   }
 }

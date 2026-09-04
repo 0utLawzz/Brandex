@@ -11,7 +11,9 @@ import {
   Menu,
   X,
   Users2,
+  LogOut,
 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 const NAV_ITEMS = [
   { href: "/",         label: "DASHBOARD", icon: LayoutDashboard },
@@ -83,15 +85,23 @@ export function Navbar() {
           </nav>
 
           {/* Right Actions */}
-          <div className="flex items-center justify-end gap-3 w-44 shrink-0">
+          <div className="flex items-center justify-end gap-2 w-52 shrink-0">
             <button
               onClick={handleRefresh}
               disabled={refreshing}
-              title="Refresh data from Google Sheets"
+              title="Refresh data from Supabase"
               className="hidden sm:flex items-center justify-center gap-2 bg-[#D4A800] text-[#0C0C0C] border-2 border-[#0C0C0C] px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider hover:brightness-105 active:brightness-95 transition-all disabled:opacity-50"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
               {refreshing ? "REFRESHING..." : "REFRESH"}
+            </button>
+
+            <button
+              onClick={() => supabase.auth.signOut()}
+              title="Sign out"
+              className="hidden sm:flex items-center justify-center border-2 border-[#333] p-2 text-[#C5B89A] hover:text-white hover:border-[#C5B89A]"
+            >
+              <LogOut className="w-3.5 h-3.5" />
             </button>
 
             <button
