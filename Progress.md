@@ -11,7 +11,7 @@
 
 - **Primary source of truth:** Supabase Postgres + Auth (RLS) + Storage
 - **Operational mirror / backup:** Google Sheets via secure Apps Script mirror
-- **Frontend:** React + Vite (`artifacts/tm-tracker`) on Vercel
+- **Frontend:** React + Vite (`artifacts/tm-tracker`) on Vercel — **web-only** (no active Expo app)
 - **Sync:** Outbox table + Edge Function `sync-google-sheet` + Apps Script `mirrorUpsert` / `mirrorDelete` / `mirrorExport`
 - **Legacy direct Sheet writes:** Disabled in `Code.gs` (security)
 
@@ -31,41 +31,43 @@
 - Duplicate legacy case references allowed (migration)
 - Sheet importer resolves Supabase client correctly
 
-### Docs & repo hygiene (this refresh)
-- Progress.md brought current (this file)
-- AGENTS.md rewritten to match Supabase-primary architecture (pending in same batch)
+### Docs & repo hygiene (6 Sep 2026)
+- Progress.md, AGENTS.md, README.md refreshed for Supabase-primary
+- DEV_NOTES.md rewritten (removed Neon/Express/mobile era)
+- INSTALL.md rewritten for Supabase + Vercel
+- SECURITY.md updated with production hardening checklist
+- Product decision recorded: **web-only** until mobile is deliberately reintroduced
 
 ---
 
 ## 🟡 IN PROGRESS / PENDING
 
-1. **Google Sheet mirror fully operational in production**
-   - Deploy latest `google-apps-script/Code.gs` as Web App
-   - Set Script Property `BRANDEX_MIRROR_SECRET`
-   - Configure Edge Function secrets + cron invocation
-   - End-to-end test: create/update/delete in Datasheet → outbox → Sheet
+1. **Google Sheet mirror fully operational in production** (ops — not docs)
+   - Deploy latest `Code.gs`, set `BRANDEX_MIRROR_SECRET`
+   - Edge Function secrets + cron
+   - E2E: UI → outbox → Sheet + ARCHIVE
 
-2. **Repo metadata**
+2. **Repo metadata on GitHub** (manual UI — connector has no update-repo tool)
    - Homepage → `https://brandexsheet.vercel.app/`
-   - Description + topics cleanup (typo `databsae` → `database`)
-
-3. **Documentation consistency**
-   - Keep AGENTS.md / README / Progress.md aligned after every architecture change
+   - Description → e.g. `Brandex Datasheet — Supabase-primary trademark case management with Google Sheets mirror`
+   - Topics → `supabase`, `trademark`, `datasheet`, `google-sheets`, `vercel`, `typescript`, `react` (remove typo `databsae`)
 
 ---
 
 ## 📋 SUGGESTED NEXT STEPS
 
-### Immediate
-1. Deploy + secret-configure Apps Script + Edge Function
-2. Run one full mirror cycle and verify ARCHIVE + LOGS
-3. Update GitHub repo homepage / description / topics
-4. Smoke-test production at https://brandexsheet.vercel.app/
+1. Complete production mirror deploy + one full sync cycle
+2. Apply GitHub repo homepage / description / topics (see steps below)
+3. Run through SECURITY.md hardening checklist on production
+4. Optional later: automated tests; reconsider mobile only if product requires it
 
-### Short-term
-5. Automated tests (unit + critical path integration)
-6. Rate limiting / stronger API hardening if any public endpoints remain
-7. Mobile path decision (re-enable Expo or keep web-only)
+### GitHub metadata (do in browser)
+1. Open https://github.com/0utLawzz/Brandex
+2. Click the gear next to **About**
+3. **Website:** `https://brandexsheet.vercel.app/`
+4. **Description:** `Brandex Datasheet — Supabase-primary trademark case management with Google Sheets mirror`
+5. **Topics:** add `supabase`, `trademark`, `datasheet`, `google-sheets`, `vercel`, `typescript`, `react` — remove `databsae`, `excel` if desired
+6. Save
 
 ---
 
@@ -74,18 +76,21 @@
 - [x] Supabase is primary DB
 - [x] Apps Script legacy writes disabled; only mirror actions with secret
 - [x] Import script supports both modern `mirrorExport` and legacy list fallback
+- [x] Docs aligned: Progress / AGENTS / README / DEV_NOTES / INSTALL / SECURITY
+- [x] Mobile path closed as web-only for now
 - [ ] Production mirror cron running and healthy
-- [ ] Repo homepage points to brandexsheet.vercel.app
-- [ ] Progress.md / AGENTS.md match live architecture
+- [ ] Repo homepage/topics updated on GitHub About panel
+- [ ] SECURITY hardening checklist completed on production
 
 ---
 
 ## 📝 WORK LOG
 
 ### September 6, 2026
-- Reviewed Code.gs, import script, migrations, README, AGENTS.md, Progress.md
-- Identified docs drift (AGENTS still described pure-Sheets era)
-- Refreshed Progress.md to current Supabase-primary state
+- Reviewed Code.gs, import script, migrations, docs
+- Pushed docs refresh: Progress, AGENTS, README, DEV_NOTES, INSTALL, SECURITY
+- Approved recommendations applied: docs + mobile decision + security checklist
+- Repo metadata left as manual GitHub UI step (no connector API)
 
 ### August 29, 2026
 - Fix: Allow duplicate legacy case references
@@ -96,9 +101,6 @@
 - Branding, logo, print styling, A4 layout, notes boxes
 - Performance, status workflow, constraints, image upload, date formatting
 - Case-insensitive sheet name lookup + legacy fallbacks
-
-### August 5, 2026 (historical)
-- GitHub community standards, early mobile/desktop notes (later architecture evolved to Supabase primary)
 
 ---
 
