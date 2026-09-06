@@ -2,98 +2,116 @@
 
 Internal architecture notes for developers working on this codebase.
 
----
-
-## Stack
-
-- **Monorepo:** pnpm workspaces
-- **Runtime:** Node.js 18+, TypeScript 5.9
-- **Mobile:** Expo (React Native) with expo-router
-- **Web:** React + Vite + TailwindCSS + shadcn/ui
-- **API:** Express 5
-- **Database:** PostgreSQL (Neon) + Drizzle ORM
-- **Validation:** Zod v4, drizzle-zod
-- **API contract:** OpenAPI spec → Orval codegen → React Query hooks + Zod schemas
-- **Build:** esbuild (API server)
+**Last updated:** September 6, 2026  
+**Live app:** https://brandexsheet.vercel.app/
 
 ---
 
-## Architecture Decisions
+## Stack (current)
 
-### OpenAPI as the contract
-`lib/api-spec/openapi.yaml` is the single source of truth for the API shape. After any API change, run:
+| Layer | Technology |
+|-------|------------|
+| Monorepo | pnpm workspaces |
+| Runtime | Node.js 20+, TypeScript ~5.9 |
+| Frontend | React + Vite + TailwindCSS (`artifacts/tm-tracker`) |
+| Primary DB | Supabase Postgres |
+| Auth | Supabase Auth + RLS (`viewer` / `editor` / `admin`) |
+| Storage | Supabase Storage (private logos, signed URLs) |
+| Mirror | Google Sheets via Apps Script + Edge Function outbox |
+| Deploy | Vercel (builds `artifacts/tm-tracker`) |
+
+### Explicitly not in the active tree
+- ~~Expo mobile app~~ — web-only for now (see Product decision below)
+- ~~Express / Neon / Drizzle monolith~~ — replaced by Supabase client + SQL migrations
+- ~~Direct Sheet writes from the browser~~ — disabled; mirror is secret-gated
+
+---
+
+## Product decision: mobile
+
+**Status: web-only.**  
+The earlier Expo path was removed from the active workspace. Mobile may be reconsidered later; until then all staff use the responsive web app at https://brandexsheet.vercel.app/.
+
+---
+
+## Architecture decisions
+
+### Supabase is the source of truth
+Staff create/update/delete only in the Datasheet UI. Changes land in Postgres, are audited, and are queued in `sheet_sync_outbox` for the Google Sheet mirror.
+
+### Google Sheets is a mirror only
+- `google-apps-script/Code.gs` exposes `mirrorExport`, `mirrorUpsert`, `mirrorDelete` behind `BRANDEX_MIRROR_SECRET`.
+- Legacy create/update/delete from the browser return an error.
+- Deletes move the row to `ARCHIVE` then remove it from `DATABASE`.
+
+### One-time import
+`scripts/import-google-sheet.mjs` (`pnpm import:sheet`) pulls via `mirrorExport` (or legacy `?action=list` fallback) and upserts into Supabase. Idempotent by record `id`.
+
+### Edge Function sync
+`supabase/functions/sync-google-sheet` processes pending/failed outbox rows (batch size 50) when invoked with `Authorization: Bearer <SHEET_SYNC_CRON_SECRET>`.
+
+---
+
+## Key commands
+
 ```bash
-pnpm --filter @workspace/api-spec run codegen
+pnpm install --frozen-lockfile
+cp .env.example .env
+# set VITE_SUPABASE_URL + VITE_SUPABASE_PUBLISHABLE_KEY
+
+pnpm dev                 # Vite web app
+pnpm typecheck
+pnpm build
+pnpm import:sheet        # one-time Sheet → Supabase (service-role + Apps Script secret)
 ```
-This regenerates `lib/api-client-react` (React Query hooks) and `lib/api-zod` (Zod schemas).
 
-### Drizzle ORM — dev vs. production
-- **Dev:** `pnpm --filter @workspace/db run push` — drizzle-kit push (no migration files needed)
-- **Production:** Migrations are handled manually. Run push against the production Neon database after verifying on dev.
-- Schema source of truth: `lib/db/src/schema/trademarks.ts`
-
-### Shared API base URL (mobile)
-The mobile app reads `EXPO_PUBLIC_DOMAIN` from the environment and calls `setBaseUrl(...)` at startup (see `app/_layout.tsx`). For local dev, this defaults to `http://localhost:8080`. For production, set it to your Vercel API domain.
-
-### Web app routing
-The web app uses Wouter for client-side routing. `BASE_PATH` defaults to `/` and works correctly on both local dev and Vercel.
-
-### Source tagging (`source` field)
-Every trademark record has a `source` field: `"local"` (entered directly) or `"sheets"` (synced from Google Sheets). The sync endpoint (`POST /api/trademarks/sync`) deletes all `source=sheets` rows before re-importing — so synced records are always fresh.
+Apply SQL migrations from `supabase/migrations/` in the Supabase SQL editor (or CLI).
 
 ---
 
-## Key Commands
+## Environment variables
 
-```bash
-# Install
-pnpm install
+### Browser / Vercel (safe)
+```
+VITE_SUPABASE_URL=...
+VITE_SUPABASE_PUBLISHABLE_KEY=...
+```
 
-# Type check everything
-pnpm run typecheck:libs
-pnpm --filter @workspace/tm-tracker-mobile run typecheck
-
-# Build API server (ESM bundle)
-pnpm --filter @workspace/api-server run build
-
-# DB schema push (dev only — requires DATABASE_URL in .env)
-pnpm --filter @workspace/db run push
-
-# Regenerate API client from OpenAPI spec
-pnpm --filter @workspace/api-spec run codegen
+### Server / Edge / import only (never VITE_*)
+```
+SUPABASE_URL=...
+SUPABASE_SERVICE_ROLE_KEY=...
+GOOGLE_APPS_SCRIPT_URL=...
+GOOGLE_APPS_SCRIPT_SECRET=...   # same value as BRANDEX_MIRROR_SECRET in Apps Script
+SHEET_SYNC_CRON_SECRET=...
 ```
 
 ---
 
-## Port Convention (local dev)
-
-| Service | Port |
-|---------|------|
-| API server | 8080 |
-| Web app (Vite) | 5173 (default) |
-| Mobile (Expo) | 19006 |
-
----
-
-## Where Things Live
+## Where things live
 
 ```
-lib/db/src/schema/trademarks.ts   ← DB schema (source of truth)
-lib/api-spec/openapi.yaml          ← API contract (source of truth)
-lib/api-client-react/src/          ← Generated React Query hooks (DO NOT hand-edit)
-lib/api-zod/src/                   ← Generated Zod schemas (DO NOT hand-edit)
-artifacts/api-server/src/routes/   ← Express route handlers
-artifacts/tm-tracker-mobile/app/   ← Expo screens
-artifacts/tm-tracker/src/pages/    ← Web pages
-google-apps-script/Code.gs         ← Apps Script for Google Sheets write-back
+artifacts/tm-tracker/           ← Web app (only frontend artifact)
+supabase/migrations/            ← Schema + RLS
+supabase/functions/sync-google-sheet/
+google-apps-script/Code.gs      ← Mirror Web App
+scripts/import-google-sheet.mjs ← One-time import
+.env.example
 ```
 
 ---
 
-## Common Gotchas
+## Common gotchas
 
-- Always run `codegen` after changing the OpenAPI spec — client hooks and Zod schemas are generated, not hand-written.
-- `DATABASE_URL` must end with `?sslmode=require` for Neon production connections.
-- `DATABASE_URL_UNPOOLED` is only needed for `drizzle-kit push` — do not use it for the running API.
-- The mobile app's `EXPO_PUBLIC_*` variables are baked into the JS bundle at build time — they require a rebuild to take effect.
-- The web `vite.config.ts` proxies `/api` to `localhost:8080` in dev. In production (Vercel), the API is a serverless function at `/api`.
+- Never put service-role or Apps Script secrets in `VITE_*` vars or commit them.
+- New Supabase users default to `viewer`; promote with SQL on `public.profiles`.
+- Disable public sign-up; invite staff from the Supabase dashboard.
+- Sheet tab names are looked up case-insensitively with legacy fallbacks (`Database`, `Audit Log`, etc.).
+- Import closes related outbox jobs so the first mirror run does not re-push imported rows unnecessarily.
+- `vercel.json` builds `@workspace/tm-tracker` and serves `artifacts/tm-tracker/dist`.
+
+---
+
+## Security checklist (ops)
+
+See `SECURITY.md` for the full hardening checklist.
