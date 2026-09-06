@@ -8,13 +8,12 @@ import { AuthGate } from "@/components/AuthGate";
 const Dashboard = lazy(() => import("./pages/Dashboard").then(m => ({ default: m.Dashboard })));
 const SearchPage = lazy(() => import("./pages/SearchPage").then(m => ({ default: m.SearchPage })));
 const DatabasePage = lazy(() => import("./pages/DatabasePage").then(m => ({ default: m.DatabasePage })));
-const JournalPage = lazy(() => import("./pages/JournalPage").then(m => ({ default: m.JournalPage })));
 const FormsPage = lazy(() => import("./pages/FormsPage").then(m => ({ default: m.FormsPage })));
 const LogsPage = lazy(() => import("./pages/LogsPage").then(m => ({ default: m.LogsPage })));
 const RecordView = lazy(() => import("./pages/RecordView").then(m => ({ default: m.RecordView })));
 const AssignedPage = lazy(() => import("./pages/AssignedPage").then(m => ({ default: m.AssignedPage })));
 const NotFound = lazy(() => import("@/pages/not-found"));
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, retry: 1 } } });
-function Router(){return <Suspense fallback={<div className="min-h-screen grid place-items-center bg-[#F0E8D0] font-mono font-bold text-[#6d6658]">LOADING…</div>}><Switch><Route path="/" component={Dashboard}/><Route path="/search" component={SearchPage}/><Route path="/database" component={DatabasePage}/><Route path="/journal" component={JournalPage}/><Route path="/forms" component={FormsPage}/><Route path="/assigned" component={AssignedPage}/><Route path="/record/:id" component={RecordView}/><Route path="/logs" component={LogsPage}/><Route component={NotFound}/></Switch></Suspense>}
+function Router(){return <Suspense fallback={<div className="min-h-screen grid place-items-center bg-[#F0E8D0] font-mono font-bold text-[#6d6658]">LOADING…</div>}><Switch><Route path="/" component={Dashboard}/><Route path="/search" component={SearchPage}/><Route path="/database" component={DatabasePage}/><Route path="/forms" component={FormsPage}/><Route path="/assigned" component={AssignedPage}/><Route path="/record/:id" component={RecordView}/><Route path="/logs" component={LogsPage}/><Route component={NotFound}/></Switch></Suspense>}
 function App(){return <QueryClientProvider client={queryClient}><TooltipProvider><AuthGate><WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/,"")}><Router/></WouterRouter></AuthGate><Toaster/></TooltipProvider></QueryClientProvider>}
 export default App;
