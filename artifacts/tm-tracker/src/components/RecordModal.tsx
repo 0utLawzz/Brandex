@@ -1,654 +1,107 @@
 import {
-  createTrademark,
-  updateTrademark,
-  deleteTrademark,
-  getTrademark,
-  listTrademarks,
-  listClients,
-  uploadImage,
-  STAGES,
-  STATUS_WORKFLOW,
-  CITIES,
-  VALID_TYPES,
+  createTrademark, updateTrademark, deleteTrademark, getTrademark, uploadImage,
+  STAGES, STATUS_WORKFLOW, CITIES, VALID_TYPES,
 } from "@/lib/api";
 import type { TrademarkInput, TrademarkRecord } from "@/lib/api";
+import { supabase } from "@/lib/supabase";
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { format } from "date-fns";
+import { format, addMonths } from "date-fns";
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import {
-  X,
-  Save,
-  Trash2,
-  AlertCircle,
-  UploadCloud,
-  Eye,
-  Image as ImageIcon,
-  CheckCircle2,
-  RefreshCw,
-} from "lucide-react";
+import { X, Save, Trash2, UploadCloud, Eye, CheckCircle2, FileText, CalendarClock, AlertTriangle } from "lucide-react";
 
 const CASE_TYPES = ["Trademark", "Copyright", "Design", "Patent", "Renewal", "Opposition", "Other"];
-
 const schema = z.object({
-  date:       z.string().min(1, "Date is required"),
-  type:       z.string().min(1, "Type is required"),
-  clientCode: z.string().min(1, "Client Code is required"),
-  clientName: z.string().optional(),
-  caseNumber: z.string().min(1, "Case Number is required"),
-  appName:    z.string().min(1, "Application Name is required"),
-  tmCprNo:    z.string().optional(),
-  appClass:   z.string().optional(),
-  stage:      z.string().min(1, "Status is required"),
-  subStage:   z.string().optional(),
-  caseType:   z.string().optional(),
-  agent:      z.string().optional(),
-  city:       z.string().min(1, "City is required"),
-  notes:      z.string().optional(),
-  image:      z.string().optional(),
+  date:z.string().min(1,"Date is required"), type:z.string().min(1,"Type is required"), clientCode:z.string().min(1,"Client Code is required"),
+  caseNumber:z.string().min(1,"Case Number is required"), appName:z.string().min(1,"Application Name is required"), tmCprNo:z.string().optional(), appClass:z.string().optional(),
+  stage:z.string().min(1,"Status is required"), subStage:z.string().optional(), caseType:z.string().optional(), agent:z.string().optional(), city:z.string().min(1,"City is required"), notes:z.string().optional(), image:z.string().optional(),
 });
+type FormValues=z.infer<typeof schema>;
 
-type FormValues = z.infer<typeof schema>;
+function FieldLabel({children,required}:{children:React.ReactNode;required?:boolean}){return <label className="block font-mono text-[10px] font-bold uppercase tracking-widest text-[#6d6658] mb-1.5">{children}{required&&<span className="text-[#CC0000] ml-0.5">*</span>}</label>}
+function FormInput({className="",...props}:React.InputHTMLAttributes<HTMLInputElement>){return <input {...props} className={`w-full h-10 px-3 bg-white border-2 border-[#0C0C0C] font-mono text-sm focus:outline-2 focus:outline-[#C94A00] disabled:opacity-40 ${className}`}/>}
+function FormSelect({children,className="",...props}:React.SelectHTMLAttributes<HTMLSelectElement>){return <select {...props} className={`w-full h-10 px-3 bg-white border-2 border-[#0C0C0C] font-mono text-sm focus:outline-2 focus:outline-[#C94A00] ${className}`}>{children}</select>}
+function SectionHead({title}:{title:string}){return <div className="flex items-center gap-2 mb-4"><div className="font-mono text-xs font-bold uppercase tracking-widest">{title}</div><div className="flex-1 h-0.5 bg-[#0C0C0C]/10"/></div>}
+function DateField({label,value,onChange}:{label:string;value:string;onChange:(v:string)=>void}){return <div><FieldLabel>{label}</FieldLabel><FormInput type="date" value={value||""} onChange={e=>onChange(e.target.value)}/></div>}
+function addOneMonth(value:string){return value?format(addMonths(new Date(`${value}T00:00:00`),1),"yyyy-MM-dd"):""}
+function addTwoMonths(value:string){return value?format(addMonths(new Date(`${value}T00:00:00`),2),"yyyy-MM-dd"):""}
 
-interface RecordModalProps {
-  recordId?: string;
-  isNew?: boolean;
-  onClose: () => void;
-  onSaved?: () => void;
-}
+export function RecordModal({recordId,isNew:forceNew,onClose,onSaved}: {recordId?:string;isNew?:boolean;onClose:()=>void;onSaved?:()=>void}){
+  const creating=forceNew||!recordId; const {toast}=useToast(); const queryClient=useQueryClient(); const fileInputRef=useRef<HTMLInputElement>(null);
+  const [uploading,setUploading]=useState(false); const [uploadProgress,setUploadProgress]=useState(0); const [previewModalOpen,setPreviewModalOpen]=useState(false); const [imagePreview,setImagePreview]=useState("");
+  const [detail,setDetail]=useState<any>({});
+  const [loadingDetail,setLoadingDetail]=useState(false);
+  const [tmDocs,setTmDocs]=useState({tm5:false,tm6:false,tm11:false,tm16:false,tm56:false});
+  const [p,setP]=useState<any>({});
+  const {data:trademark,isLoading}=useQuery<TrademarkRecord|null>({queryKey:["trademark",recordId],queryFn:()=>getTrademark(recordId!),enabled:!creating&&!!recordId,staleTime:30000});
+  const form=useForm<FormValues>({resolver:zodResolver(schema),defaultValues:{date:format(new Date(),"yyyy-MM-dd"),type:"X",clientCode:"",caseNumber:"",appName:"",tmCprNo:"",appClass:"",stage:"STAGE 1",subStage:"",caseType:"Trademark",agent:"",city:"Islamabad",notes:"",image:""}});
 
-function FieldLabel({ children, required }: { children: React.ReactNode; required?: boolean }) {
-  return (
-    <label className="block font-mono text-[10px] font-bold uppercase tracking-widest text-[#6d6658] mb-1.5">
-      {children}{required && <span className="text-[#CC0000] ml-0.5">*</span>}
-    </label>
-  );
-}
+  useEffect(()=>{if(!trademark||creating)return;form.reset({date:trademark.date?.split("T")[0]||format(new Date(),"yyyy-MM-dd"),type:trademark.type||"X",clientCode:trademark.clientCode||"",caseNumber:trademark.caseNumber||"",appName:trademark.appName||"",tmCprNo:trademark.tmCprNo||"",appClass:trademark.appClass||"",stage:trademark.stage||"STAGE 1",subStage:trademark.subStage||"",caseType:trademark.caseType||"Trademark",agent:trademark.agent||"",city:trademark.city||"Islamabad",notes:trademark.notes||"",image:trademark.imagePath||""});setImagePreview(trademark.image||"");},[trademark,creating,form]);
+  useEffect(()=>{if(!recordId||creating)return;let cancelled=false;(async()=>{setLoadingDetail(true);const {data,error}=await supabase.from("trademarks").select("*").eq("id",recordId).maybeSingle();if(!cancelled){if(error)toast({title:"Could not load proceedings",description:error.message,variant:"destructive"});setDetail(data||{});setTmDocs({tm5:!!data?.tm5,tm6:!!data?.tm6,tm11:!!data?.tm11,tm16:!!data?.tm16,tm56:!!data?.tm56});setP(data||{});setLoadingDetail(false);}})();return()=>{cancelled=true}},[recordId,creating,toast]);
+  const watchStage=form.watch("stage"); const watchImage=form.watch("image"); const availableSubStages=STATUS_WORKFLOW[watchStage]||[];
+  const availableTypes=useMemo(()=>Array.from(new Set([...VALID_TYPES,...(trademark?.type?[trademark.type]:[])])),[trademark]);
+  const createMutation=useMutation({mutationFn:(input:TrademarkInput)=>createTrademark(input)}); const updateMutation=useMutation({mutationFn:(input:TrademarkInput)=>updateTrademark(recordId!,input)}); const deleteMutation=useMutation({mutationFn:()=>deleteTrademark(recordId!)});
+  const setField=(key:string,value:any)=>setP((x:any)=>({...x,[key]:value}));
+  const setDoc=(key:keyof typeof tmDocs,value:boolean)=>{setTmDocs(x=>({...x,[key]:value}));setP((x:any)=>({...x,[key]:value}));};
+  const handleFileUpload=async(e:React.ChangeEvent<HTMLInputElement>)=>{const file=e.target.files?.[0];if(!file)return;try{setUploading(true);setUploadProgress(15);const r=await uploadImage(file,pct=>setUploadProgress(pct));form.setValue("image",r.fileId);setImagePreview(r.thumbnailUrl);toast({title:"✓ Image Uploaded",description:`Uploaded ${file.name} to secure storage.`});}catch(err:any){toast({title:"⚠ Upload Failed",description:err?.message||"Failed to upload image.",variant:"destructive"});}finally{setUploading(false);setUploadProgress(0);if(fileInputRef.current)fileInputRef.current.value="";}};
 
-function FormInput({ className = "", ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <input
-      {...props}
-      className={`w-full h-10 px-3 bg-white border-2 border-[#0C0C0C] font-mono text-sm focus:outline-2 focus:outline-[#C94A00] focus:outline-offset-0 disabled:opacity-40 disabled:bg-[#E8DFC7] ${className}`}
-    />
-  );
-}
+  const applySubStage=(value:string)=>{form.setValue("subStage",value);if(value.toUpperCase().includes("OPPOSITION RECEIVED")){const received=p.tm6_received_date||format(new Date(),"yyyy-MM-dd");setP((x:any)=>({...x,tm6:true,tm6_received_date:received,tm6_due_date:x.tm6_due_date||addOneMonth(received)}));setTmDocs(x=>({...x,tm6:true}));}};
+  const saveProceedings=async(id:string)=>{const clean=(v:any)=>v===""?null:v;const payload:any={
+    tm5:tmDocs.tm5,tm6:tmDocs.tm6,tm11:tmDocs.tm11,tm16:tmDocs.tm16,tm56:tmDocs.tm56,
+    tm5_filed_date:clean(p.tm5_filed_date),tm5_opponent:clean(p.tm5_opponent),tm5_opposition_no:clean(p.tm5_opposition_no),tm5_notes:clean(p.tm5_notes),
+    tm6_received_date:clean(p.tm6_received_date),tm6_due_date:clean(p.tm6_due_date),tm6_filed_date:clean(p.tm6_filed_date),tm6_counterstatement_no:clean(p.tm6_counterstatement_no),tm6_notes:clean(p.tm6_notes),
+    tm11_date:clean(p.tm11_date),tm11_submitted_date:clean(p.tm11_submitted_date),tm11_received_date:clean(p.tm11_received_date),tm11_registration_date:clean(p.tm11_registration_date),tm11_amount:p.tm11_amount===""||p.tm11_amount==null?null:Number(p.tm11_amount),tm11_notes:clean(p.tm11_notes),
+    tm16_request_date:clean(p.tm16_request_date),tm16_reason:clean(p.tm16_reason),tm16_submitted_date:clean(p.tm16_submitted_date),tm16_received_date:clean(p.tm16_received_date),tm16_notes:clean(p.tm16_notes),
+    tm56_request_date:clean(p.tm56_request_date),tm56_old_address:clean(p.tm56_old_address),tm56_new_address:clean(p.tm56_new_address),tm56_submitted_date:clean(p.tm56_submitted_date),tm56_received_date:clean(p.tm56_received_date),tm56_notes:clean(p.tm56_notes),
+    journal_number:clean(p.journal_number),journal_date:clean(p.journal_date),journal_submission_date:clean(p.journal_submission_date),journal_published:!!p.journal_published,journal_opposition_deadline:clean(p.journal_opposition_deadline||addTwoMonths(p.journal_date)),journal_source:clean(p.journal_source),journal_notes:clean(p.journal_notes),
+  };const {error}=await supabase.from("trademarks").update(payload).eq("id",id);if(error)throw error;};
 
-function FormSelect({ children, className = "", ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return (
-    <select
-      {...props}
-      className={`w-full h-10 px-3 bg-white border-2 border-[#0C0C0C] font-mono text-sm focus:outline-2 focus:outline-[#C94A00] focus:outline-offset-0 disabled:opacity-40 disabled:bg-[#E8DFC7] ${className}`}
-    >
-      {children}
-    </select>
-  );
-}
+  const onSubmit=async(data:FormValues)=>{try{
+    const payload:TrademarkInput={date:data.date,type:data.type,clientCode:data.clientCode,clientName:trademark?.clientName||undefined,caseNumber:data.caseNumber,appName:data.appName,tmCprNo:data.tmCprNo||undefined,appClass:data.appClass||undefined,caseType:data.caseType||undefined,stage:data.stage,subStage:data.subStage||undefined,agent:data.agent||undefined,city:data.city,notes:data.notes||undefined,image:data.image||undefined};
+    let id=recordId; if(creating){const r=await createMutation.mutateAsync(payload);id=r.id;}else await updateMutation.mutateAsync(payload);if(id)await saveProceedings(id);
+    queryClient.invalidateQueries({queryKey:["trademarks"]});queryClient.invalidateQueries({queryKey:["trademark",recordId]});queryClient.invalidateQueries({queryKey:["record",recordId]});queryClient.invalidateQueries({queryKey:["stats"]});toast({title:creating?"✓ Record Created":"✓ Record Updated",description:"Saved to the secure Datasheet with proceedings/JOURNAL data."});onSaved?.();onClose();
+  }catch(err:any){toast({title:"⚠ Save Failed",description:err?.message||"Unable to save record.",variant:"destructive"});}};
+  const handleDelete=()=>{if(!confirm("Delete this record permanently?\n\nThis action cannot be undone."))return;deleteMutation.mutate(undefined,{onSuccess:()=>{toast({title:"Record Deleted"});onClose()},onError:(e:any)=>toast({title:"⚠ Delete Failed",description:e?.message||"Unable to delete record.",variant:"destructive"})})};
+  const isPending=createMutation.isPending||updateMutation.isPending||deleteMutation.isPending;
+  const deadline=p.journal_opposition_deadline||addTwoMonths(p.journal_date); const replyDue=p.tm6_due_date||addOneMonth(p.tm6_received_date);
+  return <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/60">
+    <div className="relative w-full max-w-4xl max-h-full bg-[#F0E8D0] border-2 border-[#0C0C0C] flex flex-col shadow-[8px_8px_0_#0C0C0C] overflow-hidden">
+      <div className="flex items-center justify-between px-6 py-4 bg-[#0C0C0C] text-[#F0E8D0] shrink-0"><div><div className="font-serif text-2xl uppercase tracking-widest">{creating?"ADD RECORD":"EDIT RECORD"}</div>{!creating&&trademark&&<div className="font-mono text-[10px] text-[#C5B89A] uppercase tracking-widest mt-1">{trademark.caseNumber||trademark.id} · SECURE DATASHEET</div>}</div><button onClick={onClose} disabled={isPending}><X className="w-6 h-6"/></button></div>
+      {!creating&&isLoading?<div className="flex-1 flex items-center justify-center p-12 font-mono animate-pulse">LOADING RECORD…</div>:<form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 overflow-hidden"><div className="flex-1 overflow-y-auto p-6 space-y-8">
+        <div><SectionHead title="Basic Information"/><div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+          <div><FieldLabel required>DATE</FieldLabel><FormInput type="date" {...form.register("date")}/></div><div><FieldLabel required>TYPE (Series)</FieldLabel><FormSelect {...form.register("type")}>{availableTypes.map(t=><option key={t} value={t}>{t}</option>)}</FormSelect></div>
+          <div><FieldLabel required>CLIENT CODE</FieldLabel><FormInput placeholder="e.g. 284" {...form.register("clientCode")}/></div><div><FieldLabel required>CASE NUMBER</FieldLabel><FormInput placeholder="e.g. 001" {...form.register("caseNumber")}/></div>
+          <div className="sm:col-span-2 md:col-span-4"><FieldLabel required>APPLICATION / MARK NAME</FieldLabel><FormInput placeholder="Trademark / Application name" {...form.register("appName")}/></div>
+        </div></div>
+        <div><SectionHead title="Case Information"/><div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          <div><FieldLabel required>STATUS</FieldLabel><FormSelect {...form.register("stage")} onChange={e=>{form.setValue("stage",e.target.value);const subs=STATUS_WORKFLOW[e.target.value]||[];if(!subs.includes(form.getValues("subStage")))form.setValue("subStage","")}}>{STAGES.map(s=><option key={s} value={s}>{s}</option>)}</FormSelect></div>
+          <div className="md:col-span-2"><FieldLabel>SUB-STATUS</FieldLabel><FormSelect value={form.watch("subStage")||""} onChange={e=>applySubStage(e.target.value)}><option value="">SELECT SUB-STATUS</option>{availableSubStages.map(s=><option key={s} value={s}>{s}</option>)}</FormSelect></div>
+          <div><FieldLabel>TM / CPR NUMBER</FieldLabel><FormInput placeholder="e.g. 633710" {...form.register("tmCprNo")}/></div><div><FieldLabel>CLASS</FieldLabel><FormSelect {...form.register("appClass")}><option value="">SELECT</option>{Array.from({length:45},(_,i)=>String(i+1)).map(c=><option key={c} value={c}>{c}</option>)}</FormSelect></div><div><FieldLabel>CASE TYPE</FieldLabel><FormSelect {...form.register("caseType")}>{CASE_TYPES.map(t=><option key={t} value={t}>{t}</option>)}</FormSelect></div>
+        </div></div>
+        <div><SectionHead title="Assignment"/><div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><FieldLabel required>CITY</FieldLabel><FormSelect {...form.register("city")}>{CITIES.map(c=><option key={c} value={c}>{c}</option>)}</FormSelect></div><div><FieldLabel>AGENT</FieldLabel><FormInput placeholder="Agent name" {...form.register("agent")}/></div></div></div>
 
-function SectionHead({ title }: { title: string }) {
-  return (
-    <div className="flex items-center gap-2 mb-4">
-      <div className="font-mono text-xs font-bold uppercase tracking-widest text-[#0C0C0C]">{title}</div>
-      <div className="flex-1 h-0.5 bg-[#0C0C0C]/10" />
-    </div>
-  );
-}
-
-export function RecordModal({ recordId, isNew: forceNew, onClose, onSaved }: RecordModalProps) {
-  const creating = forceNew || !recordId;
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [previewModalOpen, setPreviewModalOpen] = useState(false);
-  const [imagePreview, setImagePreview] = useState("");
-
-  const { data: trademark, isLoading } = useQuery<TrademarkRecord | null>({
-    queryKey: ["trademark", recordId],
-    queryFn: () => getTrademark(recordId!),
-    enabled: !creating && !!recordId,
-    staleTime: 30_000,
-  });
-
-  // Client references for auto-population
-  const { data: clientRefs = [] } = useQuery({
-    queryKey: ["clients-ref"],
-    queryFn: listClients,
-    staleTime: 5 * 60_000,
-  });
-
-  const { data: allTrademarks = [] } = useQuery<TrademarkRecord[]>({
-    queryKey: ["trademarks"],
-    queryFn: () => listTrademarks(),
-    staleTime: 60_000,
-  });
-
-  // Build client code -> client name map
-  const clientMap = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const c of clientRefs) {
-      if (c.code && c.name) map.set(c.code.trim().toUpperCase(), c.name.trim());
-    }
-    for (const tm of allTrademarks) {
-      if (tm.clientCode && tm.clientName && !map.has(tm.clientCode.trim().toUpperCase())) {
-        map.set(tm.clientCode.trim().toUpperCase(), tm.clientName.trim());
-      }
-    }
-    return map;
-  }, [clientRefs, allTrademarks]);
-
-  const createMutation = useMutation({
-    mutationFn: (input: TrademarkInput) => createTrademark(input),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["trademarks"] });
-      queryClient.invalidateQueries({ queryKey: ["stats"] });
-      queryClient.invalidateQueries({ queryKey: ["recent-activity"] });
-    },
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: (input: TrademarkInput) => updateTrademark(recordId!, input),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["trademarks"] });
-      queryClient.invalidateQueries({ queryKey: ["trademark", recordId] });
-      queryClient.invalidateQueries({ queryKey: ["record", recordId] });
-      queryClient.invalidateQueries({ queryKey: ["stats"] });
-      queryClient.invalidateQueries({ queryKey: ["recent-activity"] });
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: () => deleteTrademark(recordId!),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["trademarks"] });
-      queryClient.invalidateQueries({ queryKey: ["stats"] });
-    },
-  });
-
-  const form = useForm<FormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: {
-      date:       format(new Date(), "yyyy-MM-dd"),
-      type:       "X",
-      clientCode: "",
-      clientName: "",
-      caseNumber: "",
-      appName:    "",
-      tmCprNo:    "",
-      appClass:   "",
-      stage:      "STAGE 1",
-      subStage:   "",
-      caseType:   "Trademark",
-      agent:      "",
-      city:       "Islamabad",
-      notes:      "",
-      image:      "",
-    },
-  });
-
-  useEffect(() => {
-    if (trademark && !creating) {
-      form.reset({
-        date:       trademark.date?.split("T")[0] ?? format(new Date(), "yyyy-MM-dd"),
-        type:       trademark.type || "X",
-        clientCode: trademark.clientCode ?? "",
-        clientName: trademark.clientName ?? "",
-        caseNumber: trademark.caseNumber ?? "",
-        appName:    trademark.appName ?? "",
-        tmCprNo:    trademark.tmCprNo ?? "",
-        appClass:   trademark.appClass ?? "",
-        stage:      trademark.stage || "STAGE 1",
-        subStage:   trademark.subStage ?? "",
-        caseType:   trademark.caseType || "Trademark",
-        agent:      trademark.agent ?? "",
-        city:       trademark.city || "Islamabad",
-        notes:      trademark.notes ?? "",
-        image:      trademark.imagePath ?? "",
-      });
-      setImagePreview(trademark.image ?? "");
-    }
-  }, [trademark, creating, form]);
-
-  const watchStage = form.watch("stage");
-  const watchImage = form.watch("image");
-  const availableSubStages = STATUS_WORKFLOW[watchStage] ?? [];
-
-  // Auto-populate Client Name when Client Code changes
-  const handleClientCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    form.setValue("clientCode", val);
-    if (val.trim()) {
-      const match = clientMap.get(val.trim().toUpperCase());
-      if (match) {
-        form.setValue("clientName", match);
-      }
-    }
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-    const file = files[0];
-
-    try {
-      setUploading(true);
-      setUploadProgress(20);
-      const res = await uploadImage(file, (pct) => setUploadProgress(pct));
-      form.setValue("image", res.fileId);
-      setImagePreview(res.thumbnailUrl);
-      toast({
-        title: "✓ Image Uploaded",
-        description: `Uploaded ${file.name} to secure storage.`,
-      });
-    } catch (err: any) {
-      toast({
-        title: "⚠ Upload Failed",
-        description: err?.message || "Failed to upload image.",
-        variant: "destructive",
-      });
-    } finally {
-      setUploading(false);
-      setUploadProgress(0);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  };
-
-  const onSubmit = (data: FormValues) => {
-    const payload: TrademarkInput = {
-      date:       data.date,
-      type:       data.type,
-      clientCode: data.clientCode,
-      clientName: data.clientName || undefined,
-      caseNumber: data.caseNumber,
-      appName:    data.appName,
-      tmCprNo:    data.tmCprNo   || undefined,
-      appClass:   data.appClass  || undefined,
-      caseType:   data.caseType  || undefined,
-      stage:      data.stage,
-      subStage:   data.subStage  || undefined,
-      agent:      data.agent     || undefined,
-      city:       data.city,
-      notes:      data.notes     || undefined,
-      image:      data.image     || undefined,
-    };
-
-    if (creating) {
-      createMutation.mutate(payload, {
-        onSuccess: () => {
-          toast({
-            title: "✓ Record Created",
-            description: `${data.appName} saved to the secure Datasheet.`,
-          });
-          onSaved?.();
-          onClose();
-        },
-        onError: () =>
-          toast({
-            title: "⚠ Save Failed",
-            description: "Unable to save record. Please check your connection and try again.",
-            variant: "destructive",
-          }),
-      });
-    } else {
-      updateMutation.mutate(payload, {
-        onSuccess: () => {
-          toast({
-            title: "✓ Record Updated",
-            description: "Changes saved to the secure Datasheet.",
-          });
-          onSaved?.();
-          onClose();
-        },
-        onError: () =>
-          toast({
-            title: "⚠ Update Failed",
-            description: "Unable to update record. Please check your connection and try again.",
-            variant: "destructive",
-          }),
-      });
-    }
-  };
-
-  const handleDelete = () => {
-    if (!confirm("Delete this record permanently?\n\nThis action cannot be undone.")) return;
-    deleteMutation.mutate(undefined, {
-      onSuccess: () => {
-        toast({ title: "Record Deleted" });
-        onClose();
-      },
-      onError: () =>
-        toast({
-          title: "⚠ Delete Failed",
-          description: "Unable to delete record. Please check your connection and try again.",
-          variant: "destructive",
-        }),
-    });
-  };
-
-  const isPending = createMutation.isPending || updateMutation.isPending;
-
-  // Types list: include standard series ["X", "A", "N"] plus any existing record type
-  const availableTypes = useMemo(() => {
-    const set = new Set<string>(VALID_TYPES);
-    if (trademark?.type) set.add(trademark.type);
-    return Array.from(set);
-  }, [trademark]);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/60 animate-in fade-in duration-150">
-      <div className="relative w-full max-w-3xl max-h-full bg-[#F0E8D0] border-2 border-[#0C0C0C] flex flex-col shadow-[8px_8px_0_#0C0C0C] overflow-hidden animate-in slide-in-from-bottom-4 duration-200">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 bg-[#0C0C0C] text-[#F0E8D0] shrink-0">
-          <div>
-            <div className="font-serif text-2xl uppercase tracking-widest leading-none">
-              {creating ? "ADD RECORD" : "EDIT RECORD"}
-            </div>
-            {!creating && trademark && (
-              <div className="font-mono text-[10px] text-[#C5B89A] uppercase tracking-widest mt-1">
-                {trademark.caseNumber || trademark.id} · SECURE DATASHEET
-              </div>
-            )}
+        <div className="border-2 border-[#0C0C0C] bg-white p-5"><div className="flex items-center gap-2 mb-5"><FileText className="w-5 h-5"/><div className="font-mono font-bold text-sm uppercase tracking-widest">TM PROCEEDINGS / DOCUMENT CONTROL</div></div>
+          {loadingDetail&&<div className="font-mono text-[10px] mb-3 animate-pulse">LOADING EXISTING DOCUMENT DATA…</div>}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-6">{([['tm5','TM5','Filing Opposition'],['tm6','TM6','Counter-Statement'],['tm11','TM11','Demand Note'],['tm16','TM16','Correction'],['tm56','TM56','Correspondence Address']] as const).map(([key,label,desc])=><button type="button" key={key} onClick={()=>setDoc(key,!(tmDocs as any)[key])} className={`text-left p-3 border-2 ${tmDocs[key]?'border-[#0A6B52] bg-[#E7F2ED]':'border-[#0C0C0C] bg-[#F7F3E8]'}`}><div className="font-mono font-bold text-xs">{tmDocs[key]?'✓ ':''}{label}</div><div className="font-mono text-[9px] mt-1 text-[#6d6658]">{desc}</div></button>)}</div>
+          <div className="space-y-6">
+            {tmDocs.tm5&&<div className="border-t-2 border-[#0C0C0C]/10 pt-4"><div className="font-mono font-bold text-xs mb-3">TM5 — FILING OPPOSITION</div><div className="grid grid-cols-1 md:grid-cols-3 gap-3"><DateField label="Filed Date" value={p.tm5_filed_date||""} onChange={v=>setField("tm5_filed_date",v)}/><div><FieldLabel>Opponent / Target</FieldLabel><FormInput value={p.tm5_opponent||""} onChange={e=>setField("tm5_opponent",e.target.value)}/></div><div><FieldLabel>Opposition No.</FieldLabel><FormInput value={p.tm5_opposition_no||""} onChange={e=>setField("tm5_opposition_no",e.target.value)}/></div></div><div className="mt-3"><FieldLabel>Notes</FieldLabel><textarea value={p.tm5_notes||""} onChange={e=>setField("tm5_notes",e.target.value)} rows={2} className="w-full p-3 border-2 border-[#0C0C0C] font-mono text-sm"/></div></div>}
+            {tmDocs.tm6&&<div className="border-t-2 border-[#0C0C0C]/10 pt-4"><div className="font-mono font-bold text-xs mb-3">TM6 — COUNTER-STATEMENT / REPLY</div><div className="grid grid-cols-1 md:grid-cols-4 gap-3"><DateField label="Opposition Received" value={p.tm6_received_date||""} onChange={v=>{setField("tm6_received_date",v);if(!p.tm6_due_date)setField("tm6_due_date",addOneMonth(v))}}/><DateField label="Reply Due (+1 month)" value={replyDue} onChange={v=>setField("tm6_due_date",v)}/><DateField label="TM6 Filed" value={p.tm6_filed_date||""} onChange={v=>setField("tm6_filed_date",v)}/><div><FieldLabel>Counter-Statement No.</FieldLabel><FormInput value={p.tm6_counterstatement_no||""} onChange={e=>setField("tm6_counterstatement_no",e.target.value)}/></div></div><div className="mt-3 flex items-center gap-2 px-3 py-2 bg-[#FFF3D6] border border-[#C94A00] font-mono text-[10px]"><CalendarClock className="w-4 h-4"/> Reply deadline is automatically calculated as one calendar month from receipt.</div><div className="mt-3"><FieldLabel>Notes</FieldLabel><textarea value={p.tm6_notes||""} onChange={e=>setField("tm6_notes",e.target.value)} rows={2} className="w-full p-3 border-2 border-[#0C0C0C] font-mono text-sm"/></div></div>}
+            {tmDocs.tm11&&<div className="border-t-2 border-[#0C0C0C]/10 pt-4"><div className="font-mono font-bold text-xs mb-3">TM11 — DEMAND NOTE / REGISTRATION FEE</div><div className="grid grid-cols-1 md:grid-cols-5 gap-3"><DateField label="Demand Note Date" value={p.tm11_date||""} onChange={v=>setField("tm11_date",v)}/><DateField label="Submitted" value={p.tm11_submitted_date||""} onChange={v=>setField("tm11_submitted_date",v)}/><DateField label="Received" value={p.tm11_received_date||""} onChange={v=>setField("tm11_received_date",v)}/><DateField label="Registration / Certificate" value={p.tm11_registration_date||""} onChange={v=>setField("tm11_registration_date",v)}/><div><FieldLabel>Fee / Amount</FieldLabel><FormInput type="number" value={p.tm11_amount??""} onChange={e=>setField("tm11_amount",e.target.value)}/></div></div><div className="mt-3"><FieldLabel>Notes</FieldLabel><textarea value={p.tm11_notes||""} onChange={e=>setField("tm11_notes",e.target.value)} rows={2} className="w-full p-3 border-2 border-[#0C0C0C] font-mono text-sm"/></div></div>}
+            {tmDocs.tm16&&<div className="border-t-2 border-[#0C0C0C]/10 pt-4"><div className="font-mono font-bold text-xs mb-3">TM16 — CORRECTION IN APPLICATION</div><div className="grid grid-cols-1 md:grid-cols-4 gap-3"><DateField label="Request Date" value={p.tm16_request_date||""} onChange={v=>setField("tm16_request_date",v)}/><div><FieldLabel>Correction / Reason</FieldLabel><FormInput value={p.tm16_reason||""} onChange={e=>setField("tm16_reason",e.target.value)}/></div><DateField label="Submitted" value={p.tm16_submitted_date||""} onChange={v=>setField("tm16_submitted_date",v)}/><DateField label="Received" value={p.tm16_received_date||""} onChange={v=>setField("tm16_received_date",v)}/></div><div className="mt-3"><FieldLabel>Notes</FieldLabel><textarea value={p.tm16_notes||""} onChange={e=>setField("tm16_notes",e.target.value)} rows={2} className="w-full p-3 border-2 border-[#0C0C0C] font-mono text-sm"/></div></div>}
+            {tmDocs.tm56&&<div className="border-t-2 border-[#0C0C0C]/10 pt-4"><div className="font-mono font-bold text-xs mb-3">TM56 — CHANGE CORRESPONDENCE ADDRESS</div><div className="grid grid-cols-1 md:grid-cols-2 gap-3"><DateField label="Request Date" value={p.tm56_request_date||""} onChange={v=>setField("tm56_request_date",v)}/><DateField label="Submitted" value={p.tm56_submitted_date||""} onChange={v=>setField("tm56_submitted_date",v)}/><div><FieldLabel>Old Correspondence Address</FieldLabel><textarea value={p.tm56_old_address||""} onChange={e=>setField("tm56_old_address",e.target.value)} rows={3} className="w-full p-3 border-2 border-[#0C0C0C] font-mono text-sm"/></div><div><FieldLabel>New Correspondence Address</FieldLabel><textarea value={p.tm56_new_address||""} onChange={e=>setField("tm56_new_address",e.target.value)} rows={3} className="w-full p-3 border-2 border-[#0C0C0C] font-mono text-sm"/></div><DateField label="Received" value={p.tm56_received_date||""} onChange={v=>setField("tm56_received_date",v)}/></div><div className="mt-3"><FieldLabel>Notes</FieldLabel><textarea value={p.tm56_notes||""} onChange={e=>setField("tm56_notes",e.target.value)} rows={2} className="w-full p-3 border-2 border-[#0C0C0C] font-mono text-sm"/></div></div>}
           </div>
-          <button onClick={onClose} disabled={isPending} className="text-[#C5B89A] hover:text-white transition-colors">
-            <X className="w-6 h-6" />
-          </button>
         </div>
 
-        {!creating && isLoading ? (
-          <div className="flex-1 flex items-center justify-center p-12 font-mono font-bold text-[#6d6658] animate-pulse">
-            LOADING FROM GOOGLE SHEETS…
-          </div>
-        ) : (
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 overflow-hidden">
-            <div className="flex-1 overflow-y-auto p-6 space-y-8">
+        <div className="border-2 border-[#0C0C0C] bg-white p-5"><div className="flex items-center gap-2 mb-5"><CalendarClock className="w-5 h-5"/><div className="font-mono font-bold text-sm uppercase tracking-widest">JOURNAL / PUBLICATION</div></div><div className="grid grid-cols-1 md:grid-cols-4 gap-3"><div><FieldLabel>Journal No.</FieldLabel><FormInput value={p.journal_number||""} onChange={e=>setField("journal_number",e.target.value)}/></div><DateField label="Publication Date" value={p.journal_date||""} onChange={v=>{setField("journal_date",v);if(!p.journal_opposition_deadline)setField("journal_opposition_deadline",addTwoMonths(v))}}/><DateField label="Submission Date" value={p.journal_submission_date||""} onChange={v=>setField("journal_submission_date",v)}/><div className="flex items-end pb-1"><label className="flex items-center gap-2 font-mono text-xs font-bold"><input type="checkbox" checked={!!p.journal_published} onChange={e=>setField("journal_published",e.target.checked)} className="w-4 h-4"/> PUBLISHED</label></div><DateField label="Opposition Deadline (+2 months)" value={deadline} onChange={v=>setField("journal_opposition_deadline",v)}/><div><FieldLabel>Source / File</FieldLabel><FormInput value={p.journal_source||""} onChange={e=>setField("journal_source",e.target.value)} placeholder="PDF / Journal source"/></div></div><div className="mt-3"><FieldLabel>Journal Notes</FieldLabel><textarea value={p.journal_notes||""} onChange={e=>setField("journal_notes",e.target.value)} rows={2} className="w-full p-3 border-2 border-[#0C0C0C] font-mono text-sm"/></div>{p.journal_date&&<div className="mt-3 px-3 py-2 bg-[#FFF3D6] border border-[#C94A00] font-mono text-[10px] flex items-center gap-2"><AlertTriangle className="w-4 h-4"/> Standard opposition window tracked to {deadline}. The Registrar may allow extensions under the applicable rules.</div>}</div>
 
-              {/* Basic Information */}
-              <div>
-                <SectionHead title="Basic Information" />
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                  <div>
-                    <FieldLabel required>DATE</FieldLabel>
-                    <FormInput type="date" {...form.register("date")} />
-                    {form.formState.errors.date && (
-                      <p className="mt-1 text-[10px] font-mono text-[#CC0000]">{form.formState.errors.date.message}</p>
-                    )}
-                  </div>
-                  <div>
-                    <FieldLabel required>TYPE (Series)</FieldLabel>
-                    <FormSelect {...form.register("type")}>
-                      {availableTypes.map((t) => <option key={t} value={t}>{t}</option>)}
-                    </FormSelect>
-                  </div>
-                  <div>
-                    <FieldLabel required>CLIENT CODE</FieldLabel>
-                    <FormInput
-                      placeholder="e.g. 284"
-                      {...form.register("clientCode")}
-                      onChange={handleClientCodeChange}
-                    />
-                    {form.formState.errors.clientCode && (
-                      <p className="mt-1 text-[10px] font-mono text-[#CC0000]">{form.formState.errors.clientCode.message}</p>
-                    )}
-                  </div>
-                  <div>
-                    <FieldLabel required>CASE NUMBER</FieldLabel>
-                    <FormInput placeholder="e.g. 001" {...form.register("caseNumber")} />
-                    {form.formState.errors.caseNumber && (
-                      <p className="mt-1 text-[10px] font-mono text-[#CC0000]">{form.formState.errors.caseNumber.message}</p>
-                    )}
-                  </div>
-                  <div className="sm:col-span-2">
-                    <FieldLabel>CLIENT NAME</FieldLabel>
-                    <FormInput placeholder="Full client name (auto-filled from code)" {...form.register("clientName")} />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <FieldLabel required>APPLICATION NAME</FieldLabel>
-                    <FormInput placeholder="Trademark / Application name" {...form.register("appName")} />
-                    {form.formState.errors.appName && (
-                      <p className="mt-1 text-[10px] font-mono text-[#CC0000]">{form.formState.errors.appName.message}</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Case Information */}
-              <div>
-                <SectionHead title="Case Information" />
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  <div>
-                    <FieldLabel required>STATUS</FieldLabel>
-                    <FormSelect
-                      {...form.register("stage")}
-                      onChange={(e) => {
-                        const newStage = e.target.value;
-                        form.setValue("stage", newStage);
-                        const validSubs = STATUS_WORKFLOW[newStage] ?? [];
-                        const currentSub = form.getValues("subStage");
-                        if (!currentSub || !validSubs.includes(currentSub)) {
-                          form.setValue("subStage", "");
-                        }
-                      }}
-                    >
-                      {STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
-                    </FormSelect>
-                  </div>
-                  <div className="md:col-span-2">
-                    <FieldLabel>SUB-STATUS</FieldLabel>
-                    <FormSelect {...form.register("subStage")}>
-                      <option value="">SELECT SUB-STATUS</option>
-                      {availableSubStages.map((s) => <option key={s} value={s}>{s}</option>)}
-                    </FormSelect>
-                  </div>
-                  <div>
-                    <FieldLabel>TM / CPR NUMBER</FieldLabel>
-                    <FormInput placeholder="e.g. 633710" {...form.register("tmCprNo")} />
-                  </div>
-                  <div>
-                    <FieldLabel>CLASS</FieldLabel>
-                    <FormSelect {...form.register("appClass")}>
-                      <option value="">SELECT</option>
-                      {Array.from({ length: 45 }, (_, i) => String(i + 1)).map((c) => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </FormSelect>
-                  </div>
-                  <div>
-                    <FieldLabel>CASE TYPE</FieldLabel>
-                    <FormSelect {...form.register("caseType")}>
-                      {CASE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-                    </FormSelect>
-                  </div>
-                </div>
-              </div>
-
-              {/* Assignment */}
-              <div>
-                <SectionHead title="Assignment" />
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  <div>
-                    <FieldLabel required>CITY</FieldLabel>
-                    <FormSelect {...form.register("city")}>
-                      {CITIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                    </FormSelect>
-                  </div>
-                  <div>
-                    <FieldLabel>AGENT</FieldLabel>
-                    <FormInput placeholder="Agent name" {...form.register("agent")} />
-                  </div>
-                </div>
-              </div>
-
-              {/* Additional */}
-              <div>
-                <SectionHead title="Additional" />
-                <div className="space-y-4">
-                  <div>
-                    <FieldLabel>NOTES</FieldLabel>
-                    <textarea
-                      {...form.register("notes")}
-                      rows={3}
-                      placeholder="Enter any notes here..."
-                      className="w-full p-3 bg-white border-2 border-[#0C0C0C] font-mono text-sm focus:outline-2 focus:outline-[#C94A00] focus:outline-offset-0 resize-none"
-                    />
-                  </div>
-
-                  {/* Image Upload / Preview */}
-                  <div>
-                    <FieldLabel>TRADEMARK IMAGE</FieldLabel>
-                    <div className="border-2 border-[#0C0C0C] bg-white p-4 space-y-3">
-                      {/* Hidden File Input */}
-                      <input
-                        type="file"
-                        ref={fileInputRef}
-                        accept="image/png, image/jpeg, image/webp"
-                        className="hidden"
-                        onChange={handleFileUpload}
-                      />
-
-                      <div className="flex flex-wrap items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() => fileInputRef.current?.click()}
-                          disabled={uploading}
-                          className="flex items-center gap-2 px-4 h-10 bg-[#0C0C0C] text-[#F0E8D0] border-2 border-[#0C0C0C] font-mono font-bold text-xs uppercase tracking-wider hover:bg-[#C94A00] hover:border-[#C94A00] hover:text-white transition-colors disabled:opacity-50"
-                        >
-                          <UploadCloud className="w-4 h-4" />
-                          {uploading ? "UPLOADING…" : watchImage ? "REPLACE IMAGE" : "BROWSE / UPLOAD IMAGE"}
-                        </button>
-
-                        {watchImage && (
-                          <button
-                            type="button"
-                            onClick={() => { form.setValue("image", ""); setImagePreview(""); }}
-                            className="px-3 h-10 border-2 border-[#CC0000] text-[#CC0000] font-mono font-bold text-xs uppercase tracking-wider hover:bg-[#CC0000] hover:text-white transition-colors"
-                          >
-                            REMOVE IMAGE
-                          </button>
-                        )}
-                      </div>
-
-                      {/* Upload Progress Bar */}
-                      {uploading && (
-                        <div className="space-y-1">
-                          <div className="flex justify-between font-mono text-[10px] text-[#6d6658]">
-                            <span>Uploading to secure storage…</span>
-                            <span>{uploadProgress}%</span>
-                          </div>
-                          <div className="w-full h-2 bg-[#E8DFC7] border border-[#0C0C0C] overflow-hidden">
-                            <div
-                              className="h-full bg-[#C94A00] transition-all duration-300"
-                              style={{ width: `${uploadProgress}%` }}
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Thumbnail Preview */}
-                      {watchImage && (
-                        <div className="flex items-center gap-4 pt-2 border-t border-[#0C0C0C]/10">
-                          <div
-                            onClick={() => setPreviewModalOpen(true)}
-                            className="w-16 h-16 border-2 border-[#0C0C0C] bg-[#F0E8D0] flex items-center justify-center cursor-pointer hover:border-[#C94A00] overflow-hidden"
-                            title="Click to enlarge"
-                          >
-                            <img
-                              src={imagePreview || watchImage}
-                              alt="Preview"
-                              className="w-full h-full object-contain"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).style.display = "none";
-                              }}
-                            />
-                          </div>
-                          <div className="flex flex-col gap-1 font-mono text-xs">
-                            <div className="flex items-center gap-1.5 text-[#0A6B52] font-bold text-[10px] uppercase">
-                              <CheckCircle2 className="w-3.5 h-3.5" /> Image Attached
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => setPreviewModalOpen(true)}
-                              className="flex items-center gap-1 text-[#C94A00] text-[11px] font-bold hover:underline"
-                            >
-                              <Eye className="w-3.5 h-3.5" /> View Large Preview
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                      <input type="hidden" {...form.register("image")} />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Enlarged Image Preview Modal */}
-            {previewModalOpen && watchImage && (
-              <div
-                className="fixed inset-0 z-60 bg-black/80 flex items-center justify-center p-4"
-                onClick={() => setPreviewModalOpen(false)}
-              >
-                <div
-                  className="relative max-w-3xl max-h-[85vh] bg-[#F0E8D0] border-4 border-[#0C0C0C] shadow-[10px_10px_0_#0C0C0C] overflow-hidden"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="flex items-center justify-between px-4 py-2 bg-[#0C0C0C] text-[#F0E8D0]">
-                    <span className="font-mono font-bold text-xs uppercase tracking-widest">Image Preview</span>
-                    <button
-                      onClick={() => setPreviewModalOpen(false)}
-                      className="font-mono text-xs text-[#C5B89A] hover:text-white"
-                    >
-                      ✕ CLOSE
-                    </button>
-                  </div>
-                  <img
-                    src={imagePreview || watchImage}
-                    alt="Full Preview"
-                    className="max-h-[75vh] w-auto mx-auto block p-2"
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Footer */}
-            <div className="shrink-0 flex items-center justify-between px-6 py-4 bg-[#E8DFC7] border-t-2 border-[#0C0C0C]">
-              {!creating ? (
-                <button
-                  type="button"
-                  onClick={handleDelete}
-                  disabled={deleteMutation.isPending || isPending}
-                  className="flex items-center gap-2 bg-white text-[#CC0000] border-2 border-[#CC0000] px-4 h-10 font-mono font-bold text-xs uppercase tracking-wider hover:bg-[#CC0000] hover:text-white transition-colors disabled:opacity-50"
-                >
-                  <Trash2 className="w-4 h-4" /> DELETE
-                </button>
-              ) : <div />}
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  disabled={isPending}
-                  className="px-5 h-10 bg-white border-2 border-[#0C0C0C] font-mono font-bold text-xs uppercase tracking-wider hover:bg-[#0C0C0C] hover:text-[#F0E8D0] transition-colors disabled:opacity-50"
-                >
-                  CANCEL
-                </button>
-                <button
-                  type="submit"
-                  disabled={isPending}
-                  className="flex items-center gap-2 bg-[#C94A00] text-white border-2 border-[#C94A00] px-6 h-10 font-mono font-bold text-xs uppercase tracking-wider hover:brightness-110 transition-all disabled:opacity-50"
-                >
-                  <Save className="w-4 h-4" />
-                  {isPending ? "SAVING TO SHEETS…" : creating ? "SAVE RECORD" : "UPDATE RECORD"}
-                </button>
-              </div>
-            </div>
-          </form>
-        )}
+        <div><SectionHead title="Additional"/><div><FieldLabel>NOTES</FieldLabel><textarea {...form.register("notes")} rows={3} placeholder="Enter any notes here..." className="w-full p-3 bg-white border-2 border-[#0C0C0C] font-mono text-sm resize-none"/></div></div>
+        <div><SectionHead title="Trademark Image"/><input type="file" ref={fileInputRef} accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleFileUpload}/><div className="bg-white border-2 border-[#0C0C0C] p-4 flex flex-wrap items-center gap-3"><button type="button" onClick={()=>fileInputRef.current?.click()} disabled={uploading} className="flex items-center gap-2 px-4 h-10 bg-[#0C0C0C] text-[#F0E8D0] font-mono font-bold text-xs uppercase"><UploadCloud className="w-4 h-4"/>{uploading?`UPLOADING ${uploadProgress}%`:(watchImage?"REPLACE IMAGE":"BROWSE / UPLOAD IMAGE")}</button>{watchImage&&<button type="button" onClick={()=>{form.setValue("image","");setImagePreview("")}} className="px-3 h-10 border-2 border-[#CC0000] text-[#CC0000] font-mono font-bold text-xs">REMOVE IMAGE</button>}{watchImage&&<button type="button" onClick={()=>setPreviewModalOpen(true)} className="text-[#C94A00] font-mono text-xs font-bold flex items-center gap-1"><Eye className="w-4 h-4"/> PREVIEW</button>}{watchImage&&<CheckCircle2 className="w-4 h-4 text-[#0A6B52]"/>}</div></div>
       </div>
-    </div>
-  );
+      {previewModalOpen&&watchImage&&<div className="fixed inset-0 z-60 bg-black/80 flex items-center justify-center p-4" onClick={()=>setPreviewModalOpen(false)}><div className="max-w-3xl max-h-[85vh] bg-[#F0E8D0] border-4 border-[#0C0C0C] p-3" onClick={e=>e.stopPropagation()}><div className="flex justify-end"><button type="button" onClick={()=>setPreviewModalOpen(false)} className="font-mono text-xs">✕ CLOSE</button></div><img src={imagePreview||watchImage} alt="Preview" className="max-h-[75vh] w-auto mx-auto"/></div></div>}
+      <div className="shrink-0 flex items-center justify-between px-6 py-4 bg-[#E8DFC7] border-t-2 border-[#0C0C0C]">{!creating?<button type="button" onClick={handleDelete} disabled={isPending} className="flex items-center gap-2 bg-white text-[#CC0000] border-2 border-[#CC0000] px-4 h-10 font-mono font-bold text-xs"><Trash2 className="w-4 h-4"/> DELETE</button>:<div/>}<div className="flex items-center gap-3"><button type="button" onClick={onClose} disabled={isPending} className="px-5 h-10 bg-white border-2 border-[#0C0C0C] font-mono font-bold text-xs">CANCEL</button><button type="submit" disabled={isPending} className="flex items-center gap-2 bg-[#C94A00] text-white px-6 h-10 font-mono font-bold text-xs"><Save className="w-4 h-4"/>{isPending?"SAVING…":creating?"SAVE RECORD":"UPDATE RECORD"}</button></div></div>
+    </form>}
+    </div></div>
 }
