@@ -1,4 +1,4 @@
-import { listTrademarks, STAGES, CITIES, deleteTrademark } from "@/lib/api";
+import { listTrademarks, STAGES, deleteTrademark } from "@/lib/api";
 import type { TrademarkRecord } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 import { AppShell } from "@/components/layout/AppShell";
@@ -9,208 +9,29 @@ import { useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDownToLine, ArrowUpFromLine, CheckSquare, Database, Filter, Plus, Search, Trash2, X } from "lucide-react";
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE=50;
+const STAGE_BADGE:Record<string,string>={"STAGE 1":"bg-emerald-700 text-white","STAGE 2":"bg-amber-500 text-black","STAGE 3":"bg-orange-700 text-white","STAGE 4":"bg-teal-800 text-white",STOPPED:"bg-red-800 text-white"};
+const STATES=["NORMAL","COMPROMISED","PROLONGED","COURT / HEARING"];
+function csvCell(value:unknown){const text=String(value??"");return `"${text.replaceAll('"','""')}"`;}
+function parseCsvLine(line:string){const out:string[]=[];let value="",quoted=false;for(let i=0;i<line.length;i++){const ch=line[i];if(ch==='"'){if(quoted&&line[i+1]==='"'){value+='"';i++;}else quoted=!quoted;}else if(ch===","&&!quoted){out.push(value);value="";}else value+=ch;}out.push(value);return out;}
 
-const STAGE_BADGE: Record<string, string> = {
-  "STAGE 1": "bg-emerald-700 text-white",
-  "STAGE 2": "bg-amber-500 text-black",
-  "STAGE 3": "bg-orange-700 text-white",
-  "STAGE 4": "bg-teal-800 text-white",
-  STOPPED: "bg-red-800 text-white",
-};
-
-const TM_FIELDS = ["tm5", "tm6", "tm11", "tm16", "tm56"] as const;
-
-function csvCell(value: unknown) {
-  const text = String(value ?? "");
-  return `"${text.replaceAll('"', '""')}"`;
-}
-
-function parseCsvLine(line: string) {
-  const out: string[] = [];
-  let value = "";
-  let quoted = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (ch === '"') {
-      if (quoted && line[i + 1] === '"') { value += '"'; i++; }
-      else quoted = !quoted;
-    } else if (ch === "," && !quoted) { out.push(value); value = ""; }
-    else value += ch;
-  }
-  out.push(value);
-  return out;
-}
-
-export function DatabasePage() {
-  const [, navigate] = useLocation();
-  const queryClient = useQueryClient();
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [page, setPage] = useState(1);
-  const [query, setQuery] = useState("");
-  const [stage, setStage] = useState("");
-  const [agent, setAgent] = useState("");
-  const [city, setCity] = useState("");
-  const [showFilters, setShowFilters] = useState(false);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [modalOpen, setModalOpen] = useState(false);
-  const [importPreview, setImportPreview] = useState<Record<string, string>[]>([]);
-
-  const { data: records = [], isLoading, isFetching } = useQuery<TrademarkRecord[]>({
-    queryKey: ["trademarks"],
-    queryFn: () => listTrademarks(),
-    staleTime: 30_000,
-  });
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return records
-      .filter((r) => !stage || r.stage === stage)
-      .filter((r) => !agent || r.agent === agent)
-      .filter((r) => !city || r.city === city)
-      .filter((r) => !q || [r.prefix, r.clientCode, r.caseNumber, r.appName, r.tmCprNo, r.appClass, r.agent]
-        .some((v) => String(v ?? "").toLowerCase().includes(q)))
-      .sort((a, b) => {
-        const prefix = a.prefix.localeCompare(b.prefix, undefined, { numeric: true });
-        if (prefix) return prefix;
-        const client = a.clientCode.localeCompare(b.clientCode, undefined, { numeric: true });
-        if (client) return client;
-        return a.caseNumber.localeCompare(b.caseNumber, undefined, { numeric: true });
-      });
-  }, [records, query, stage, agent, city]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const pageRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const pageIds = pageRows.map((r) => r.id);
-  const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
-
-  const agents = useMemo(() => [...new Set(records.map((r) => r.agent).filter(Boolean))].sort(), [records]);
-  const clearFilters = () => { setQuery(""); setStage(""); setAgent(""); setCity(""); setPage(1); };
-
-  const toggle = (id: string) => setSelected((prev) => {
-    const next = new Set(prev);
-    if (next.has(id)) next.delete(id); else next.add(id);
-    return next;
-  });
-
-  const togglePage = () => setSelected((prev) => {
-    const next = new Set(prev);
-    if (allPageSelected) pageIds.forEach((id) => next.delete(id));
-    else pageIds.forEach((id) => next.add(id));
-    return next;
-  });
-
-  const bulkDelete = useMutation({
-    mutationFn: async () => {
-      for (const id of selected) await deleteTrademark(id);
-    },
-    onSuccess: async () => {
-      setSelected(new Set());
-      await queryClient.invalidateQueries({ queryKey: ["trademarks"] });
-    },
-  });
-
-  const exportCsv = () => {
-    const rows = selected.size ? filtered.filter((r) => selected.has(r.id)) : filtered;
-    const headers = ["ID", "DATE", "PREFIX", "CLIENT CODE", "CASE NUMBER", "APPLICATION NAME", "TM/CPR NUMBER", "CLASS", "STATUS", "SUB STATUS", "CASE TYPE", "AGENT", "CITY", "TM5", "TM6", "TM11", "TM16", "TM56", "JOURNAL NUMBER", "JOURNAL DATE"];
-    const body = rows.map((r) => [r.id, r.date, r.prefix, r.clientCode, r.caseNumber, r.appName, r.tmCprNo, r.appClass, r.stage, r.subStage, r.caseType, r.agent, r.city, r.tm5, r.tm6, r.tm11, r.tm16, r.tm56, r.journalNumber, r.journalDate].map(csvCell).join(","));
-    const blob = new Blob([[headers.map(csvCell).join(","), ...body].join("\n")], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = `brandex-datasheet-${new Date().toISOString().slice(0,10)}.csv`; a.click(); URL.revokeObjectURL(url);
-  };
-
-  const readImport = async (file: File) => {
-    const text = await file.text();
-    const lines = text.split(/\r?\n/).filter(Boolean);
-    if (!lines.length) return;
-    const headers = parseCsvLine(lines[0]).map((h) => h.trim().toUpperCase());
-    const rows = lines.slice(1).map((line) => {
-      const cells = parseCsvLine(line); return Object.fromEntries(headers.map((h, i) => [h, cells[i] ?? ""]));
-    });
-    setImportPreview(rows.slice(0, 8));
-  };
-
-  const confirmImport = async () => {
-    if (!importPreview.length) return;
-    const payload = importPreview.map((r) => ({
-      id: r.ID || crypto.randomUUID(), filing_date: r.DATE || null, prefix: r.PREFIX || r.TYPE || "X",
-      client_code: r["CLIENT CODE"] || null, case_number: r["CASE NUMBER"] || null,
-      application_name: r["APPLICATION NAME"] || null, tm_cpr_number: r["TM/CPR NUMBER"] || null,
-      nice_class: r.CLASS || null, status: r.STATUS || "STAGE 1", sub_status: r["SUB STATUS"] || null,
-      case_type: r["CASE TYPE"] || null, agent: r.AGENT || null, city: r.CITY || null,
-      tm5: r.TM5 === "YES", tm6: r.TM6 === "YES", tm11: r.TM11 === "YES", tm16: r.TM16 === "YES", tm56: r.TM56 === "YES",
-      journal_number: r["JOURNAL NUMBER"] || null, journal_date: r["JOURNAL DATE"] || null,
-    }));
-    const { error } = await supabase.from("trademarks").upsert(payload, { onConflict: "id" });
-    if (error) { alert(error.message); return; }
-    setImportPreview([]);
-    await queryClient.invalidateQueries({ queryKey: ["trademarks"] });
-  };
-
-  const hasFilters = Boolean(query || stage || agent || city);
-
-  return (
-    <AppShell>
-      <div className="flex h-full min-h-0 flex-col bg-white">
-        <div className="shrink-0 border-b-2 border-[#0C0C0C] bg-[#E8DFC7] px-5 py-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <Database className="h-5 w-5 text-[#0A6B52]" />
-            <h1 className="mr-auto font-serif text-2xl uppercase tracking-widest">DATABASE</h1>
-            <span className="font-mono text-[10px] font-bold tracking-widest text-[#6d6658]">{isLoading || isFetching ? "SYNCING…" : `${filtered.length} RECORDS`}</span>
-            <button onClick={() => setShowFilters((v) => !v)} className="flex h-9 items-center gap-2 border-2 border-[#0C0C0C] bg-white px-3 font-mono text-[10px] font-bold uppercase tracking-wider"><Filter className="h-4 w-4" /> FILTER</button>
-            <button onClick={exportCsv} className="flex h-9 items-center gap-2 border-2 border-[#0C0C0C] bg-white px-3 font-mono text-[10px] font-bold uppercase tracking-wider"><ArrowDownToLine className="h-4 w-4" /> EXPORT{selected.size ? ` (${selected.size})` : ""}</button>
-            <button onClick={() => fileRef.current?.click()} className="flex h-9 items-center gap-2 border-2 border-[#0C0C0C] bg-white px-3 font-mono text-[10px] font-bold uppercase tracking-wider"><ArrowUpFromLine className="h-4 w-4" /> IMPORT</button>
-            <input ref={fileRef} hidden type="file" accept=".csv,text/csv" onChange={(e) => e.target.files?.[0] && readImport(e.target.files[0])} />
-            <button onClick={() => setModalOpen(true)} className="flex h-9 items-center gap-2 bg-[#C94A00] px-3 font-mono text-[10px] font-bold uppercase tracking-wider text-white"><Plus className="h-4 w-4" /> ADD</button>
-          </div>
-          <div className="mt-3 flex gap-2">
-            <div className="relative min-w-[240px] flex-1"><Search className="absolute left-3 top-2.5 h-4 w-4 text-[#6d6658]" /><input value={query} onChange={(e) => { setQuery(e.target.value); setPage(1); }} placeholder="Search prefix, client code, mark, TM number…" className="h-9 w-full border-2 border-[#0C0C0C] bg-white pl-9 pr-3 font-mono text-xs outline-none" /></div>
-            {hasFilters && <button onClick={clearFilters} className="flex h-9 items-center gap-1 border-2 border-red-800 px-3 font-mono text-[10px] font-bold text-red-800"><X className="h-3 w-3" /> CLEAR</button>}
-          </div>
-          {showFilters && <div className="mt-3 flex flex-wrap gap-2 border-t border-[#0C0C0C]/20 pt-3">
-            <select value={stage} onChange={(e) => { setStage(e.target.value); setPage(1); }} className="h-9 border-2 border-[#0C0C0C] bg-white px-2 font-mono text-xs"><option value="">ALL STATUS</option>{STAGES.map((s) => <option key={s}>{s}</option>)}</select>
-            <select value={agent} onChange={(e) => { setAgent(e.target.value); setPage(1); }} className="h-9 border-2 border-[#0C0C0C] bg-white px-2 font-mono text-xs"><option value="">ALL AGENTS</option>{agents.map((a) => <option key={a}>{a}</option>)}</select>
-            <select value={city} onChange={(e) => { setCity(e.target.value); setPage(1); }} className="h-9 border-2 border-[#0C0C0C] bg-white px-2 font-mono text-xs"><option value="">ALL CITIES</option>{CITIES.map((c) => <option key={c}>{c}</option>)}</select>
-          </div>}
-        </div>
-
-        {selected.size > 0 && <div className="flex shrink-0 items-center gap-3 border-b border-red-900/20 bg-red-50 px-5 py-2 font-mono text-[10px] font-bold uppercase"><CheckSquare className="h-4 w-4" /> {selected.size} SELECTED <button disabled={bulkDelete.isPending} onClick={() => bulkDelete.mutate()} className="ml-auto flex items-center gap-1 border border-red-800 px-3 py-1.5 text-red-800"><Trash2 className="h-3 w-3" /> BULK DELETE</button></div>}
-
-        <div className="min-h-0 flex-1 overflow-auto">
-          <table className="w-full border-collapse whitespace-nowrap font-mono text-xs">
-            <thead className="sticky top-0 z-10 bg-[#0C0C0C] text-[#F0E8D0]"><tr>
-              <th className="w-10 px-3 py-3"><input type="checkbox" checked={allPageSelected} onChange={togglePage} aria-label="Select page" /></th>
-              {['DATE','PREFIX','CLIENT CODE','CASE/FOLDER','MARK / APPLICATION','TM / CPR NUMBER','CLASS','STATUS','SUB STATUS','AGENT','CITY','STAGES'].map((h) => <th key={h} className="px-3 py-3 text-left text-[9px] font-bold tracking-wider">{h}</th>)}
-            </tr></thead>
-            <tbody>
-              {pageRows.map((tm, i) => {
-                const compromised = tm.condition && tm.condition !== "NORMAL";
-                return <tr key={tm.id} onClick={() => navigate(`/record/${tm.id}`)} className={`cursor-pointer border-b border-black/10 ${compromised ? 'bg-red-50' : i % 2 ? 'bg-white' : 'bg-[#F0E8D0]'} hover:bg-[#D9D0B7]`}>
-                  <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={selected.has(tm.id)} onChange={() => toggle(tm.id)} /></td>
-                  <td className="px-3 py-2 text-[#6d6658]">{formatDateShort(tm.date)}</td>
-                  <td className="px-3 py-2 font-bold">{tm.prefix}</td>
-                  <td className="px-3 py-2 font-bold">{tm.clientCode}</td>
-                  <td className="px-3 py-2">{tm.caseNumber || "—"}</td>
-                  <td className="max-w-[280px] truncate px-3 py-2 font-semibold">{tm.appName || "—"}</td>
-                  <td className="px-3 py-2 font-bold">{tm.tmCprNo || "—"}</td>
-                  <td className="px-3 py-2">{tm.appClass || "—"}</td>
-                  <td className="px-3 py-2"><span className={`inline-flex px-2 py-1 text-[9px] font-bold ${STAGE_BADGE[tm.stage] ?? 'bg-black text-white'}`}>{tm.stage || "—"}</span></td>
-                  <td className="max-w-[170px] truncate px-3 py-2">{tm.subStage || "—"}</td>
-                  <td className="px-3 py-2">{tm.agent || "—"}</td>
-                  <td className="px-3 py-2">{tm.city || "—"}</td>
-                  <td className="px-3 py-2"><div className="flex gap-1">{TM_FIELDS.map((f) => <span key={f} title={f.toUpperCase()} className={`rounded px-1.5 py-0.5 text-[8px] font-bold ${tm[f] === 'YES' ? 'bg-[#0A6B52] text-white' : 'bg-black/10 text-black/40'}`}>{f.replace('tm','TM')}</span>)}</div></td>
-                </tr>;
-              })}
-            </tbody>
-          </table>
-          {!isLoading && pageRows.length === 0 && <div className="p-16 text-center font-mono text-xs font-bold text-[#6d6658]">NO RECORDS FOUND</div>}
-        </div>
-
-        <div className="flex shrink-0 items-center justify-between border-t-2 border-[#0C0C0C] bg-[#E8DFC7] px-5 py-2 font-mono text-[10px] font-bold uppercase"><span>PAGE {page} / {totalPages}</span><div className="flex gap-2"><button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="border border-black px-3 py-1 disabled:opacity-30">PREV</button><button disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)} className="border border-black px-3 py-1 disabled:opacity-30">NEXT</button></div></div>
-      </div>
-
-      {modalOpen && <RecordModal isNew onClose={() => setModalOpen(false)} onSaved={() => { setModalOpen(false); queryClient.invalidateQueries({ queryKey: ["trademarks"] }); }} />}
-      {importPreview.length > 0 && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-5"><div className="w-full max-w-4xl border-2 border-black bg-white p-5"><div className="mb-3 flex items-center"><h2 className="font-serif text-xl uppercase tracking-wider">IMPORT PREVIEW</h2><button onClick={() => setImportPreview([])} className="ml-auto"><X /></button></div><p className="mb-3 font-mono text-xs">Previewing first {importPreview.length} rows. Confirm to import this preview into the canonical database.</p><div className="max-h-80 overflow-auto border"><table className="w-full font-mono text-[10px]"><tbody>{importPreview.map((r, i) => <tr key={i} className="border-b">{Object.entries(r).slice(0, 8).map(([k,v]) => <td key={k} className="p-2"><b>{k}:</b> {v}</td>)}</tr>)}</tbody></table></div><div className="mt-4 flex justify-end gap-2"><button onClick={() => setImportPreview([])} className="border-2 border-black px-4 py-2 font-mono text-xs font-bold">CANCEL</button><button onClick={confirmImport} className="bg-[#0A6B52] px-4 py-2 font-mono text-xs font-bold text-white">IMPORT PREVIEW</button></div></div></div>}
-    </AppShell>
-  );
+export function DatabasePage(){
+ const [,navigate]=useLocation();const qc=useQueryClient();const fileRef=useRef<HTMLInputElement>(null);const [page,setPage]=useState(1);const [query,setQuery]=useState("");const [stage,setStage]=useState("");const [subStage,setSubStage]=useState("");const [agent,setAgent]=useState("");const [state,setState]=useState("");const [from,setFrom]=useState("");const [to,setTo]=useState("");const [showFilters,setShowFilters]=useState(false);const [selected,setSelected]=useState<Set<string>>(new Set());const [modalOpen,setModalOpen]=useState(false);const [importRows,setImportRows]=useState<Record<string,string>[]>([]);const [importErrors,setImportErrors]=useState<string[]>([]);
+ const {data:records=[],isLoading,isFetching}=useQuery<TrademarkRecord[]>({queryKey:["trademarks"],queryFn:()=>listTrademarks(),staleTime:30_000});
+ const distinct=useMemo(()=>({agents:[...new Set(records.map(r=>r.agent).filter(Boolean) as string[])].sort(),subStages:[...new Set(records.map(r=>r.subStage).filter(Boolean) as string[])].sort()}),[records]);
+ const filtered=useMemo(()=>{const q=query.trim().toLowerCase();return records.filter(r=>{if(stage&&r.stage!==stage)return false;if(subStage&&r.subStage!==subStage)return false;if(agent&&r.agent!==agent)return false;if(state&&(r.condition||"NORMAL")!==state)return false;if(from&&String(r.date||"")<from)return false;if(to&&String(r.date||"")>to)return false;if(q&&!([r.prefix,r.clientCode,r.caseNumber,r.appName,r.tmCprNo,r.appClass,r.agent].some(v=>String(v??"").toLowerCase().includes(q))))return false;return true;}).sort((a,b)=>{const p=a.prefix.localeCompare(b.prefix,undefined,{numeric:true});if(p)return p;const c=a.clientCode.localeCompare(b.clientCode,undefined,{numeric:true});if(c)return c;return a.caseNumber.localeCompare(b.caseNumber,undefined,{numeric:true});});},[records,query,stage,subStage,agent,state,from,to]);
+ const totalPages=Math.max(1,Math.ceil(filtered.length/PAGE_SIZE));const rows=filtered.slice((page-1)*PAGE_SIZE,page*PAGE_SIZE);const pageIds=rows.map(r=>r.id);const allSelected=pageIds.length>0&&pageIds.every(id=>selected.has(id));const agents=distinct.agents;
+ const clear=()=>{setQuery("");setStage("");setSubStage("");setAgent("");setState("");setFrom("");setTo("");setPage(1);};const hasFilters=Boolean(query||stage||subStage||agent||state||from||to);
+ const toggle=(id:string)=>setSelected(prev=>{const n=new Set(prev);n.has(id)?n.delete(id):n.add(id);return n;});const togglePage=()=>setSelected(prev=>{const n=new Set(prev);if(allSelected)pageIds.forEach(id=>n.delete(id));else pageIds.forEach(id=>n.add(id));return n;});
+ const bulkDelete=useMutation({mutationFn:async()=>{for(const id of selected)await deleteTrademark(id);},onSuccess:()=>{setSelected(new Set());qc.invalidateQueries({queryKey:["trademarks"]});}});
+ const exportCsv=()=>{const out=selected.size?filtered.filter(r=>selected.has(r.id)):filtered;const headers=["ID","DATE","PREFIX","CLIENT CODE","CASE NUMBER","APPLICATION NAME","TM/CPR NUMBER","CLASS","STATUS","SUB STATUS","CASE TYPE","AGENT","TM5","TM6","TM11","TM16","TM56","JOURNAL NUMBER","JOURNAL DATE","STATE"];const body=out.map(r=>[r.id,r.date,r.prefix,r.clientCode,r.caseNumber,r.appName,r.tmCprNo,r.appClass,r.stage,r.subStage,r.caseType,r.agent,r.tm5,r.tm6,r.tm11,r.tm16,r.tm56,r.journalNumber,r.journalDate,r.condition||"NORMAL"].map(csvCell).join(","));const blob=new Blob([[headers.map(csvCell).join(","),...body].join("\n")],{type:"text/csv;charset=utf-8"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`brandex-datasheet-${new Date().toISOString().slice(0,10)}.csv`;a.click();URL.revokeObjectURL(url);};
+ const readImport=async(file:File)=>{const text=await file.text();const lines=text.split(/\r?\n/).filter(Boolean);if(!lines.length)return;const headers=parseCsvLine(lines[0]).map(h=>h.trim().toUpperCase());const rows=lines.slice(1).map(line=>{const cells=parseCsvLine(line);return Object.fromEntries(headers.map((h,i)=>[h,cells[i]??""]));});const errors:string[]=[];const seen=new Set<string>();rows.forEach((r,i)=>{const key=r.ID||`${r["PREFIX"]||r.TYPE||"X"}-${r["CLIENT CODE"]||""}-${r["CASE NUMBER"]||i}`;if(seen.has(key))errors.push(`Row ${i+2}: duplicate ID/key ${key}`);seen.add(key);if(!r["CLIENT CODE"])errors.push(`Row ${i+2}: missing CLIENT CODE`);if(!r["APPLICATION NAME"])errors.push(`Row ${i+2}: missing APPLICATION NAME`);});setImportRows(rows);setImportErrors(errors);};
+ const confirmImport=async()=>{if(!importRows.length)return;const payload=importRows.map(r=>({id:r.ID||crypto.randomUUID(),filing_date:r.DATE||null,prefix:r.PREFIX||r.TYPE||"X",client_code:r["CLIENT CODE"]||null,case_number:r["CASE NUMBER"]||null,application_name:r["APPLICATION NAME"]||null,tm_cpr_number:r["TM/CPR NUMBER"]||null,nice_class:r.CLASS||null,status:r.STATUS||"STAGE 1",sub_status:r["SUB STATUS"]||null,case_type:r["CASE TYPE"]||null,agent:r.AGENT||null,tm5:String(r.TM5).toUpperCase()==="YES",tm6:String(r.TM6).toUpperCase()==="YES",tm11:String(r.TM11).toUpperCase()==="YES",tm16:String(r.TM16).toUpperCase()==="YES",tm56:String(r.TM56).toUpperCase()==="YES",journal_number:r["JOURNAL NUMBER"]||null,journal_date:r["JOURNAL DATE"]||null,condition:r.STATE||"NORMAL"}));const {error}=await supabase.from("trademarks").upsert(payload,{onConflict:"id"});if(error){alert(error.message);return;}setImportRows([]);setImportErrors([]);await qc.invalidateQueries({queryKey:["trademarks"]});};
+ return <AppShell><div className="flex h-full min-h-0 flex-col bg-white"><div className="shrink-0 border-b-2 border-[#0C0C0C] bg-[#E8DFC7] px-5 py-4"><div className="flex flex-wrap items-center gap-3"><Database className="h-5 w-5 text-[#0A6B52]"/><h1 className="mr-auto font-serif text-2xl uppercase tracking-widest">DATABASE</h1><span className="font-mono text-[10px] font-bold tracking-widest text-[#6d6658]">{isLoading||isFetching?"SYNCING…":`${filtered.length} RECORDS`}</span><button onClick={()=>setShowFilters(v=>!v)} className="flex h-9 items-center gap-2 border-2 border-black bg-white px-3 font-mono text-[10px] font-bold uppercase"><Filter className="h-4 w-4"/> FILTERS</button><button onClick={exportCsv} className="flex h-9 items-center gap-2 border-2 border-black bg-white px-3 font-mono text-[10px] font-bold uppercase"><ArrowDownToLine className="h-4 w-4"/> EXPORT{selected.size?` (${selected.size})`:""}</button><button onClick={()=>fileRef.current?.click()} className="flex h-9 items-center gap-2 border-2 border-black bg-white px-3 font-mono text-[10px] font-bold uppercase"><ArrowUpFromLine className="h-4 w-4"/> IMPORT</button><input ref={fileRef} hidden type="file" accept=".csv,text/csv" onChange={e=>e.target.files?.[0]&&readImport(e.target.files[0])}/><button onClick={()=>setModalOpen(true)} className="flex h-9 items-center gap-2 bg-[#C94A00] px-3 font-mono text-[10px] font-bold uppercase text-white"><Plus className="h-4 w-4"/> ADD</button></div><div className="mt-3 flex gap-2"><div className="relative min-w-[240px] flex-1"><Search className="absolute left-3 top-2.5 h-4 w-4 text-[#6d6658]"/><input value={query} onChange={e=>{setQuery(e.target.value);setPage(1)}} placeholder="Search prefix, client code, mark, TM number…" className="h-9 w-full border-2 border-black bg-white pl-9 pr-3 font-mono text-xs outline-none"/></div>{hasFilters&&<button onClick={clear} className="flex h-9 items-center gap-1 border-2 border-red-800 px-3 font-mono text-[10px] font-bold text-red-800"><X className="h-3 w-3"/> CLEAR</button>}</div>{showFilters&&<div className="mt-3 flex flex-wrap items-end gap-3 border-t border-black/20 pt-3"><label className="font-mono text-[9px] font-bold uppercase text-[#6d6658]">STAGE<select value={stage} onChange={e=>{setStage(e.target.value);setPage(1)}} className="mt-1 block h-9 min-w-[130px] border-2 border-black bg-white px-2 text-xs"><option value="">ALL STAGES</option>{STAGES.map(s=><option key={s}>{s}</option>)}</select></label><label className="font-mono text-[9px] font-bold uppercase text-[#6d6658]">SUB-STAGE<select value={subStage} onChange={e=>{setSubStage(e.target.value);setPage(1)}} className="mt-1 block h-9 min-w-[170px] border-2 border-black bg-white px-2 text-xs"><option value="">ALL SUB-STAGES</option>{distinct.subStages.map(s=><option key={s}>{s}</option>)}</select></label><label className="font-mono text-[9px] font-bold uppercase text-[#6d6658]">AGENT<select value={agent} onChange={e=>{setAgent(e.target.value);setPage(1)}} className="mt-1 block h-9 min-w-[140px] border-2 border-black bg-white px-2 text-xs"><option value="">ALL AGENTS</option>{agents.map(a=><option key={a}>{a}</option>)}</select></label><label className="font-mono text-[9px] font-bold uppercase text-[#6d6658]">CASE STATE<select value={state} onChange={e=>{setState(e.target.value);setPage(1)}} className="mt-1 block h-9 min-w-[150px] border-2 border-black bg-white px-2 text-xs"><option value="">ALL STATES</option>{STATES.map(s=><option key={s}>{s}</option>)}</select></label><label className="font-mono text-[9px] font-bold uppercase text-[#6d6658]">DATE FROM<input type="date" value={from} onChange={e=>{setFrom(e.target.value);setPage(1)}} className="mt-1 block h-9 border-2 border-black bg-white px-2 text-xs"/></label><label className="font-mono text-[9px] font-bold uppercase text-[#6d6658]">DATE TO<input type="date" value={to} onChange={e=>{setTo(e.target.value);setPage(1)}} className="mt-1 block h-9 border-2 border-black bg-white px-2 text-xs"/></label></div>}</div>
+ {selected.size>0&&<div className="flex shrink-0 items-center gap-3 border-b bg-red-50 px-5 py-2 font-mono text-[10px] font-bold uppercase"><CheckSquare className="h-4 w-4"/>{selected.size} SELECTED<button disabled={bulkDelete.isPending} onClick={()=>bulkDelete.mutate()} className="ml-auto flex items-center gap-1 border border-red-800 px-3 py-1.5 text-red-800"><Trash2 className="h-3 w-3"/> BULK DELETE</button></div>}
+ <div className="min-h-0 flex-1 overflow-auto"><table className="w-full border-collapse whitespace-nowrap font-mono text-xs"><thead className="sticky top-0 z-10 bg-black text-[#F0E8D0]"><tr><th className="w-10 px-3 py-3"><input type="checkbox" checked={allSelected} onChange={togglePage}/></th>{["DATE","PREFIX","CLIENT CODE","CASE/FOLDER","MARK / APPLICATION","TM / CPR NUMBER","CLASS","STATUS","SUB STATUS","AGENT","STAGES"].map(h=><th key={h} className="px-3 py-3 text-left text-[9px] font-bold tracking-wider">{h}</th>)}</tr></thead><tbody>{rows.map((r,i)=>{const flagged=(r.condition||"NORMAL")!=="NORMAL"||r.isProlonged;return <tr key={r.id} onClick={()=>navigate(`/record/${r.id}`)} className={`cursor-pointer border-b border-black/10 ${flagged?"bg-red-50":i%2?"bg-white":"bg-[#F0E8D0]"} hover:bg-[#D9D0B7]`}><td className="px-3 py-2" onClick={e=>e.stopPropagation()}><input type="checkbox" checked={selected.has(r.id)} onChange={()=>toggle(r.id)}/></td><td className="px-3 py-2 text-[#6d6658]">{formatDateShort(r.date)}</td><td className="px-3 py-2 font-bold">{r.prefix}</td><td className="px-3 py-2 font-bold">{r.clientCode}</td><td className="px-3 py-2">{r.caseNumber||"—"}</td><td className="max-w-[280px] truncate px-3 py-2 font-semibold">{r.appName||"—"}</td><td className="px-3 py-2 font-bold">{r.tmCprNo||"—"}</td><td className="px-3 py-2">{r.appClass||"—"}</td><td className="px-3 py-2"><span className={`inline-flex px-2 py-1 text-[9px] font-bold ${STAGE_BADGE[r.stage]||"bg-black text-white"}`}>{r.stage||"—"}</span></td><td className="max-w-[180px] truncate px-3 py-2">{r.subStage||"—"}</td><td className="px-3 py-2 font-bold">{r.agent||"—"}</td><td className="px-3 py-2">{[r.tm5,r.tm6,r.tm11,r.tm16,r.tm56].map((v,i)=>v?`TM${[5,6,11,16,56][i]}`:null).filter(Boolean).join(" · ")||"—"}</td></tr>})}</tbody></table>{!isLoading&&!rows.length&&<div className="p-12 text-center font-mono text-xs font-bold text-[#6d6658]">NO RECORDS MATCH THE CURRENT FILTERS.</div>}</div>
+ {totalPages>1&&<div className="shrink-0 flex items-center justify-between border-t-2 border-black bg-[#E8DFC7] px-5 py-3 font-mono text-[10px] font-bold uppercase"><span>PAGE {page} OF {totalPages} · {filtered.length} RECORDS</span><div className="flex gap-2"><button disabled={page===1} onClick={()=>setPage(p=>Math.max(1,p-1))} className="border-2 border-black bg-white px-3 py-1.5 disabled:opacity-40">PREV</button><button disabled={page===totalPages} onClick={()=>setPage(p=>Math.min(totalPages,p+1))} className="border-2 border-black bg-white px-3 py-1.5 disabled:opacity-40">NEXT</button></div></div>}
+ {importRows.length>0&&<div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4"><div className="max-h-[85vh] w-full max-w-4xl overflow-auto border-2 border-black bg-[#F0E8D0] p-5 shadow-[8px_8px_0_#000]"><div className="flex items-center justify-between"><div><h2 className="font-serif text-2xl uppercase">Import Preview</h2><p className="font-mono text-xs text-[#6d6658]">{importRows.length} rows detected · previewing first 8 below</p></div><button onClick={()=>{setImportRows([]);setImportErrors([])}}><X/></button></div>{importErrors.length>0&&<div className="mt-3 border-2 border-red-800 bg-red-50 p-3 font-mono text-xs text-red-900"><b>{importErrors.length} validation issues</b><div className="mt-1 max-h-28 overflow-auto">{importErrors.slice(0,20).map(e=><div key={e}>{e}</div>)}</div></div>}<div className="mt-3 overflow-auto border-2 border-black bg-white"><table className="w-full font-mono text-[9px]"><thead className="bg-black text-white"><tr>{Object.keys(importRows[0]).slice(0,10).map(h=><th key={h} className="px-2 py-2 text-left">{h}</th>)}</tr></thead><tbody>{importRows.slice(0,8).map((r,i)=><tr key={i} className="border-b"><>{Object.keys(importRows[0]).slice(0,10).map(h=><td key={h} className="max-w-[180px] truncate px-2 py-1">{r[h]}</td>)}</></tr>)}</tbody></table></div><div className="mt-4 flex justify-end gap-2"><button onClick={()=>{setImportRows([]);setImportErrors([])}} className="border-2 border-black bg-white px-4 py-2 font-mono text-xs font-bold uppercase">CANCEL</button><button onClick={confirmImport} className="bg-[#0A1931] px-4 py-2 font-mono text-xs font-bold uppercase text-white">IMPORT ALL {importRows.length} ROWS</button></div></div></div>}
+ {modalOpen&&<RecordModal isNew onClose={()=>setModalOpen(false)} onSaved={()=>{setModalOpen(false);qc.invalidateQueries({queryKey:["trademarks"]})}}/>}
+ </div></AppShell>;
 }
