@@ -1,357 +1,216 @@
-import { listTrademarks, STAGES, CITIES } from "@/lib/api";
+import { listTrademarks, STAGES, CITIES, deleteTrademark } from "@/lib/api";
 import type { TrademarkRecord } from "@/lib/api";
+import { supabase } from "@/lib/supabase";
 import { AppShell } from "@/components/layout/AppShell";
 import { RecordModal } from "@/components/RecordModal";
 import { formatDateShort } from "@/lib/utils";
-import { useState, useEffect, useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
-import { Plus, Filter, X, ChevronLeft, ChevronRight, Database as DatabaseIcon } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowDownToLine, ArrowUpFromLine, CheckSquare, Database, Filter, Plus, Search, Trash2, X } from "lucide-react";
 
 const PAGE_SIZE = 50;
 
 const STAGE_BADGE: Record<string, string> = {
-  "STAGE 1": "bg-[#0D9970] text-white",
-  "STAGE 2": "bg-[#D4A800] text-[#0C0C0C]",
-  "STAGE 3": "bg-[#C94A00] text-white",
-  "STAGE 4": "bg-[#0A6B52] text-white",
-  "STOPPED": "bg-[#CC0000] text-white",
+  "STAGE 1": "bg-emerald-700 text-white",
+  "STAGE 2": "bg-amber-500 text-black",
+  "STAGE 3": "bg-orange-700 text-white",
+  "STAGE 4": "bg-teal-800 text-white",
+  STOPPED: "bg-red-800 text-white",
 };
 
-const TABLE_HEADERS = [
-  "DATE", "TYPE", "CLIENT CODE", "CLIENT NAME", "CASE NUMBER",
-  "APPLICATION NAME", "STATUS", "SUB-STATUS", "TM/CPR NUMBER",
-  "CLASS", "CASE TYPE", "AGENT", "CITY", "LAST MODIFIED",
-];
+const TM_FIELDS = ["tm5", "tm6", "tm11", "tm16", "tm56"] as const;
 
-interface Filters {
-  date: string;
-  type: string;
-  clientCode: string;
-  stage: string;
-  subStage: string;
-  appClass: string;
-  caseType: string;
-  city: string;
-  agent: string;
+function csvCell(value: unknown) {
+  const text = String(value ?? "");
+  return `"${text.replaceAll('"', '""')}"`;
 }
 
-const EMPTY_FILTERS: Filters = {
-  date: "", type: "", clientCode: "", stage: "", subStage: "",
-  appClass: "", caseType: "", city: "", agent: "",
-};
+function parseCsvLine(line: string) {
+  const out: string[] = [];
+  let value = "";
+  let quoted = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (quoted && line[i + 1] === '"') { value += '"'; i++; }
+      else quoted = !quoted;
+    } else if (ch === "," && !quoted) { out.push(value); value = ""; }
+    else value += ch;
+  }
+  out.push(value);
+  return out;
+}
 
 export function DatabasePage() {
-  const [location, navigate] = useLocation();
-  const [modalOpen, setModalOpen] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
+  const [, navigate] = useLocation();
+  const queryClient = useQueryClient();
+  const fileRef = useRef<HTMLInputElement>(null);
   const [page, setPage] = useState(1);
-  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+  const [query, setQuery] = useState("");
+  const [stage, setStage] = useState("");
+  const [agent, setAgent] = useState("");
+  const [city, setCity] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [modalOpen, setModalOpen] = useState(false);
+  const [importPreview, setImportPreview] = useState<Record<string, string>[]>([]);
 
-  // Open modal if ?new=1 query param present
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("new") === "1") {
-      setModalOpen(true);
-    }
-  }, [location]);
-
-  const { data: allTrademarks = [], isLoading, isFetching } = useQuery<TrademarkRecord[]>({
+  const { data: records = [], isLoading, isFetching } = useQuery<TrademarkRecord[]>({
     queryKey: ["trademarks"],
     queryFn: () => listTrademarks(),
-    staleTime: 60_000,
+    staleTime: 30_000,
   });
 
-  // Build distinct dropdown options from live data
-  const distinct = useMemo(() => {
-    const caseTypes = new Set<string>();
-    const agents    = new Set<string>();
-    const classes   = new Set<string>();
-    const types     = new Set<string>();
-    for (const tm of allTrademarks) {
-      if (tm.caseType) caseTypes.add(tm.caseType);
-      if (tm.agent)    agents.add(tm.agent);
-      if (tm.appClass) classes.add(tm.appClass);
-      if (tm.type)     types.add(tm.type);
-    }
-    return {
-      stages:    Array.from(STAGES),
-      cities:    Array.from(CITIES),
-      caseTypes: [...caseTypes].sort(),
-      agents:    [...agents].sort(),
-      classes:   [...classes].sort((a, b) => Number(a) - Number(b)),
-      types:     [...types].sort(),
-    };
-  }, [allTrademarks]);
-
-  // Client-side filtering
   const filtered = useMemo(() => {
-    return allTrademarks.filter((tm) => {
-      if (!tm.id || !tm.id.trim()) return false; // defensive: skip blank rows
-      if (filters.date      && !tm.date?.startsWith(filters.date))                                  return false;
-      if (filters.type      && tm.type !== filters.type)                                             return false;
-      if (filters.clientCode && !tm.clientCode?.toLowerCase().includes(filters.clientCode.toLowerCase())) return false;
-      if (filters.stage     && tm.stage !== filters.stage)                                           return false;
-      if (filters.subStage  && !tm.subStage?.toLowerCase().includes(filters.subStage.toLowerCase())) return false;
-      if (filters.appClass  && tm.appClass !== filters.appClass)                                     return false;
-      if (filters.caseType  && tm.caseType !== filters.caseType)                                     return false;
-      if (filters.city      && tm.city !== filters.city)                                             return false;
-      if (filters.agent     && tm.agent !== filters.agent)                                           return false;
-      return true;
+    const q = query.trim().toLowerCase();
+    return records
+      .filter((r) => !stage || r.stage === stage)
+      .filter((r) => !agent || r.agent === agent)
+      .filter((r) => !city || r.city === city)
+      .filter((r) => !q || [r.prefix, r.clientCode, r.caseNumber, r.appName, r.tmCprNo, r.appClass, r.agent]
+        .some((v) => String(v ?? "").toLowerCase().includes(q)))
+      .sort((a, b) => {
+        const prefix = a.prefix.localeCompare(b.prefix, undefined, { numeric: true });
+        if (prefix) return prefix;
+        const client = a.clientCode.localeCompare(b.clientCode, undefined, { numeric: true });
+        if (client) return client;
+        return a.caseNumber.localeCompare(b.caseNumber, undefined, { numeric: true });
+      });
+  }, [records, query, stage, agent, city]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const pageIds = pageRows.map((r) => r.id);
+  const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
+
+  const agents = useMemo(() => [...new Set(records.map((r) => r.agent).filter(Boolean))].sort(), [records]);
+  const clearFilters = () => { setQuery(""); setStage(""); setAgent(""); setCity(""); setPage(1); };
+
+  const toggle = (id: string) => setSelected((prev) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+
+  const togglePage = () => setSelected((prev) => {
+    const next = new Set(prev);
+    if (allPageSelected) pageIds.forEach((id) => next.delete(id));
+    else pageIds.forEach((id) => next.add(id));
+    return next;
+  });
+
+  const bulkDelete = useMutation({
+    mutationFn: async () => {
+      for (const id of selected) await deleteTrademark(id);
+    },
+    onSuccess: async () => {
+      setSelected(new Set());
+      await queryClient.invalidateQueries({ queryKey: ["trademarks"] });
+    },
+  });
+
+  const exportCsv = () => {
+    const rows = selected.size ? filtered.filter((r) => selected.has(r.id)) : filtered;
+    const headers = ["ID", "DATE", "PREFIX", "CLIENT CODE", "CASE NUMBER", "APPLICATION NAME", "TM/CPR NUMBER", "CLASS", "STATUS", "SUB STATUS", "CASE TYPE", "AGENT", "CITY", "TM5", "TM6", "TM11", "TM16", "TM56", "JOURNAL NUMBER", "JOURNAL DATE"];
+    const body = rows.map((r) => [r.id, r.date, r.prefix, r.clientCode, r.caseNumber, r.appName, r.tmCprNo, r.appClass, r.stage, r.subStage, r.caseType, r.agent, r.city, r.tm5, r.tm6, r.tm11, r.tm16, r.tm56, r.journalNumber, r.journalDate].map(csvCell).join(","));
+    const blob = new Blob([[headers.map(csvCell).join(","), ...body].join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `brandex-datasheet-${new Date().toISOString().slice(0,10)}.csv`; a.click(); URL.revokeObjectURL(url);
+  };
+
+  const readImport = async (file: File) => {
+    const text = await file.text();
+    const lines = text.split(/\r?\n/).filter(Boolean);
+    if (!lines.length) return;
+    const headers = parseCsvLine(lines[0]).map((h) => h.trim().toUpperCase());
+    const rows = lines.slice(1).map((line) => {
+      const cells = parseCsvLine(line); return Object.fromEntries(headers.map((h, i) => [h, cells[i] ?? ""]));
     });
-  }, [allTrademarks, filters]);
+    setImportPreview(rows.slice(0, 8));
+  };
 
-  const sorted = useMemo(() => {
-    return [...filtered].sort((a, b) => {
-      const dA = new Date(a.updatedAt || a.date || 0).getTime();
-      const dB = new Date(b.updatedAt || b.date || 0).getTime();
-      return dB - dA;
-    });
-  }, [filtered]);
+  const confirmImport = async () => {
+    if (!importPreview.length) return;
+    const payload = importPreview.map((r) => ({
+      id: r.ID || crypto.randomUUID(), filing_date: r.DATE || null, prefix: r.PREFIX || r.TYPE || "X",
+      client_code: r["CLIENT CODE"] || null, case_number: r["CASE NUMBER"] || null,
+      application_name: r["APPLICATION NAME"] || null, tm_cpr_number: r["TM/CPR NUMBER"] || null,
+      nice_class: r.CLASS || null, status: r.STATUS || "STAGE 1", sub_status: r["SUB STATUS"] || null,
+      case_type: r["CASE TYPE"] || null, agent: r.AGENT || null, city: r.CITY || null,
+      tm5: r.TM5 === "YES", tm6: r.TM6 === "YES", tm11: r.TM11 === "YES", tm16: r.TM16 === "YES", tm56: r.TM56 === "YES",
+      journal_number: r["JOURNAL NUMBER"] || null, journal_date: r["JOURNAL DATE"] || null,
+    }));
+    const { error } = await supabase.from("trademarks").upsert(payload, { onConflict: "id" });
+    if (error) { alert(error.message); return; }
+    setImportPreview([]);
+    await queryClient.invalidateQueries({ queryKey: ["trademarks"] });
+  };
 
-  const hasFilters  = Object.values(filters).some(Boolean);
-  const totalPages  = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
-  const paged       = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
-  const openNew    = () => setModalOpen(true);
-  const closeModal = () => { setModalOpen(false); navigate("/database"); };
-  const setFilter  = (key: keyof Filters, val: string) => { setFilters((f) => ({ ...f, [key]: val })); setPage(1); };
-  const clearFilters = () => { setFilters(EMPTY_FILTERS); setPage(1); };
-
-  const goToRecord = (id: string) => navigate(`/record/${id}`);
-
-  const colSpan = TABLE_HEADERS.length;
+  const hasFilters = Boolean(query || stage || agent || city);
 
   return (
     <AppShell>
-      <div className="flex flex-col h-full bg-white">
-        {/* Toolbar */}
-        <div className="shrink-0 flex items-center gap-4 px-6 py-4 bg-[#E8DFC7] border-b-2 border-[#0C0C0C]">
-          <DatabaseIcon className="w-5 h-5 text-[#0A6B52] hidden sm:block" />
-          <h1 className="font-serif text-2xl uppercase tracking-widest text-[#0C0C0C] leading-none mr-auto">DATABASE</h1>
-          <span className="font-mono text-[10px] text-[#6d6658] font-bold uppercase tracking-widest hidden md:inline">
-            {isLoading || isFetching ? "LOADING..." : `${sorted.length} RECORDS`}
-          </span>
-          <button
-            onClick={() => setShowFilters((v) => !v)}
-            className={`flex items-center gap-2 px-4 h-10 border-2 border-[#0C0C0C] font-mono font-bold text-xs uppercase tracking-wider transition-colors ${
-              showFilters || hasFilters ? "bg-[#0C0C0C] text-[#F0E8D0]" : "bg-white"
-            }`}
-          >
-            <Filter className="w-4 h-4" /> FILTERS{hasFilters ? " ●" : ""}
-          </button>
-          <button
-            onClick={openNew}
-            className="flex items-center gap-2 px-4 h-10 bg-[#C94A00] text-white border-2 border-[#C94A00] font-mono font-bold text-xs uppercase tracking-wider hover:brightness-110 transition-all"
-          >
-            <Plus className="w-4 h-4" /> ADD RECORD
-          </button>
+      <div className="flex h-full min-h-0 flex-col bg-white">
+        <div className="shrink-0 border-b-2 border-[#0C0C0C] bg-[#E8DFC7] px-5 py-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <Database className="h-5 w-5 text-[#0A6B52]" />
+            <h1 className="mr-auto font-serif text-2xl uppercase tracking-widest">DATABASE</h1>
+            <span className="font-mono text-[10px] font-bold tracking-widest text-[#6d6658]">{isLoading || isFetching ? "SYNCING…" : `${filtered.length} RECORDS`}</span>
+            <button onClick={() => setShowFilters((v) => !v)} className="flex h-9 items-center gap-2 border-2 border-[#0C0C0C] bg-white px-3 font-mono text-[10px] font-bold uppercase tracking-wider"><Filter className="h-4 w-4" /> FILTER</button>
+            <button onClick={exportCsv} className="flex h-9 items-center gap-2 border-2 border-[#0C0C0C] bg-white px-3 font-mono text-[10px] font-bold uppercase tracking-wider"><ArrowDownToLine className="h-4 w-4" /> EXPORT{selected.size ? ` (${selected.size})` : ""}</button>
+            <button onClick={() => fileRef.current?.click()} className="flex h-9 items-center gap-2 border-2 border-[#0C0C0C] bg-white px-3 font-mono text-[10px] font-bold uppercase tracking-wider"><ArrowUpFromLine className="h-4 w-4" /> IMPORT</button>
+            <input ref={fileRef} hidden type="file" accept=".csv,text/csv" onChange={(e) => e.target.files?.[0] && readImport(e.target.files[0])} />
+            <button onClick={() => setModalOpen(true)} className="flex h-9 items-center gap-2 bg-[#C94A00] px-3 font-mono text-[10px] font-bold uppercase tracking-wider text-white"><Plus className="h-4 w-4" /> ADD</button>
+          </div>
+          <div className="mt-3 flex gap-2">
+            <div className="relative min-w-[240px] flex-1"><Search className="absolute left-3 top-2.5 h-4 w-4 text-[#6d6658]" /><input value={query} onChange={(e) => { setQuery(e.target.value); setPage(1); }} placeholder="Search prefix, client code, mark, TM number…" className="h-9 w-full border-2 border-[#0C0C0C] bg-white pl-9 pr-3 font-mono text-xs outline-none" /></div>
+            {hasFilters && <button onClick={clearFilters} className="flex h-9 items-center gap-1 border-2 border-red-800 px-3 font-mono text-[10px] font-bold text-red-800"><X className="h-3 w-3" /> CLEAR</button>}
+          </div>
+          {showFilters && <div className="mt-3 flex flex-wrap gap-2 border-t border-[#0C0C0C]/20 pt-3">
+            <select value={stage} onChange={(e) => { setStage(e.target.value); setPage(1); }} className="h-9 border-2 border-[#0C0C0C] bg-white px-2 font-mono text-xs"><option value="">ALL STATUS</option>{STAGES.map((s) => <option key={s}>{s}</option>)}</select>
+            <select value={agent} onChange={(e) => { setAgent(e.target.value); setPage(1); }} className="h-9 border-2 border-[#0C0C0C] bg-white px-2 font-mono text-xs"><option value="">ALL AGENTS</option>{agents.map((a) => <option key={a}>{a}</option>)}</select>
+            <select value={city} onChange={(e) => { setCity(e.target.value); setPage(1); }} className="h-9 border-2 border-[#0C0C0C] bg-white px-2 font-mono text-xs"><option value="">ALL CITIES</option>{CITIES.map((c) => <option key={c}>{c}</option>)}</select>
+          </div>}
         </div>
 
-        {/* Filter Bar */}
-        {showFilters && (
-          <div className="shrink-0 flex flex-wrap items-end gap-3 px-6 py-4 bg-[#F0E8D0] border-b-2 border-[#0C0C0C] transition-all">
-            {/* Date */}
-            <div className="flex flex-col gap-1.5">
-              <label className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#6d6658]">DATE</label>
-              <input
-                type="date"
-                value={filters.date}
-                onChange={(e) => setFilter("date", e.target.value)}
-                className="h-9 px-2 bg-white border-2 border-[#0C0C0C] font-mono text-xs focus:outline-2 focus:outline-[#C94A00]"
-              />
-            </div>
-            {/* Type */}
-            <div className="flex flex-col gap-1.5">
-              <label className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#6d6658]">TYPE</label>
-              <select
-                value={filters.type}
-                onChange={(e) => setFilter("type", e.target.value)}
-                className="h-9 px-2 bg-white border-2 border-[#0C0C0C] font-mono text-xs focus:outline-2 focus:outline-[#C94A00] min-w-[80px]"
-              >
-                <option value="">ALL</option>
-                {distinct.types.map((o) => <option key={o} value={o}>{o}</option>)}
-              </select>
-            </div>
-            {/* Client Code */}
-            <div className="flex flex-col gap-1.5">
-              <label className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#6d6658]">CLIENT CODE</label>
-              <input
-                type="text"
-                placeholder="Code..."
-                value={filters.clientCode}
-                onChange={(e) => setFilter("clientCode", e.target.value)}
-                className="h-9 px-2 bg-white border-2 border-[#0C0C0C] font-mono text-xs focus:outline-2 focus:outline-[#C94A00] w-[100px]"
-              />
-            </div>
-            {/* Status */}
-            <div className="flex flex-col gap-1.5">
-              <label className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#6d6658]">STATUS</label>
-              <select
-                value={filters.stage}
-                onChange={(e) => setFilter("stage", e.target.value)}
-                className="h-9 px-2 bg-white border-2 border-[#0C0C0C] font-mono text-xs focus:outline-2 focus:outline-[#C94A00] min-w-[120px]"
-              >
-                <option value="">ALL</option>
-                {distinct.stages.map((o) => <option key={o} value={o}>{o}</option>)}
-              </select>
-            </div>
-            {/* Class */}
-            <div className="flex flex-col gap-1.5">
-              <label className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#6d6658]">CLASS</label>
-              <select
-                value={filters.appClass}
-                onChange={(e) => setFilter("appClass", e.target.value)}
-                className="h-9 px-2 bg-white border-2 border-[#0C0C0C] font-mono text-xs focus:outline-2 focus:outline-[#C94A00] min-w-[80px]"
-              >
-                <option value="">ALL</option>
-                {distinct.classes.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-            {/* Case Type */}
-            <div className="flex flex-col gap-1.5">
-              <label className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#6d6658]">CASE TYPE</label>
-              <select
-                value={filters.caseType}
-                onChange={(e) => setFilter("caseType", e.target.value)}
-                className="h-9 px-2 bg-white border-2 border-[#0C0C0C] font-mono text-xs focus:outline-2 focus:outline-[#C94A00] min-w-[120px]"
-              >
-                <option value="">ALL</option>
-                {distinct.caseTypes.map((o) => <option key={o} value={o}>{o}</option>)}
-              </select>
-            </div>
-            {/* Agent */}
-            <div className="flex flex-col gap-1.5">
-              <label className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#6d6658]">AGENT</label>
-              <select
-                value={filters.agent}
-                onChange={(e) => setFilter("agent", e.target.value)}
-                className="h-9 px-2 bg-white border-2 border-[#0C0C0C] font-mono text-xs focus:outline-2 focus:outline-[#C94A00] min-w-[120px]"
-              >
-                <option value="">ALL</option>
-                {distinct.agents.map((o) => <option key={o} value={o}>{o}</option>)}
-              </select>
-            </div>
-            {/* City */}
-            <div className="flex flex-col gap-1.5">
-              <label className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#6d6658]">CITY</label>
-              <select
-                value={filters.city}
-                onChange={(e) => setFilter("city", e.target.value)}
-                className="h-9 px-2 bg-white border-2 border-[#0C0C0C] font-mono text-xs focus:outline-2 focus:outline-[#C94A00] min-w-[120px]"
-              >
-                <option value="">ALL</option>
-                {distinct.cities.map((o) => <option key={o} value={o}>{o}</option>)}
-              </select>
-            </div>
-            {hasFilters && (
-              <button
-                onClick={clearFilters}
-                className="flex items-center gap-1.5 h-9 px-4 border-2 border-[#CC0000] text-[#CC0000] font-mono font-bold text-xs uppercase tracking-wider hover:bg-[#CC0000] hover:text-white transition-colors"
-              >
-                <X className="w-3.5 h-3.5" /> CLEAR FILTERS
-              </button>
-            )}
-          </div>
-        )}
+        {selected.size > 0 && <div className="flex shrink-0 items-center gap-3 border-b border-red-900/20 bg-red-50 px-5 py-2 font-mono text-[10px] font-bold uppercase"><CheckSquare className="h-4 w-4" /> {selected.size} SELECTED <button disabled={bulkDelete.isPending} onClick={() => bulkDelete.mutate()} className="ml-auto flex items-center gap-1 border border-red-800 px-3 py-1.5 text-red-800"><Trash2 className="h-3 w-3" /> BULK DELETE</button></div>}
 
-        {/* Table */}
-        <div className="flex-1 overflow-auto bg-white">
-          <table className="w-full text-left font-mono text-xs whitespace-nowrap border-collapse">
-            <thead className="bg-[#0C0C0C] text-[#F0E8D0] sticky top-0 z-10">
-              <tr>
-                {TABLE_HEADERS.map((h) => (
-                  <th key={h} className="px-3 py-3 border-r border-[#1A1A1A] font-bold tracking-wider uppercase text-[10px] last:border-r-0">
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
+        <div className="min-h-0 flex-1 overflow-auto">
+          <table className="w-full border-collapse whitespace-nowrap font-mono text-xs">
+            <thead className="sticky top-0 z-10 bg-[#0C0C0C] text-[#F0E8D0]"><tr>
+              <th className="w-10 px-3 py-3"><input type="checkbox" checked={allPageSelected} onChange={togglePage} aria-label="Select page" /></th>
+              {['DATE','PREFIX','CLIENT CODE','CASE/FOLDER','MARK / APPLICATION','TM / CPR NUMBER','CLASS','STATUS','SUB STATUS','AGENT','CITY','STAGES'].map((h) => <th key={h} className="px-3 py-3 text-left text-[9px] font-bold tracking-wider">{h}</th>)}
+            </tr></thead>
             <tbody>
-              {isLoading ? (
-                <tr>
-                  <td colSpan={colSpan} className="px-6 py-12 text-center font-bold text-[#6d6658] animate-pulse">
-                    LOADING RECORDS FROM GOOGLE SHEETS…
-                  </td>
-                </tr>
-              ) : paged.length === 0 ? (
-                <tr>
-                  <td colSpan={colSpan} className="px-6 py-12 text-center font-bold text-[#6d6658]">
-                    {hasFilters
-                      ? "NO RECORDS MATCH THE CURRENT FILTERS. TRY CLEARING FILTERS."
-                      : "NO RECORDS FOUND."}
-                  </td>
-                </tr>
-              ) : (
-                paged.map((tm, i) => (
-                  <tr
-                    key={tm.id}
-                    onClick={() => goToRecord(tm.id)}
-                    className={`cursor-pointer border-b border-[#0C0C0C]/10 transition-colors ${
-                      i % 2 === 0 ? "bg-[#F0E8D0]" : "bg-white"
-                    } hover:bg-[#D9D0B7]`}
-                  >
-                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10 text-[#6d6658]">{formatDateShort(tm.date)}</td>
-                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10 font-bold text-[#C94A00]">{tm.type || ""}</td>
-                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10 font-bold">{tm.clientCode || ""}</td>
-                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10 max-w-[140px] truncate">{tm.clientName || ""}</td>
-                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10 font-bold text-[#0A6B52]">{tm.caseNumber || ""}</td>
-                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10 max-w-[180px] truncate">{tm.appName || ""}</td>
-                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10">
-                      {tm.stage && (
-                        <span className={`inline-block px-1.5 py-0.5 text-[9px] font-bold uppercase border border-[#0C0C0C]/20 ${STAGE_BADGE[tm.stage] ?? "bg-[#E8DFC7]"}`}>
-                          {tm.stage}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10 text-[#6d6658] max-w-[120px] truncate">{tm.subStage || ""}</td>
-                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10 font-bold">{tm.tmCprNo || ""}</td>
-                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10">{tm.appClass || ""}</td>
-                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10">{tm.caseType || ""}</td>
-                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10 max-w-[100px] truncate">{tm.agent || ""}</td>
-                    <td className="px-3 py-2 border-r border-[#0C0C0C]/10">{tm.city || ""}</td>
-                    <td className="px-3 py-2 text-[#6d6658]">{formatDateShort(tm.updatedAt)}</td>
-                  </tr>
-                ))
-              )}
+              {pageRows.map((tm, i) => {
+                const compromised = tm.condition && tm.condition !== "NORMAL";
+                return <tr key={tm.id} onClick={() => navigate(`/record/${tm.id}`)} className={`cursor-pointer border-b border-black/10 ${compromised ? 'bg-red-50' : i % 2 ? 'bg-white' : 'bg-[#F0E8D0]'} hover:bg-[#D9D0B7]`}>
+                  <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={selected.has(tm.id)} onChange={() => toggle(tm.id)} /></td>
+                  <td className="px-3 py-2 text-[#6d6658]">{formatDateShort(tm.date)}</td>
+                  <td className="px-3 py-2 font-bold">{tm.prefix}</td>
+                  <td className="px-3 py-2 font-bold">{tm.clientCode}</td>
+                  <td className="px-3 py-2">{tm.caseNumber || "—"}</td>
+                  <td className="max-w-[280px] truncate px-3 py-2 font-semibold">{tm.appName || "—"}</td>
+                  <td className="px-3 py-2 font-bold">{tm.tmCprNo || "—"}</td>
+                  <td className="px-3 py-2">{tm.appClass || "—"}</td>
+                  <td className="px-3 py-2"><span className={`inline-flex px-2 py-1 text-[9px] font-bold ${STAGE_BADGE[tm.stage] ?? 'bg-black text-white'}`}>{tm.stage || "—"}</span></td>
+                  <td className="max-w-[170px] truncate px-3 py-2">{tm.subStage || "—"}</td>
+                  <td className="px-3 py-2">{tm.agent || "—"}</td>
+                  <td className="px-3 py-2">{tm.city || "—"}</td>
+                  <td className="px-3 py-2"><div className="flex gap-1">{TM_FIELDS.map((f) => <span key={f} title={f.toUpperCase()} className={`rounded px-1.5 py-0.5 text-[8px] font-bold ${tm[f] === 'YES' ? 'bg-[#0A6B52] text-white' : 'bg-black/10 text-black/40'}`}>{f.replace('tm','TM')}</span>)}</div></td>
+                </tr>;
+              })}
             </tbody>
           </table>
+          {!isLoading && pageRows.length === 0 && <div className="p-16 text-center font-mono text-xs font-bold text-[#6d6658]">NO RECORDS FOUND</div>}
         </div>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="shrink-0 flex items-center justify-between px-6 py-3 bg-[#E8DFC7] border-t-2 border-[#0C0C0C]">
-            <span className="font-mono text-[10px] text-[#6d6658] font-bold uppercase tracking-widest">
-              PAGE {page} OF {totalPages} · {sorted.length} RECORDS
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="flex items-center gap-1 px-3 py-1.5 border-2 border-[#0C0C0C] bg-white font-mono text-[10px] font-bold uppercase tracking-wider disabled:opacity-40 hover:bg-[#0C0C0C] hover:text-[#F0E8D0] transition-colors"
-              >
-                <ChevronLeft className="w-3.5 h-3.5" /> PREV
-              </button>
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                className="flex items-center gap-1 px-3 py-1.5 border-2 border-[#0C0C0C] bg-white font-mono text-[10px] font-bold uppercase tracking-wider disabled:opacity-40 hover:bg-[#0C0C0C] hover:text-[#F0E8D0] transition-colors"
-              >
-                NEXT <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-        )}
+        <div className="flex shrink-0 items-center justify-between border-t-2 border-[#0C0C0C] bg-[#E8DFC7] px-5 py-2 font-mono text-[10px] font-bold uppercase"><span>PAGE {page} / {totalPages}</span><div className="flex gap-2"><button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="border border-black px-3 py-1 disabled:opacity-30">PREV</button><button disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)} className="border border-black px-3 py-1 disabled:opacity-30">NEXT</button></div></div>
       </div>
 
-      {/* Create Record Modal */}
-      {modalOpen && (
-        <RecordModal
-          isNew
-          onClose={closeModal}
-          onSaved={() => closeModal()}
-        />
-      )}
+      {modalOpen && <RecordModal isNew onClose={() => setModalOpen(false)} onSaved={() => { setModalOpen(false); queryClient.invalidateQueries({ queryKey: ["trademarks"] }); }} />}
+      {importPreview.length > 0 && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-5"><div className="w-full max-w-4xl border-2 border-black bg-white p-5"><div className="mb-3 flex items-center"><h2 className="font-serif text-xl uppercase tracking-wider">IMPORT PREVIEW</h2><button onClick={() => setImportPreview([])} className="ml-auto"><X /></button></div><p className="mb-3 font-mono text-xs">Previewing first {importPreview.length} rows. Confirm to import this preview into the canonical database.</p><div className="max-h-80 overflow-auto border"><table className="w-full font-mono text-[10px]"><tbody>{importPreview.map((r, i) => <tr key={i} className="border-b">{Object.entries(r).slice(0, 8).map(([k,v]) => <td key={k} className="p-2"><b>{k}:</b> {v}</td>)}</tr>)}</tbody></table></div><div className="mt-4 flex justify-end gap-2"><button onClick={() => setImportPreview([])} className="border-2 border-black px-4 py-2 font-mono text-xs font-bold">CANCEL</button><button onClick={confirmImport} className="bg-[#0A6B52] px-4 py-2 font-mono text-xs font-bold text-white">IMPORT PREVIEW</button></div></div></div>}
     </AppShell>
   );
 }
