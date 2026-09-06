@@ -1,246 +1,106 @@
 # Brandex TM Tracker — Progress Report
 
-**Last Updated:** August 5, 2026  
-**Project Status:** 🟡 Active Development
+**Last Updated:** September 6, 2026  
+**Project Status:** 🟢 Production-ready core / Active hardening
+
+**Live URL:** https://brandexsheet.vercel.app/
 
 ---
 
-## ✅ COMPLETED TASKS
+## Architecture (Current)
 
-### GitHub Community Standards (August 5, 2026)
-- ✅ Added `CONTRIBUTING.md` with development workflow and guidelines
-- ✅ Added `SECURITY.md` with security policy and vulnerability reporting
-- ✅ Added `ISSUE_TEMPLATE` with bug report and feature request templates
-- ✅ Added `PULL_REQUEST_TEMPLATE.md` with PR checklist and guidelines
-- ✅ Added `AGENTS.md` with project guidelines and mandatory backup workflow
-- ✅ Created `.github` directory structure for GitHub integration
-- ✅ Committed and pushed all changes to GitHub
-
-### Mobile Application Development
-- ✅ Mobile workflow is live on Expo/Metro at `/mobile/`
-- ✅ Mobile opens on **Search by TM No** (primary entry point)
-- ✅ Dashboard city breakdown removed (simplified UI)
-- ✅ Blank TM numbers, statuses, substages, and cities excluded from aggregate counts
-- ✅ Database results sort by sheet date (latest first)
-- ✅ Mobile trademark cards display:
-  - `ADD TM#` at the top
-  - Trademark name
-  - Color-filled stage with light text
-  - Date
-  - `FOLDER / CASE NO`
-  - `SUB STAGE`
-  - Green/gray traffic lights for Duplicate and TM-11 indicators
-
-### Desktop & Mobile Integration
-- ✅ Desktop and mobile share the same API, database, and Google Sheets import
-- ✅ Both apps use the same Apps Script write-back path
-- ✅ Mobile is now the primary root preview; desktop available at `/desktop/`
-- ✅ Record cards and desktop registry rows identify `SHEET RECORD` vs `DATABASE RECORD`
-
-### Google Sheets Integration
-- ✅ Google Sheets import uses `GOOGLE_SHEETS_API_KEY`
-- ✅ Import handles blank substages properly
-- ✅ Import reports synced/skipped rows
-- ✅ Google Apps Script code written (`google-apps-script/Code.gs`)
-- ✅ Apps Script supports both `updateTrademark` and `upsertTrademark` actions
-- ✅ Audit log sheet creation and entry logging implemented
-
-### Technical Infrastructure
-- ✅ Mobile packager repair completed
-- ✅ Cleared stale Expo process occupying port 25449
-- ✅ Metro bundler running cleanly
-- ✅ Mobile status endpoint returns HTTP 200
-- ✅ API health endpoint returns HTTP 200
-- ✅ Expo startup no longer clears Metro cache on every launch
-- ✅ Type checking workflow established (`pnpm run typecheck:libs`)
-
-### Documentation
-- ✅ Rewrote `README.md` with setup, architecture, secrets, and workflow documentation
-- ✅ Created comprehensive project guidelines in `AGENTS.md`
-- ✅ Established mandatory backup workflow (always commit and push to GitHub)
+- **Primary source of truth:** Supabase Postgres + Auth (RLS) + Storage
+- **Operational mirror / backup:** Google Sheets via secure Apps Script mirror
+- **Frontend:** React + Vite (`artifacts/tm-tracker`) on Vercel
+- **Sync:** Outbox table + Edge Function `sync-google-sheet` + Apps Script `mirrorUpsert` / `mirrorDelete` / `mirrorExport`
+- **Legacy direct Sheet writes:** Disabled in `Code.gs` (security)
 
 ---
 
-## 🟡 IN PROGRESS / PENDING TASKS
+## ✅ COMPLETED (through Sep 2026)
 
-### 🔴 CRITICAL: Google Sheets Write-Back Configuration
-**Status:** Code ready, deployment required
+### Core platform
+- Supabase schema + migrations (`202608280001_brandex_datasheet.sql`, `202608280002_allow_duplicate_case_references.sql`)
+- RLS roles: viewer / editor / admin
+- Private logo storage + signed URLs
+- One-time Sheet → Supabase importer (`pnpm import:sheet` / `scripts/import-google-sheet.mjs`)
+- Hardened Google Apps Script v2 (mirror-only, secret-gated)
+- Case-insensitive sheet name lookup + ARCHIVE tab on delete
+- Branding, official logo, dark-blue print styling, compact A4 layout, notes boxes
+- Performance, status workflow, city/type constraints, image upload, date formatting
+- Duplicate legacy case references allowed (migration)
+- Sheet importer resolves Supabase client correctly
 
-**What's Done:**
-- Apps Script code is written and ready (`google-apps-script/Code.gs`)
-- API update route is configured to forward changes
-- Audit entry logging is implemented
+### Docs & repo hygiene (this refresh)
+- Progress.md brought current (this file)
+- AGENTS.md rewritten to match Supabase-primary architecture (pending in same batch)
 
-**What's Required:**
-1. Deploy the Apps Script as a Web App:
-   - Open Google Apps Script editor
-   - Deploy > New deployment > Web app
-   - Execute as: Me
-   - Who has access: Anyone with the link
-2. Copy the generated `/exec` URL
-3. Add the URL as `.env` variable: `GOOGLE_SHEETS_APPS_SCRIPT_URL`
-4. Test write-back functionality by making a trademark change
+---
 
-**Priority:** HIGH - This is critical for the two-way sync functionality
+## 🟡 IN PROGRESS / PENDING
+
+1. **Google Sheet mirror fully operational in production**
+   - Deploy latest `google-apps-script/Code.gs` as Web App
+   - Set Script Property `BRANDEX_MIRROR_SECRET`
+   - Configure Edge Function secrets + cron invocation
+   - End-to-end test: create/update/delete in Datasheet → outbox → Sheet
+
+2. **Repo metadata**
+   - Homepage → `https://brandexsheet.vercel.app/`
+   - Description + topics cleanup (typo `databsae` → `database`)
+
+3. **Documentation consistency**
+   - Keep AGENTS.md / README / Progress.md aligned after every architecture change
 
 ---
 
 ## 📋 SUGGESTED NEXT STEPS
 
-### Immediate Priority (This Week)
-1. **Complete Google Sheets Write-Back Setup**
-   - Deploy Apps Script as Web App
-   - Configure `GOOGLE_SHEETS_APPS_SCRIPT_URL` secret
-   - Test write-back with sample trademark update
-   - Verify audit log entries appear in Google Sheets
+### Immediate
+1. Deploy + secret-configure Apps Script + Edge Function
+2. Run one full mirror cycle and verify ARCHIVE + LOGS
+3. Update GitHub repo homepage / description / topics
+4. Smoke-test production at https://brandexsheet.vercel.app/
 
-2. **Mobile App Testing & Polish**
-   - Test all mobile CRUD operations
-   - Verify search functionality works correctly
-   - Test offline/error handling
-   - Validate UI consistency with design language
-
-3. **End-to-End Integration Testing**
-   - Test complete workflow: Google Sheets → API → Mobile → Updates → Google Sheets
-   - Verify data consistency across all platforms
-   - Test audit trail completeness
-
-### Medium Priority (Next 2 Weeks)
-4. **Error Handling & Validation**
-   - Add comprehensive error messages for mobile app
-   - Implement input validation for all forms
-   - Add loading states for async operations
-   - Handle network failures gracefully
-
-5. **Performance Optimization**
-   - Optimize database queries for mobile
-   - Implement caching where appropriate
-   - Reduce API response times
-   - Optimize bundle size for mobile
-
-6. **Security Hardening**
-   - Implement rate limiting on API
-   - Add request authentication
-   - Sanitize all user inputs
-   - Review and audit security practices
-
-### Low Priority (Future Enhancements)
-7. **User Experience Improvements**
-   - Add dark mode support
-   - Implement pull-to-refresh on mobile
-   - Add offline data sync capability
-   - Improve search with filters and sorting
-
-8. **Documentation & Onboarding**
-   - Create user guide for the mobile app
-   - Add video tutorials for common tasks
-   - Create troubleshooting guide
-   - Document API endpoints for external integration
+### Short-term
+5. Automated tests (unit + critical path integration)
+6. Rate limiting / stronger API hardening if any public endpoints remain
+7. Mobile path decision (re-enable Expo or keep web-only)
 
 ---
 
 ## 🔍 VERIFICATION CHECKLIST
 
-### Completed Task Verification
-- [x] GitHub Community files present and properly formatted
-- [x] Mobile app runs on Expo/Metro without errors
-- [x] Desktop and mobile use same API/database
-- [x] Google Sheets import works with API key
-- [x] Apps Script code is syntactically correct
-- [x] Type checking passes without errors
-- [x] All changes committed and pushed to GitHub
-
-### Pending Task Verification
-- [ ] Apps Script deployed as Web App
-- [ ] `GOOGLE_SHEETS_APPS_SCRIPT_URL` secret configured
-- [ ] Write-back functionality tested end-to-end
-- [ ] Audit log entries visible in Google Sheets
-- [ ] Mobile app tested on real device
-- [ ] Error handling tested for various scenarios
-
----
-
-## 💡 SUGGESTIONS & FEEDBACK
-
-### Architecture & Design
-1. **Excellent Foundation:** The shared API/database architecture between desktop and mobile is solid and scalable
-2. **Design Consistency:** The neo-brutalist design language is well-implemented and consistent
-3. **Google Apps Script:** The current implementation is well-structured and handles both updates and inserts
-
-### Development Workflow
-1. **Strong Documentation:** The new GitHub Community standards and AGENTS.md provide excellent guidance
-2. **Backup Practice:** The mandatory commit/push workflow is a great practice for data safety
-3. **Type Safety:** TypeScript implementation across the project is commendable
-
-### Areas for Improvement
-1. **Testing:** Consider adding automated tests (unit, integration, E2E)
-2. **Error Handling:** Mobile app could benefit from more robust error states and user feedback
-3. **Performance:** Monitor and optimize database queries as data grows
-4. **Security:** Implement authentication/authorization for API endpoints
-
-### Technical Debt
-1. **Dependencies:** Some deprecated packages detected (recharts@2.15.4, glob@7.2.3, etc.) - consider updating
-2. **Bundle Size:** Monitor mobile app bundle size and implement code splitting if needed
-3. **Environment Variables:** Document all required environment variables in a central location
-
-### Collaboration
-1. **Issue Templates:** The new GitHub templates will help with issue tracking
-2. **PR Process:** The PR template will improve code review quality
-3. **Contributing Guide:** Clear guidelines will help future contributors
-
----
-
-## 📊 PROJECT HEALTH METRICS
-
-- **Code Quality:** 🟢 Good (TypeScript strict mode, consistent style)
-- **Documentation:** 🟢 Excellent (Comprehensive guides and standards)
-- **Testing:** 🟡 Limited (Manual testing only, no automated tests)
-- **Security:** 🟡 Moderate (Basic practices in place, room for improvement)
-- **Performance:** 🟢 Good (No major issues identified)
-- **Collaboration:** 🟢 Excellent (GitHub standards established)
-
----
-
-## 🎯 SUCCESS CRITERIA
-
-### Short-term (1-2 weeks)
-- [ ] Google Sheets write-back fully functional
-- [ ] Mobile app tested and stable
-- [ ] End-to-end workflow verified
-- [ ] All critical bugs resolved
-
-### Medium-term (1 month)
-- [ ] Automated testing infrastructure in place
-- [ ] Performance optimized for production
-- [ ] Security hardening completed
-- [ ] User documentation complete
-
-### Long-term (3 months)
-- [ ] Advanced features implemented (offline sync, filters, etc.)
-- [ ] Production deployment ready
-- [ ] Monitoring and alerting established
-- [ ] Continuous integration/continuous deployment (CI/CD) pipeline
+- [x] Supabase is primary DB
+- [x] Apps Script legacy writes disabled; only mirror actions with secret
+- [x] Import script supports both modern `mirrorExport` and legacy list fallback
+- [ ] Production mirror cron running and healthy
+- [ ] Repo homepage points to brandexsheet.vercel.app
+- [ ] Progress.md / AGENTS.md match live architecture
 
 ---
 
 ## 📝 WORK LOG
 
-### August 5, 2026
-- Added GitHub Community standard files (CONTRIBUTING.md, SECURITY.md, etc.)
-- Created AGENTS.md with project guidelines and backup workflow
-- Committed and pushed all changes to GitHub
-- Reviewed project status and created comprehensive progress report
+### September 6, 2026
+- Reviewed Code.gs, import script, migrations, README, AGENTS.md, Progress.md
+- Identified docs drift (AGENTS still described pure-Sheets era)
+- Refreshed Progress.md to current Supabase-primary state
 
-### Previous Work (August 4, 2026)
-- Mobile workflow brought live alongside desktop tracker
-- Google Sheets sync wired with API key
-- Mobile and desktop integrated on same API/database
-- Pitch deck created then removed
-- README rewritten and updated
-- Mobile packager repaired and Metro stabilized
-- Mobile UI improvements (Search by TM No, card design, etc.)
+### August 29, 2026
+- Fix: Allow duplicate legacy case references
+- Fix: Support legacy Sheet export during migration
+- Fix: Make Sheet importer resolve Supabase client
+
+### August 18, 2026
+- Branding, logo, print styling, A4 layout, notes boxes
+- Performance, status workflow, constraints, image upload, date formatting
+- Case-insensitive sheet name lookup + legacy fallbacks
+
+### August 5, 2026 (historical)
+- GitHub community standards, early mobile/desktop notes (later architecture evolved to Supabase primary)
 
 ---
 
-**Next Review Date:** August 12, 2026  
-**Maintained by:** Nadeem (OutLawZ) - [@0utLawzz](https://github.com/0utLawzz)
+**Next Review Date:** September 13, 2026  
+**Maintained by:** Nadeem (OutLawZ) — [@0utLawzz](https://github.com/0utLawzz)
