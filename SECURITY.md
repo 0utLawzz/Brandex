@@ -2,88 +2,84 @@
 
 ## Supported Versions
 
-Currently, only the latest version of Brandex is supported with security updates.
+Only the latest `main` of Brandex is supported with security updates.
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability, please report it responsibly.
+**Do not** open a public GitHub issue for security vulnerabilities.
 
-### How to Report
+Email:
+- **To:** net2outlawzz@gmail.com
+- **Subject:** `[Security] Brandex Vulnerability Report`
 
-**Do not** create a public issue for security vulnerabilities.
+Include:
+- Description of the issue
+- Steps to reproduce
+- Potential impact
+- Suggested fix (if any)
 
-Instead, please send an email to:
-- **Email**: net2outlawzz@gmail.com
-- **Subject**: [Security] Brandex Vulnerability Report
+### Response targets
+- Initial response: within 48 hours
+- Investigation: within 1 week
+- Fix: as soon as feasible by severity
 
-### What to Include
+---
 
-Please include the following information in your report:
+## Architecture security model
 
-- A description of the vulnerability
-- Steps to reproduce the issue
-- Potential impact of the vulnerability
-- Any suggested fixes or mitigations (if available)
+- **Primary DB:** Supabase Postgres with Row Level Security
+- **Auth:** Supabase Auth — roles `viewer` / `editor` / `admin` on `public.profiles`
+- **Storage:** Private bucket; short-lived signed URLs for logos
+- **Sheet mirror:** Secret-gated Apps Script (`BRANDEX_MIRROR_SECRET`); legacy browser writes disabled
+- **Frontend env:** Only `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`
 
-### Response Timeline
+The browser must never receive the service-role key or Apps Script secret.
 
-- **Initial Response**: Within 48 hours
-- **Investigation**: Within 1 week
-- **Resolution**: As soon as feasible, depending on severity
+---
 
-### Security Best Practices
+## Production hardening checklist
 
-When working with Brandex, please follow these security guidelines:
+Complete before treating production as locked down:
 
-1. **Never commit secrets or credentials**
-   - Do not commit API keys, database credentials, or sensitive tokens
-   - Use environment variables for sensitive configuration
-   - The project uses a `.env` file for local configuration (see `.env.example`)
+- [ ] Public sign-up **disabled** in Supabase Auth settings
+- [ ] Staff invited from the dashboard only
+- [ ] Roles verified: at least one test `viewer`, `editor`, and `admin`
+- [ ] RLS blocks unauthorized reads/writes/deletes
+- [ ] Vercel env contains **only** `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`
+- [ ] Service role key not in any frontend env, git history, or client bundle
+- [ ] `BRANDEX_MIRROR_SECRET` set in Apps Script and matches Edge/import secret
+- [ ] Edge Function invoked only with `Authorization: Bearer <SHEET_SYNC_CRON_SECRET>`
+- [ ] Storage bucket private; no public logo URLs
+- [ ] `.env` / secrets covered by `.gitignore`
+- [ ] `pnpm audit` reviewed; high/critical issues addressed or accepted with reason
+- [ ] Sheet mirror path tested: UI change → outbox → Sheet + ARCHIVE on delete
 
-2. **Keep dependencies updated**
-   - Regularly update dependencies to get security patches
-   - Use `pnpm audit` to check for known vulnerabilities
+---
 
-3. **Secure database connections**
-   - Use the unpooled connection string only for migrations/admin tooling
-   - Ensure proper access controls on database resources
+## Everyday practices
 
-4. **Google Sheets security**
-   - Protect your Google Sheets API key
-   - Use appropriate sharing settings for Google Sheets
-   - Validate data before syncing from external sources
+1. **Never commit secrets** — use `.env` locally and platform secrets in production.
+2. **Rotate** service role, mirror secret, and cron secret if exposure is suspected.
+3. **Least privilege** — default new users to `viewer`; promote deliberately.
+4. **Keep dependencies updated** — `pnpm audit` / `pnpm update` on a regular cadence.
+5. **Sheet is a mirror** — staff edits happen only in the Datasheet UI, not in the Sheet cells for live operations.
 
-## Security Features
+---
 
-Brandex includes several security features:
-
-- **Audit Logging**: All changes are recorded in an audit log
-- **Forward-only progression**: Trademark stages progress forward only
-- **Environment-based configuration**: Sensitive data stored in environment variables
-- **Type safety**: TypeScript helps prevent common security issues
-
-## Dependency Security
-
-The project uses pnpm for package management. To check for security vulnerabilities:
+## Dependency checks
 
 ```bash
 pnpm audit
-```
-
-To update dependencies securely:
-
-```bash
 pnpm update
 ```
 
-## Disclosure Policy
+---
 
-- Security issues will be disclosed after a fix is available
-- Credit will be given to reporters in the release notes
-- We aim to provide patches within a reasonable timeframe based on severity
+## Disclosure
+
+Security issues are disclosed after a fix is available. Credit may be given in release notes with reporter consent.
 
 ## Contact
 
-For security-related questions not related to vulnerability reports:
-- **Email**: net2outlawzz@gmail.com
-- **GitHub**: [@0utLawzz](https://github.com/0utLawzz)
+- **Email:** net2outlawzz@gmail.com
+- **GitHub:** [@0utLawzz](https://github.com/0utLawzz)
