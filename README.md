@@ -2,6 +2,8 @@
 
 Fast, secure trademark case-management Datasheet for Brandex Law Associates.
 
+**Live app:** https://brandexsheet.vercel.app/
+
 ## Architecture
 
 - **React + Vite** frontend on Vercel
