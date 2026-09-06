@@ -1,46 +1,57 @@
 # Brandex Project Guidelines
 
-**Version 2.0.0**  
-Engineering  
-August 2026
+**Version 3.0.0**  
+Engineering — September 2026
 
 > **Note:**  
-> This document provides project-level guidelines for the Brandex trademark tracker. Brandex is now a pure Google Sheets-backed application. There is no database server or backend API.
+> Brandex Datasheet is a **Supabase-primary** trademark case-management system.  
+> Google Sheets is an asynchronous operational mirror/backup only.  
+> Staff must edit records in the Datasheet UI, not directly in the Sheet.
+
+**Live app:** https://brandexsheet.vercel.app/
 
 ---
 
 ## Project Overview
 
-Brandex is a live trademark registry for law and brand operations teams. It is a single React web application (`artifacts/tm-tracker`) that communicates directly with a **Google Apps Script Web App**, which in turn reads and writes to a **Google Spreadsheet**.
+Fast, secure trademark case-management Datasheet for Brandex Law Associates.
 
-### Key Technologies
-- **Frontend**: React (Vite + TailwindCSS)
-- **Backend**: Google Apps Script (`google-apps-script/Code.gs`)
-- **Database**: Google Sheets (two tabs: `Database` and `Audit Log`)
-- **Package Manager**: pnpm
+### Architecture
 
-### No Longer Used
-- ~~PostgreSQL / Neon~~ — removed
-- ~~Express API server~~ — removed (`artifacts/api-server` deleted)
-- ~~Expo mobile app~~ — removed (`artifacts/tm-tracker-mobile` deleted)
-- ~~`@workspace/db`, `@workspace/api-spec`, `@workspace/api-client-react`~~ — deleted
+| Layer | Technology |
+|-------|------------|
+| Frontend | React + Vite (`artifacts/tm-tracker`) on Vercel |
+| Primary DB | Supabase Postgres |
+| Auth | Supabase Auth + Row Level Security (viewer / editor / admin) |
+| Files | Supabase Storage (private logos, signed URLs) |
+| Mirror | Google Sheets via Apps Script + Edge Function outbox |
+| Package manager | pnpm workspaces |
+
+### Key Principles
+- Browser never receives service-role keys or Apps Script secrets.
+- Every record change is audited in Postgres and queued in `sheet_sync_outbox`.
+- Sheet is **not** the source of truth.
 
 ---
 
-## Workspace Structure
+## Workspace Structure (current)
 
 ```
 Brandex/
 ├── artifacts/
-│   └── tm-tracker/            # The only artifact — the web app
-│       └── src/
-│           ├── lib/api.ts     # Google Apps Script API client
-│           ├── pages/         # Dashboard, Search, Database, Logs
-│           └── components/    # RecordModal, Navbar, AppShell
+│   └── tm-tracker/              # Web app (Vite + React)
 ├── google-apps-script/
-│   └── Code.gs                # The full backend (deploy to GAS)
-├── .env                       # Only needs VITE_APPS_SCRIPT_URL
-└── .env.example               # Template
+│   └── Code.gs                  # Mirror-only Web App (secret-gated)
+├── supabase/
+│   ├── migrations/              # Schema + RLS
+│   └── functions/
+│       └── sync-google-sheet/   # Outbox processor
+├── scripts/
+│   └── import-google-sheet.mjs  # One-time Sheet → Supabase import
+├── .env.example
+├── README.md
+├── Progress.md
+└── AGENTS.md                    # This file
 ```
 
 ---
@@ -48,121 +59,101 @@ Brandex/
 ## Development Workflow
 
 ### Prerequisites
-- Node.js (v18 or higher)
-- pnpm package manager
+- Node.js 20+
+- pnpm
 
-### Setup Commands
+### Setup
 ```bash
-# Install dependencies
-pnpm install
-
-# Run the web app
-pnpm --filter @workspace/tm-tracker run dev
-
-# Type check
-pnpm --filter @workspace/tm-tracker run typecheck
-
-# Build for production
-pnpm --filter @workspace/tm-tracker run build
+pnpm install --frozen-lockfile
+cp .env.example .env
+# Fill VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY
+pnpm dev
 ```
 
-### Environment Variables
-Only one variable is required:
+### Useful commands
+```bash
+pnpm typecheck
+pnpm build
+pnpm import:sheet          # one-time migration (needs service-role + Apps Script secret)
+```
 
+### Environment (browser-safe only on Vercel)
 ```
-VITE_APPS_SCRIPT_URL=https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec
+VITE_SUPABASE_URL=...
+VITE_SUPABASE_PUBLISHABLE_KEY=...
 ```
+
+Server-side / Edge Function secrets (never VITE_*):
+- `GOOGLE_APPS_SCRIPT_URL`
+- `GOOGLE_APPS_SCRIPT_SECRET` / `BRANDEX_MIRROR_SECRET`
+- `SHEET_SYNC_CRON_SECRET`
+- `SUPABASE_SERVICE_ROLE_KEY`
 
 ---
 
-## **CRITICAL: Backup and Git Workflow**
+## CRITICAL: Backup and Git Workflow
 
-### Automatic Commit and Push Policy
-
-**MANDATORY PRACTICE**: Always commit and push code to GitHub immediately after completing any work.
+**MANDATORY:** Commit and push after meaningful work.
 
 ```bash
-# 1. Check current status
 git status
-
-# 2. Stage all changes
 git add .
-
-# 3. Commit with descriptive message
-git commit -m "Your commit message here"
-
-# 4. Push to remote immediately
+git commit -m "[Type] Brief description"
 git push origin main
 ```
 
-### Commit Message Guidelines
-- Format: `[Type] Brief description`
-- Types: `Add`, `Fix`, `Update`, `Refactor`, `Remove`, `Docs`
+Commit types: `Add`, `Fix`, `Update`, `Refactor`, `Remove`, `Docs`
 
 ---
 
-## Google Sheets Structure
+## Google Sheets Mirror
 
-### Tab 1 — `Database`
-Headers in row 1 (exact names required):
-`ID`, `DATE`, `TYPE`, `CLIENT CODE`, `CLIENT NAME`, `CASE NUMBER`, `APPLICATION NAME`, `STATUS`, `SUB STATUS`, `TM NUMBER`, `CLASS`, `CASE TYPE`, `CITY`, `NOTES`, `LAST MODIFIED`
+### Tabs (preferred names; lookup is case-insensitive + legacy fallbacks)
+- `DATABASE` — 24-column operational mirror
+- `LOGS` — audit-style log (legacy: Audit Log)
+- `ARCHIVE` — soft-deleted rows
+- Optional: `CLIENTS`, `TM5`…`TM56`, `JOURNAL`
 
-### Tab 2 — `Audit Log`
-Headers in row 1:
-`Timestamp`, `User`, `Action`, `Record`, `Field`, `Old Value`, `New Value`
+### Apps Script API (hardened)
+- `doGet` → service info only (writes disabled)
+- `POST` actions (require `BRANDEX_MIRROR_SECRET`):
+  - `mirrorExport` — full DB export for import
+  - `mirrorUpsert` — create/update row by id
+  - `mirrorDelete` — move to ARCHIVE then delete
+
+Legacy create/update/delete from the browser are **disabled**.
 
 ---
 
 ## Security Guidelines
 
-### Never Commit Secrets
-- Do not commit the actual `VITE_APPS_SCRIPT_URL` with a deployed URL unless it's intentional (Apps Script URLs are public by design when "Anyone with the link" is set).
-- Ensure your Google Sheet access is appropriately restricted.
+- Never commit `.env` or service-role keys.
+- Never put `GOOGLE_APPS_SCRIPT_SECRET` or service-role keys in `VITE_*` variables.
+- Disable public sign-up; invite staff via Supabase dashboard.
+- Promote roles in SQL (`viewer` → `editor` / `admin`).
+- Storage bucket is private; use short-lived signed URLs.
 
 ---
 
-## Code Style and Conventions
+## Design Language
 
-### Design Language
-Brandex uses a neo-brutalist visual system:
+Neo-brutalist:
 - Warm paper backgrounds (`#F0E8D0`)
 - Black structural borders (`#0C0C0C`)
 - Orange accents (`#C94A00`)
 - Monospace bold typography
-- Compact data-dense tables
-
-### TypeScript Guidelines
-- Use TypeScript for all new code
-- All types are defined in `src/lib/api.ts`
-- Avoid `any` types
-
----
-
-## API Architecture (Google Apps Script)
-
-The `Code.gs` file acts as a REST-like API:
-
-| Method | Action | Description |
-|--------|--------|-------------|
-| `GET` | `?action=list` | Returns all database rows as JSON |
-| `GET` | `?action=stats` | Returns statistics (totals, by stage, by city) |
-| `GET` | `?action=listLogs&limit=N&offset=N` | Returns audit log entries |
-| `POST` | `{ action: "create", record: {...} }` | Creates a new row |
-| `POST` | `{ action: "update", id: "...", record: {...} }` | Updates a row by ID |
-| `POST` | `{ action: "delete", id: "..." }` | Deletes a row by ID |
-
-All create/update/delete operations automatically log to the `Audit Log` sheet.
+- Compact data-dense tables / print-friendly A4 layouts
 
 ---
 
 ## Project Contacts
 
-- **Developer**: Nadeem (OutLawZ)
-- **GitHub**: [@0utLawzz](https://github.com/0utLawzz)
-- **Email**: net2outlawzz@gmail.com
+- **Developer:** Nadeem (OutLawZ)
+- **GitHub:** [@0utLawzz](https://github.com/0utLawzz)
+- **Email:** net2outlawzz@gmail.com
 
 ---
 
 ## License
 
-MIT License — See LICENSE file for details.
+MIT — see LICENSE
