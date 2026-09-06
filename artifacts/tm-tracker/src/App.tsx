@@ -19,8 +19,8 @@ function LegacyClientNameGuard() {
   useEffect(() => {
     const hide = () => document.querySelectorAll("label").forEach(label => {
       if (label.textContent?.trim().toUpperCase() === "CLIENT NAME") {
-        const field = label.parentElement;
-        if (field) field.setAttribute("data-brandex-hidden-client-name", "true");
+        const field = label.parentElement as HTMLElement | null;
+        if (field) { field.setAttribute("data-brandex-hidden-client-name", "true"); field.style.display = "none"; }
       }
     });
     hide();
