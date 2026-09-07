@@ -162,7 +162,7 @@ function ImageSection({ record }: { record: TrademarkRecord }) {
       <div className="flex items-start gap-4">
         <button
           onClick={() => setViewerOpen(true)}
-          className="border-2 border-[#1E3E62] overflow-hidden hover:border-[#C94A00] transition-colors w-[100px] h-[100px] print:w-[80px] print:h-[80px] flex items-center justify-center bg-white shrink-0 shadow-sm"
+          className="border-2 border-[#1E3E62] overflow-hidden hover:border-[#6C1C1F] transition-colors w-[160px] h-[130px] print:w-[105px] print:h-[90px] flex items-center justify-center bg-white shrink-0 shadow-sm"
           title="Click to view full size"
         >
           <img
@@ -183,7 +183,7 @@ function ImageSection({ record }: { record: TrademarkRecord }) {
             href={fullUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1 text-[#C94A00] font-bold mt-0.5 hover:underline print:hidden"
+            className="flex items-center gap-1 text-[#6C1C1F] font-bold mt-0.5 hover:underline print:hidden"
           >
             <ExternalLink className="w-3 h-3" /> Open Full Image
           </a>
@@ -294,7 +294,7 @@ export function RecordView({ params }: Props) {
 
   const handleEditSaved = () => {
     queryClient.invalidateQueries({ queryKey: ["record", id] });
-    queryClient.invalidateQueries({ queryKey: ["trademarks"] });
+    queryClient.invalidateQueries({ queryKey: ["trademark-page"] });
     queryClient.invalidateQueries({ queryKey: ["stats"] });
     refetch();
     setEditOpen(false);
@@ -375,15 +375,15 @@ export function RecordView({ params }: Props) {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <img
-                  src="/brandex-logo.png"
+                  src="/brandex-wordmark.svg"
                   alt="Brandex Law Associates"
-                  className="w-14 h-14 object-contain bg-white rounded p-0.5 border border-[#1E3E62]/30"
+                  className="w-52 h-16 object-contain object-left"
                 />
                 <div>
                   <div className="font-serif text-2xl tracking-wider text-[#0A1931] uppercase leading-none font-bold">
                     BRANDEX LAW ASSOCIATES
                   </div>
-                  <div className="font-mono text-[9px] text-[#C94A00] uppercase tracking-widest font-bold mt-1">
+                  <div className="font-mono text-[9px] text-[#6C1C1F] uppercase tracking-widest font-bold mt-1">
                     Advocates, IP Attorneys & Trademark Consultants
                   </div>
                   <div className="font-mono text-[8px] text-[#3A506B] mt-0.5">
@@ -431,6 +431,9 @@ export function RecordView({ params }: Props) {
             </div>
           </div>
 
+          {/* Attached mark shown early for quick visual identification. */}
+          <ImageSection record={record} />
+
           {/* Application Information (Compact 4-column layout) */}
           <div className="print-avoid-break">
             <SectionHead title="Application Details" />
@@ -467,18 +470,15 @@ export function RecordView({ params }: Props) {
           {/* Journal */}
           <JournalSection journal={record.journal} />
 
-          {/* Image */}
-          <ImageSection record={record} />
-
           {/* Blank Notes Boxes for Manual Proceeding Notes & Writing */}
           <ManualNotesSection />
 
           {/* Print footer */}
           <div className="hidden print:block border-t border-[#1E3E62]/30 pt-2 mt-4 text-[#3A506B]">
-            <div className="flex justify-between font-mono text-[8px] uppercase tracking-widest">
-              <span>BRANDEX LAW ASSOCIATES · TRADEMARK REGISTRY</span>
-              <span>CONFIDENTIAL — INTERNAL / COURT USE ONLY</span>
-              <span>CASE REF: {record.caseNumber || record.id}</span>
+            <div className="grid grid-cols-3 gap-2 font-mono text-[7px] uppercase tracking-wider items-end">
+              <span>BRANDEX LAW ASSOCIATES<br />WWW.BRANDEX.PK · INFO@BRANDEX.PK<br />+92 336 0015009</span>
+              <span className="text-center">ISLAMABAD · KARACHI · LAHORE · MULTAN<br />RAWALPINDI · XI'AN<br />CONFIDENTIAL — INTERNAL OFFICE RECORD</span>
+              <span className="text-right">TRADEMARK REGISTRY<br />CASE REF: {record.caseNumber || record.id}</span>
             </div>
           </div>
         </div>

@@ -52,7 +52,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     return (
       <main className="min-h-screen bg-[#F0E8D0] grid place-items-center p-6">
         <form onSubmit={signIn} className="w-full max-w-md border-2 border-[#0C0C0C] bg-white p-8 shadow-[8px_8px_0_#0C0C0C]">
-          <img src="/brandex-logo.png" alt="Brandex Law Associates" className="h-16 w-16 object-contain mb-5" />
+          <img src="/brandex-wordmark.svg" alt="Brandex Law Associates" className="h-24 w-full object-contain object-left mb-5" />
           <h1 className="font-serif text-3xl tracking-wider text-[#0A1931]">STAFF SIGN IN</h1>
           <p className="font-mono text-xs text-[#3A506B] mt-1 mb-6">BRANDEX SECURE DATASHEET</p>
           <label className="block font-mono text-[10px] font-bold tracking-widest mb-1">EMAIL</label>
@@ -60,7 +60,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           <label className="block font-mono text-[10px] font-bold tracking-widest mb-1">PASSWORD</label>
           <input type="password" required value={password} onChange={(event) => setPassword(event.target.value)} className="w-full h-11 border-2 border-[#0C0C0C] px-3 font-mono" />
           {error && <p className="mt-3 font-mono text-xs font-bold text-[#CC0000]">{error}</p>}
-          <button disabled={submitting} className="w-full mt-6 h-11 bg-[#C94A00] text-white border-2 border-[#0C0C0C] font-mono font-bold tracking-widest disabled:opacity-50">
+          <button disabled={submitting} className="w-full mt-6 h-11 bg-[#6C1C1F] text-white border-2 border-[#6C1C1F] font-mono font-bold tracking-widest disabled:opacity-50">
             {submitting ? "SIGNING IN…" : "SIGN IN"}
           </button>
         </form>

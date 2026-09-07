@@ -12,8 +12,8 @@ import { formatDate } from "@/lib/utils";
 
 const STAGE_COLORS: Record<string, string> = {
   "STAGE 1": "bg-[#0D9970] text-white",
-  "STAGE 2": "bg-[#D4A800] text-[#0C0C0C]",
-  "STAGE 3": "bg-[#C94A00] text-white",
+  "STAGE 2": "bg-[#B0740E] text-white",
+  "STAGE 3": "bg-[#6C1C1F] text-white",
   "STAGE 4": "bg-[#0A6B52] text-white",
   "STOPPED": "bg-[#CC0000] text-white",
 };
@@ -64,9 +64,9 @@ export function Dashboard() {
           <div className="flex items-center justify-between border-b-2 border-[#0C0C0C] pb-4">
             <div className="flex items-center gap-3">
               <img
-                src="/brandex-logo.png"
+                src="/brandex-wordmark.svg"
                 alt="Brandex Law Associates"
-                className="w-11 h-11 object-contain bg-white rounded p-1 border-2 border-[#0C0C0C] shadow-[2px_2px_0_#0C0C0C]"
+                className="w-44 h-14 object-contain object-left"
               />
               <div>
                 <h1 className="font-serif text-3xl text-[#0C0C0C] uppercase tracking-wide leading-none">
@@ -83,7 +83,7 @@ export function Dashboard() {
             <div className="font-mono font-bold animate-pulse text-[#6d6658]">LOADING DATA...</div>
           ) : !stats ? (
             <div className="font-mono font-bold flex items-center gap-2 text-[#CC0000]">
-              <AlertCircle className="w-5 h-5" /> FAILED TO LOAD. CHECK VITE_APPS_SCRIPT_URL.
+              <AlertCircle className="w-5 h-5" /> FAILED TO LOAD SECURE DATABASE SUMMARY.
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -97,6 +97,18 @@ export function Dashboard() {
                     </div>
                   ))}
                   <StatBox label="MODIFIED (7D)" value={stats.recentlyModified ?? 0} color="bg-white" />
+                </div>
+
+                <div className="border-2 border-[#0C0C0C] bg-white">
+                  <div className="px-4 py-2 border-b-2 border-[#0C0C0C] bg-[#E8DFC7] font-mono font-bold text-[10px] uppercase tracking-widest">TM DOCUMENT CONTROL</div>
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-px bg-[#0C0C0C]">
+                    {stats.byTmForm.map(({ form, count }) => (
+                      <Link key={form} href={`/database?tmForm=${form}`} className="bg-[#FFF9F0] p-3 hover:bg-[#B0740E]/15 transition-colors">
+                        <div className="font-mono text-[10px] font-bold text-[#6C1C1F]">{form}</div>
+                        <div className="font-serif text-3xl leading-none mt-1">{count}</div>
+                      </Link>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -132,10 +144,10 @@ export function Dashboard() {
 
               <div className="lg:col-span-4 space-y-6">
                 <div className="grid grid-cols-2 gap-3">
-                  <QuickAction href="/database?new=1" icon={Plus}      label="ADD RECORD" color="bg-[#C94A00] text-white" />
+                  <QuickAction href="/database?new=1" icon={Plus}      label="ADD RECORD" color="bg-[#6C1C1F] text-white" />
                   <QuickAction href="/search"         icon={Search}    label="SEARCH TM"  color="bg-[#E8DFC7] text-[#0C0C0C]" />
                   <QuickAction href="/database"       icon={Database}  label="DATABASE"   color="bg-[#0A6B52] text-white" />
-                  <QuickAction href="/assigned"       icon={Users2}    label="ASSIGNED"   color="bg-[#D4A800] text-[#0C0C0C]" />
+                  <QuickAction href="/assigned"       icon={Users2}    label="ASSIGNED"   color="bg-[#B0740E] text-white" />
                   <QuickAction href="/logs"           icon={ScrollText} label="AUDIT LOGS" color="bg-[#0C0C0C] text-[#F0E8D0]" />
                 </div>
 
@@ -151,7 +163,7 @@ export function Dashboard() {
                     ) : (
                       <div className="divide-y divide-[#0C0C0C]/10">
                         {recentActivity.map((log) => {
-                          const color = log.action === "CREATE" ? "text-[#0A6B52]" : log.action === "DELETE" ? "text-[#CC0000]" : "text-[#C94A00]";
+                          const color = log.action === "CREATE" ? "text-[#0A6B52]" : log.action === "DELETE" ? "text-[#CC0000]" : "text-[#6C1C1F]";
                           return (
                             <div key={log.id} className="p-3 hover:bg-[#F0E8D0] transition-colors">
                               <div className="flex items-center justify-between gap-2 mb-1">

@@ -226,7 +226,11 @@ export function RecordModal({ recordId, isNew: forceNew, onClose, onSaved }: Rec
       const match = clientMap.get(val.trim().toUpperCase());
       if (match) {
         form.setValue("clientName", match);
+      } else {
+        form.setValue("clientName", "");
       }
+    } else {
+      form.setValue("clientName", "");
     }
   };
 
@@ -361,7 +365,7 @@ export function RecordModal({ recordId, isNew: forceNew, onClose, onSaved }: Rec
 
         {!creating && isLoading ? (
           <div className="flex-1 flex items-center justify-center p-12 font-mono font-bold text-[#6d6658] animate-pulse">
-            LOADING FROM GOOGLE SHEETS…
+            LOADING SECURE RECORD…
           </div>
         ) : (
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 overflow-hidden">
@@ -404,7 +408,7 @@ export function RecordModal({ recordId, isNew: forceNew, onClose, onSaved }: Rec
                   </div>
                   <div className="sm:col-span-2">
                     <FieldLabel>CLIENT NAME</FieldLabel>
-                    <FormInput placeholder="Full client name (auto-filled from code)" {...form.register("clientName")} />
+                    <FormInput readOnly placeholder="Auto-filled from client code" {...form.register("clientName")} className="bg-[#E8DFC7] cursor-not-allowed" />
                   </div>
                   <div className="sm:col-span-2">
                     <FieldLabel required>APPLICATION NAME</FieldLabel>
@@ -642,7 +646,7 @@ export function RecordModal({ recordId, isNew: forceNew, onClose, onSaved }: Rec
                   className="flex items-center gap-2 bg-[#C94A00] text-white border-2 border-[#C94A00] px-6 h-10 font-mono font-bold text-xs uppercase tracking-wider hover:brightness-110 transition-all disabled:opacity-50"
                 >
                   <Save className="w-4 h-4" />
-                  {isPending ? "SAVING TO SHEETS…" : creating ? "SAVE RECORD" : "UPDATE RECORD"}
+                  {isPending ? "SAVING TO DATABASE…" : creating ? "SAVE RECORD" : "UPDATE RECORD"}
                 </button>
               </div>
             </div>

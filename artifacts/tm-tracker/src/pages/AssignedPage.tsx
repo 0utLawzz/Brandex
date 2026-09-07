@@ -1,11 +1,11 @@
-import { listTrademarks, STAGES, CITIES } from "@/lib/api";
-import type { TrademarkRecord } from "@/lib/api";
+import { listAgents, listTrademarkPage, STAGES, CITIES } from "@/lib/api";
+import type { TrademarkPage } from "@/lib/api";
 import { AppShell } from "@/components/layout/AppShell";
 import { formatDateShort } from "@/lib/utils";
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { Users2, ChevronLeft, ChevronRight } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 const PAGE_SIZE = 50;
 
@@ -59,49 +59,23 @@ export function AssignedPage() {
   const [filters, setFilters] = useState<Filters>(EMPTY);
   const [page, setPage] = useState(1);
 
-  const { data: allRecords = [], isLoading } = useQuery<TrademarkRecord[]>({
-    queryKey: ["trademarks"],
-    queryFn:  () => listTrademarks(),
+  const { data, isLoading } = useQuery<TrademarkPage>({
+    queryKey: ["assigned-page", page, filters],
+    queryFn:  () => listTrademarkPage({
+      page,
+      pageSize: PAGE_SIZE,
+      agent: filters.agent || undefined,
+      city: filters.city || undefined,
+      stage: filters.stage || undefined,
+      appClass: filters.appClass || undefined,
+    }),
+    placeholderData: keepPreviousData,
     staleTime: 60_000,
   });
-
-  // Build distinct options from live data
-  const distinct = useMemo(() => {
-    const agents  = new Set<string>();
-    const classes = new Set<string>();
-    for (const r of allRecords) {
-      if (r.agent)    agents.add(r.agent);
-      if (r.appClass) classes.add(r.appClass);
-    }
-    return {
-      agents:  [...agents].sort(),
-      cities:  Array.from(CITIES),
-      stages:  Array.from(STAGES),
-      classes: [...classes].sort((a, b) => Number(a) - Number(b)),
-    };
-  }, [allRecords]);
-
-  const filtered = useMemo(() => {
-    return allRecords.filter((r) => {
-      if (!r.id || !r.id.trim()) return false;
-      if (filters.agent    && r.agent    !== filters.agent)    return false;
-      if (filters.city     && r.city     !== filters.city)     return false;
-      if (filters.stage    && r.stage    !== filters.stage)    return false;
-      if (filters.appClass && r.appClass !== filters.appClass) return false;
-      return true;
-    });
-  }, [allRecords, filters]);
-
-  const sorted = useMemo(() => {
-    return [...filtered].sort((a, b) => {
-      const dA = new Date(a.updatedAt || a.date || 0).getTime();
-      const dB = new Date(b.updatedAt || b.date || 0).getTime();
-      return dB - dA;
-    });
-  }, [filtered]);
-
-  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
-  const paged      = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const { data: agents = [] } = useQuery({ queryKey: ["agents"], queryFn: listAgents, staleTime: 5 * 60_000 });
+  const paged = data?.records ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const hasFilters = Object.values(filters).some(Boolean);
 
   const setFilter = (key: keyof Filters, val: string) => {
@@ -120,7 +94,7 @@ export function AssignedPage() {
             <Users2 className="w-5 h-5 text-[#0A6B52]" />
             <h1 className="font-serif text-2xl uppercase tracking-widest text-[#0C0C0C] leading-none">ASSIGNED</h1>
             <span className="ml-auto font-mono text-[10px] text-[#6d6658] font-bold uppercase tracking-widest">
-              {isLoading ? "LOADING…" : `${sorted.length} RECORDS`}
+              {isLoading ? "LOADING…" : `${total} RECORDS`}
             </span>
           </div>
 
@@ -129,25 +103,25 @@ export function AssignedPage() {
             <FilterSelect
               label="AGENT"
               value={filters.agent}
-              options={distinct.agents}
+              options={agents}
               onChange={(v) => setFilter("agent", v)}
             />
             <FilterSelect
               label="CITY"
               value={filters.city}
-              options={distinct.cities}
+              options={CITIES}
               onChange={(v) => setFilter("city", v)}
             />
             <FilterSelect
               label="STATUS"
               value={filters.stage}
-              options={distinct.stages}
+              options={STAGES}
               onChange={(v) => setFilter("stage", v)}
             />
             <FilterSelect
               label="CLASS"
               value={filters.appClass}
-              options={distinct.classes}
+              options={Array.from({ length: 45 }, (_, index) => String(index + 1))}
               onChange={(v) => setFilter("appClass", v)}
             />
             {hasFilters && (
@@ -177,7 +151,7 @@ export function AssignedPage() {
               {isLoading ? (
                 <tr>
                   <td colSpan={10} className="px-6 py-12 text-center font-bold text-[#6d6658] animate-pulse">
-                    LOADING RECORDS FROM GOOGLE SHEETS…
+                    LOADING OPTIMIZED RECORD PAGE…
                   </td>
                 </tr>
               ) : paged.length === 0 ? (
@@ -248,7 +222,7 @@ export function AssignedPage() {
         {totalPages > 1 && (
           <div className="shrink-0 flex items-center justify-between px-6 py-3 bg-[#E8DFC7] border-t-2 border-[#0C0C0C]">
             <span className="font-mono text-[10px] text-[#6d6658] font-bold uppercase tracking-widest">
-              PAGE {page} OF {totalPages} · {sorted.length} RECORDS
+              PAGE {page} OF {totalPages} · {total} RECORDS
             </span>
             <div className="flex items-center gap-2">
               <button

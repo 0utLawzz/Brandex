@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 330" role="img" aria-labelledby="title desc">
+  <title id="title">Brandex Law Associates</title>
+  <desc id="desc">Brandex maroon and gold transparent wordmark</desc>
+  <g fill="none" stroke-linecap="square">
+    <path d="M26 130V78C26 44 54 16 88 16h406" stroke="#6C1C1F" stroke-width="10"/>
+    <path d="M54 289h730c49 0 88-39 88-88V62H167C105 62 54 113 54 175z" stroke="#B0740E" stroke-width="9"/>
+    <path d="M452 313h332c67 0 121-54 121-121v-19" stroke="#6C1C1F" stroke-width="10"/>
+  </g>
+  <circle cx="287" cy="181" r="72" fill="#B0740E"/>
+  <text x="112" y="222" fill="#6C1C1F" font-family="Georgia, 'Times New Roman', serif" font-size="190" letter-spacing="-13">b</text>
+  <text x="249" y="220" fill="#FFF9F0" font-family="Georgia, 'Times New Roman', serif" font-size="118">R</text>
+  <text x="366" y="222" fill="#6C1C1F" font-family="Georgia, 'Times New Roman', serif" font-size="164" letter-spacing="-10">andex</text>
+  <text x="775" y="97" fill="#6C1C1F" font-family="Arial, sans-serif" font-size="52" font-weight="700">®</text>
+  <text x="55" y="326" fill="#6C1C1F" font-family="Arial, sans-serif" font-size="24" font-weight="700" letter-spacing="10">WWW.BRANDEX.PK</text>
+</svg>

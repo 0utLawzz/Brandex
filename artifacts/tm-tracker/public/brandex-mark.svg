@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">Brandex</title>
+  <desc id="desc">Compact Brandex BR mark on a transparent background</desc>
+  <path d="M13 48V28c0-8 7-15 15-15h72" fill="none" stroke="#B0740E" stroke-width="6"/>
+  <path d="M28 115h72c8 0 15-7 15-15V80" fill="none" stroke="#6C1C1F" stroke-width="6"/>
+  <text x="17" y="92" fill="#6C1C1F" font-family="Georgia, 'Times New Roman', serif" font-size="82" font-weight="700">B</text>
+  <circle cx="81" cy="68" r="31" fill="#B0740E"/>
+  <text x="60" y="88" fill="#FFF9F0" font-family="Georgia, 'Times New Roman', serif" font-size="51">R</text>
+</svg>

@@ -69,7 +69,7 @@ export function LogsPage() {
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={7} className="px-6 py-12 text-center font-bold text-[#6d6658] animate-pulse">LOADING AUDIT LOG FROM GOOGLE SHEETS...</td></tr>
+                <tr><td colSpan={7} className="px-6 py-12 text-center font-bold text-[#6d6658] animate-pulse">LOADING SECURE AUDIT LOG…</td></tr>
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={7} className="px-6 py-12 text-center font-bold text-[#6d6658]">NO LOG ENTRIES FOUND.</td></tr>
               ) : (
@@ -100,7 +100,7 @@ export function LogsPage() {
 
         <div className="shrink-0 flex items-center justify-between px-6 py-3 bg-[#E8DFC7] border-t-2 border-[#0C0C0C]">
           <span className="font-mono text-[10px] text-[#6d6658] font-bold uppercase tracking-widest">
-            PAGE {page} · {filtered.length} ENTRIES SHOWN · LOGS SAVED IN GOOGLE SHEETS
+            PAGE {page} · {filtered.length} ENTRIES SHOWN · DATABASE AUDIT TRAIL
           </span>
           <div className="flex items-center gap-2">
             <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={!hasPrev} className="flex items-center gap-1 px-3 py-1.5 border-2 border-[#0C0C0C] bg-white font-mono text-[10px] font-bold uppercase tracking-wider disabled:opacity-40 hover:bg-[#0C0C0C] hover:text-[#F0E8D0] transition-colors">

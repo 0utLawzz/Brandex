@@ -122,6 +122,35 @@ export interface TrademarkStats {
   byStage: Array<{ stage: string; count: number }>;
   byCity: Array<{ city: string; count: number }>;
   byNumericStage: Array<{ stage: string; count: number }>;
+  byTmForm: Array<{ form: TmFormKey; count: number }>;
+}
+
+export type TmFormKey = "TM5" | "TM6" | "TM11" | "TM16" | "TM56";
+
+export interface TrademarkListParams {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  type?: string;
+  clientCode?: string;
+  stage?: string;
+  subStage?: string;
+  city?: string;
+  caseType?: string;
+  agent?: string;
+  appClass?: string;
+  tmForm?: TmFormKey;
+  /** Internal/on-demand use only; list screens keep this false. */
+  includeDetails?: boolean;
+}
+
+export interface TrademarkPage {
+  records: TrademarkRecord[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 export interface TrademarkInput {
@@ -193,8 +222,10 @@ export const STATUS_WORKFLOW: Record<string, string[]> = {
   ],
 };
 
-export const CITIES = ["Islamabad", "Karachi", "Lahore", "Peshawar"] as const;
+export const CITIES = ["Islamabad", "Karachi", "Lahore", "Multan", "Rawalpindi", "Peshawar", "Quetta"] as const;
 export const VALID_TYPES = ["X", "A", "N"] as const;
+export const CASE_TYPES = ["Trademark", "Copyright", "Design", "Patent", "Renewal", "Opposition", "Other"] as const;
+export const TM_FORMS: TmFormKey[] = ["TM5", "TM6", "TM11", "TM16", "TM56"];
 
 export interface UploadImageResult {
   fileId: string;
@@ -374,39 +405,82 @@ export function inputToRow(input: TrademarkInput) {
 // Public API
 // ---------------------------------------------------------------------------
 
-/** List records using indexed database filters. */
-export async function listTrademarks(params?: {
-  search?: string;
-  stage?: string;
-  city?: string;
-  caseType?: string;
-  agent?: string;
-  appClass?: string;
-}): Promise<TrademarkRecord[]> {
+const TM_FORM_COLUMNS: Record<TmFormKey, "tm5" | "tm6" | "tm11" | "tm16" | "tm56"> = {
+  TM5: "tm5",
+  TM6: "tm6",
+  TM11: "tm11",
+  TM16: "tm16",
+  TM56: "tm56",
+};
+
+function safeSearchTerm(value: string) {
+  return value.trim().replace(/[(),]/g, " ").replace(/\s+/g, " ");
+}
+
+/** Fetch one compact, server-filtered page in canonical Datasheet order. */
+export async function listTrademarkPage(params: TrademarkListParams = {}): Promise<TrademarkPage> {
   ensureConfigured();
-  let query = supabase.from("trademarks").select(TRADEMARK_LIST_COLUMNS).order("updated_at", { ascending: false });
+  const pageSize = Math.min(500, Math.max(1, params.pageSize ?? 50));
+  const page = Math.max(1, params.page ?? 1);
+  const start = (page - 1) * pageSize;
+  let query = supabase
+    .from("trademarks")
+    .select(params.includeDetails ? "*" : TRADEMARK_LIST_COLUMNS, { count: "exact" })
+    .order("type", { ascending: true })
+    .order("client_code", { ascending: true })
+    .order("case_number", { ascending: true })
+    .range(start, start + pageSize - 1);
+
+  const search = params.search ? safeSearchTerm(params.search) : "";
+  if (search) {
+    const pattern = `%${search}%`;
+    query = query.or([
+      `client_name.ilike.${pattern}`,
+      `client_code.ilike.${pattern}`,
+      `case_number.ilike.${pattern}`,
+      `application_name.ilike.${pattern}`,
+      `tm_cpr_number.ilike.${pattern}`,
+      `nice_class.ilike.${pattern}`,
+      `agent.ilike.${pattern}`,
+      `city.ilike.${pattern}`,
+    ].join(","));
+  }
+  if (params.dateFrom) query = query.gte("filing_date", params.dateFrom);
+  if (params.dateTo) query = query.lte("filing_date", params.dateTo);
+  if (params.type) query = query.eq("type", params.type);
+  if (params.clientCode) query = query.ilike("client_code", `%${safeSearchTerm(params.clientCode)}%`);
   if (params?.stage) query = query.eq("status", params.stage);
+  if (params?.subStage) query = query.ilike("sub_status", `%${safeSearchTerm(params.subStage)}%`);
   if (params?.city) query = query.eq("city", params.city);
   if (params?.caseType) query = query.eq("case_type", params.caseType);
   if (params?.agent) query = query.eq("agent", params.agent);
   if (params?.appClass) query = query.eq("nice_class", params.appClass);
-  const { data, error } = await query;
+  if (params.tmForm) query = query.eq(TM_FORM_COLUMNS[params.tmForm], true);
+
+  const { data, error, count } = await query;
   throwIfError(error);
-  let records = await mapRows((data ?? []) as unknown as SupabaseTrademarkRow[]);
-  if (params?.search) {
-    const q = params.search.toLowerCase();
-    records = records.filter(
-      (r) =>
-        r.clientName?.toLowerCase().includes(q) ||
-        r.clientCode?.toLowerCase().includes(q) ||
-        r.caseNumber?.toLowerCase().includes(q) ||
-        r.appName?.toLowerCase().includes(q) ||
-        r.tmCprNo?.toLowerCase().includes(q) ||
-        r.appClass?.toLowerCase().includes(q) ||
-        r.agent?.toLowerCase().includes(q)
-    );
+  return {
+    records: await mapRows((data ?? []) as unknown as SupabaseTrademarkRow[]),
+    total: count ?? 0,
+    page,
+    pageSize,
+  };
+}
+
+/** Compatibility list API. Prefer listTrademarkPage for user-facing lists. */
+export async function listTrademarks(params: Omit<TrademarkListParams, "page" | "pageSize"> = {}): Promise<TrademarkRecord[]> {
+  const first = await listTrademarkPage({ ...params, page: 1, pageSize: 500 });
+  const records = [...first.records];
+  for (let page = 2; records.length < first.total; page += 1) {
+    const next = await listTrademarkPage({ ...params, page, pageSize: 500 });
+    records.push(...next.records);
   }
   return records;
+}
+
+/** Export all rows matching the current filters without loading unrelated records. */
+export async function listTrademarksForExport(params: Omit<TrademarkListParams, "page" | "pageSize" | "includeDetails"> = {}) {
+  return listTrademarks({ ...params, includeDetails: true });
 }
 
 /** Fetch a single record enriched with TM matches and Journal data */
@@ -470,25 +544,31 @@ export async function deleteTrademark(id: string): Promise<void> {
 
 export async function getStats(): Promise<TrademarkStats> {
   ensureConfigured();
-  // Stats need only three small scalar columns. The old implementation downloaded
-  // every record, journal payload and then generated signed URLs for every logo.
-  const { data, error, count } = await supabase
-    .from("trademarks")
-    .select("status,city,updated_at", { count: "exact" });
-  throwIfError(error);
-  const rows = data ?? [];
-  const countBy = (key: "status" | "city") => Object.entries(rows.reduce<Record<string, number>>((acc, row) => {
-    const value = row[key] || "Unspecified";
-    acc[value] = (acc[value] ?? 0) + 1;
-    return acc;
-  }, {})).map(([name, count]) => ({ stage: name, city: name, count }));
-  const recentCutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const exactCount = async (column?: string, value?: string | boolean, gte?: string) => {
+    let query = supabase.from("trademarks").select("id", { count: "exact", head: true });
+    if (column && gte) query = query.gte(column, gte);
+    else if (column && value !== undefined) query = query.eq(column, value);
+    const { count, error } = await query;
+    throwIfError(error);
+    return count ?? 0;
+  };
+
+  const recentCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const [total, recentlyModified, stageCounts, cityCounts, tmCounts] = await Promise.all([
+    exactCount(),
+    exactCount("updated_at", undefined, recentCutoff),
+    Promise.all(STAGES.map(async (stage) => ({ stage, count: await exactCount("status", stage) }))),
+    Promise.all(CITIES.map(async (city) => ({ city, count: await exactCount("city", city) }))),
+    Promise.all(TM_FORMS.map(async (form) => ({ form, count: await exactCount(TM_FORM_COLUMNS[form], true) }))),
+  ]);
+
   return {
-    total: count ?? rows.length,
-    recentlyModified: rows.filter((row) => Date.parse(row.updated_at) >= recentCutoff).length,
-    byStage: countBy("status").map(({ stage, count }) => ({ stage, count })),
-    byCity: countBy("city").map(({ city, count }) => ({ city, count })),
-    byNumericStage: countBy("status").filter(({ stage }) => /^STAGE \d+$/.test(stage)).map(({ stage, count }) => ({ stage, count })),
+    total,
+    recentlyModified,
+    byStage: stageCounts.filter(({ count }) => count > 0),
+    byCity: cityCounts.filter(({ count }) => count > 0),
+    byNumericStage: stageCounts.filter(({ stage }) => /^STAGE \d+$/.test(stage)),
+    byTmForm: tmCounts,
   };
 }
 

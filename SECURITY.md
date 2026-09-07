@@ -1,89 +1,44 @@
 # Security Policy
 
-## Supported Versions
+## Data boundary
 
-Currently, only the latest version of Brandex is supported with security updates.
+Supabase is the source of truth. The browser uses only a publishable key; access is enforced with Supabase Auth and Row Level Security. Google Sheets receives asynchronous server-to-server mirror updates and is not directly writable from the browser.
 
-## Reporting a Vulnerability
+## Secrets
 
-If you discover a security vulnerability, please report it responsibly.
+Allowed in the frontend:
 
-### How to Report
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_PUBLISHABLE_KEY`
 
-**Do not** create a public issue for security vulnerabilities.
+Server-only values:
 
-Instead, please send an email to:
-- **Email**: net2outlawzz@gmail.com
-- **Subject**: [Security] Brandex Vulnerability Report
+- `SUPABASE_SERVICE_ROLE_KEY`
+- database passwords
+- `GOOGLE_APPS_SCRIPT_SECRET`
+- `SHEET_SYNC_CRON_SECRET`
 
-### What to Include
+Never commit `.env`, paste secrets into source code, or expose server-only values through a `VITE_*` variable.
 
-Please include the following information in your report:
+## Authorization
 
-- A description of the vulnerability
-- Steps to reproduce the issue
-- Potential impact of the vulnerability
-- Any suggested fixes or mitigations (if available)
+- `viewer`: read access
+- `editor`: read, create and update access
+- `admin`: editor permissions plus deletion and administration
 
-### Response Timeline
+Keep public sign-up disabled and create staff accounts through the Supabase dashboard. Review staff accounts and roles periodically.
 
-- **Initial Response**: Within 48 hours
-- **Investigation**: Within 1 week
-- **Resolution**: As soon as feasible, depending on severity
+## Stored files
 
-### Security Best Practices
+Trademark files use a private Supabase Storage bucket. The app issues short-lived signed URLs only when a record is opened. Validate file type and size before upload.
 
-When working with Brandex, please follow these security guidelines:
+## Operational safeguards
 
-1. **Never commit secrets or credentials**
-   - Do not commit API keys, database credentials, or sensitive tokens
-   - Use environment variables for sensitive configuration
-   - The project uses a `.env` file for local configuration (see `.env.example`)
+- Keep RLS enabled on every business table.
+- Do not add bulk permanent deletion.
+- Keep the audit trigger and Sheet-sync outbox enabled.
+- Apply database migrations in order and test them outside production first.
+- Run `pnpm test`, `pnpm typecheck` and `pnpm build` before deployment.
+- Rotate a secret immediately if it appears in logs, screenshots, chat or git history.
 
-2. **Keep dependencies updated**
-   - Regularly update dependencies to get security patches
-   - Use `pnpm audit` to check for known vulnerabilities
-
-3. **Secure database connections**
-   - Use the unpooled connection string only for migrations/admin tooling
-   - Ensure proper access controls on database resources
-
-4. **Google Sheets security**
-   - Protect your Google Sheets API key
-   - Use appropriate sharing settings for Google Sheets
-   - Validate data before syncing from external sources
-
-## Security Features
-
-Brandex includes several security features:
-
-- **Audit Logging**: All changes are recorded in an audit log
-- **Forward-only progression**: Trademark stages progress forward only
-- **Environment-based configuration**: Sensitive data stored in environment variables
-- **Type safety**: TypeScript helps prevent common security issues
-
-## Dependency Security
-
-The project uses pnpm for package management. To check for security vulnerabilities:
-
-```bash
-pnpm audit
-```
-
-To update dependencies securely:
-
-```bash
-pnpm update
-```
-
-## Disclosure Policy
-
-- Security issues will be disclosed after a fix is available
-- Credit will be given to reporters in the release notes
-- We aim to provide patches within a reasonable timeframe based on severity
-
-## Contact
-
-For security-related questions not related to vulnerability reports:
-- **Email**: net2outlawzz@gmail.com
-- **GitHub**: [@0utLawzz](https://github.com/0utLawzz)
+Report a security issue privately to the Brandex system administrator; do not open a public issue containing client data or credentials.

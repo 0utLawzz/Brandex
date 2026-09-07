@@ -45,9 +45,9 @@ export function Navbar() {
           {/* Logo & Brand */}
           <Link href="/" className="flex items-center gap-2.5 shrink-0 hover:opacity-90 transition-opacity">
             <img
-              src="/brandex-logo.png"
+              src="/brandex-mark.svg"
               alt="Brandex Law Associates Logo"
-              className="w-9 h-9 object-contain bg-white rounded-sm p-0.5 border border-[#C94A00]/40"
+              className="w-10 h-10 object-contain"
               onError={(e) => {
                 // Fallback icon if logo not loaded
                 (e.target as HTMLImageElement).style.display = "none";
@@ -57,7 +57,7 @@ export function Navbar() {
               <div className="font-serif text-base leading-none text-[#F0E8D0] tracking-wider whitespace-nowrap">
                 BRANDEX LAW ASSOCIATES
               </div>
-              <div className="font-mono text-[8px] text-[#C94A00] tracking-widest uppercase font-bold mt-0.5">
+              <div className="font-mono text-[8px] text-[#D6A64B] tracking-widest uppercase font-bold mt-0.5">
                 Trademark & IP Registry
               </div>
             </div>
@@ -73,7 +73,7 @@ export function Navbar() {
                   href={href}
                   className={`flex items-center gap-2 px-3 py-2 font-mono font-bold text-[11px] tracking-widest uppercase transition-all border-2 ${
                     active
-                      ? "bg-[#C94A00] border-[#C94A00] text-white"
+                      ? "bg-[#6C1C1F] border-[#B0740E] text-white"
                       : "border-transparent text-[#C5B89A] hover:bg-[#1A1A1A] hover:border-[#333] hover:text-[#F0E8D0]"
                   }`}
                 >
@@ -90,7 +90,7 @@ export function Navbar() {
               onClick={handleRefresh}
               disabled={refreshing}
               title="Refresh data from Supabase"
-              className="hidden sm:flex items-center justify-center gap-2 bg-[#D4A800] text-[#0C0C0C] border-2 border-[#0C0C0C] px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider hover:brightness-105 active:brightness-95 transition-all disabled:opacity-50"
+              className="hidden sm:flex items-center justify-center gap-2 bg-[#B0740E] text-white border-2 border-[#B0740E] px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider hover:brightness-105 active:brightness-95 transition-all disabled:opacity-50"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
               {refreshing ? "REFRESHING..." : "REFRESH"}
@@ -127,7 +127,7 @@ export function Navbar() {
                   onClick={() => setMobileOpen(false)}
                   className={`flex items-center gap-3 px-4 py-3 font-mono font-bold text-sm tracking-widest uppercase transition-all border-2 ${
                     active
-                      ? "bg-[#C94A00] border-[#C94A00] text-white"
+                      ? "bg-[#6C1C1F] border-[#B0740E] text-white"
                       : "border-transparent text-[#C5B89A] hover:bg-[#1A1A1A] hover:border-[#333] hover:text-[#F0E8D0]"
                   }`}
                 >
@@ -140,7 +140,7 @@ export function Navbar() {
           <button
             onClick={() => { handleRefresh(); setMobileOpen(false); }}
             disabled={refreshing}
-            className="mt-auto w-full flex items-center justify-center gap-2 bg-[#D4A800] text-[#0C0C0C] border-2 border-[#0C0C0C] px-4 py-3 font-mono text-sm font-bold uppercase tracking-wider disabled:opacity-50"
+            className="mt-auto w-full flex items-center justify-center gap-2 bg-[#B0740E] text-white border-2 border-[#B0740E] px-4 py-3 font-mono text-sm font-bold uppercase tracking-wider disabled:opacity-50"
           >
             <RefreshCw className={`w-5 h-5 ${refreshing ? "animate-spin" : ""}`} />
             {refreshing ? "REFRESHING..." : "REFRESH DATA"}
