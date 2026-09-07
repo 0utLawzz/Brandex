@@ -1,40 +1,125 @@
-# Brandex
+# Brandex Datasheet
 
-Fast, secure trademark case-management Datasheet for Brandex Law Associates.
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+![React](https://img.shields.io/badge/React-Vite-61DAFB?logo=react&logoColor=black)
+![Supabase](https://img.shields.io/badge/Supabase-Postgres%20%2B%20Auth-3ECF8E?logo=supabase&logoColor=white)
+![Vercel](https://img.shields.io/badge/Deploy-Vercel-000000?logo=vercel&logoColor=white)
+![pnpm](https://img.shields.io/badge/pnpm-workspace-F69220?logo=pnpm&logoColor=white)
+![Status](https://img.shields.io/badge/Status-Production-success)
+
+> Fast, secure trademark case-management Datasheet for **Brandex Law Associates**.  
+> Production URL: **[https://brandexsheet.vercel.app](https://brandexsheet.vercel.app)**
+
+---
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Architecture](#architecture)
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Installation](#installation)
+- [Supabase Setup](#supabase-setup)
+- [Google Sheets Mirror](#google-sheets-mirror)
+- [Deployment](#deployment)
+- [Security Model](#security-model)
+- [Verification](#verification)
+- [Suggested Improvements](#suggested-improvements)
+- [License](#license)
+- [Author](#author)
+
+---
+
+## Overview
+
+Brandex Datasheet is the primary operational system for managing trademark records at Brandex Law Associates. It replaces spreadsheet-centric workflows with a role-based web application backed by Supabase Postgres, while retaining Google Sheets as an asynchronous operational mirror and backup.
+
+**Key principles**
+- Supabase is the source of truth.
+- The browser never receives service-role keys or Google Apps Script secrets.
+- Every mutation is audited and queued for Sheet synchronization.
+
+---
 
 ## Architecture
 
-- **React + Vite** frontend on Vercel
-- **Supabase Postgres** as the primary record database
-- **Supabase Auth + Row Level Security** for staff access
-- **Supabase Storage** for private trademark logos and files
-- **Google Sheets** as an asynchronous operational mirror/backup
+| Layer | Technology | Role |
+|-------|------------|------|
+| Frontend | React + Vite (artifacts/tm-tracker) | Staff UI on Vercel |
+| Database | Supabase Postgres | Primary record store + audit log |
+| Auth | Supabase Auth + RLS | Staff roles: viewer / editor / admin |
+| Storage | Supabase Storage (private) | Trademark logos & files (signed URLs) |
+| Mirror | Google Sheets + Apps Script | Async operational backup |
+| Sync | Supabase Edge Function | Retryable outbox processor |
 
-The browser never receives a database service key or Google Apps Script secret. Every record change is audited in Postgres and placed in a retryable Sheet sync outbox.
-
-## Local setup
-
-Requirements: Node.js 20+ and pnpm.
-
-```bash
-pnpm install --frozen-lockfile
-cp .env.example .env
-pnpm dev
+```text
+Browser (staff) → Vercel (Vite app) → Supabase (Auth + Postgres + Storage)
+                                         ↓
+                              Outbox → Edge Function → Google Sheets
 ```
 
-Set these browser-safe values in `.env`:
+---
+
+## Features
+
+| Feature | Description |
+|---------|-------------|
+| Role-based access | viewer (read), editor (create/update), admin (delete + admin) |
+| Trademark records | Full case data with search and filtering |
+| Private file storage | Logos and documents via short-lived signed URLs |
+| Audit trail | Every change recorded in Postgres |
+| Sheet mirror | Automatic, retryable sync to Google Sheets |
+| Archive on delete | Deleted rows move to Sheet ARCHIVE tab |
+| One-time import | Idempotent importer for legacy Sheet data (~1,671 records) |
+
+---
+
+## Tech Stack
+
+- **Frontend**: React, Vite, Tailwind, Radix UI, TanStack Query, Wouter, Zod, React Hook Form
+- **Backend**: Supabase (Postgres, Auth, Storage, Edge Functions)
+- **Package manager**: pnpm (workspace)
+- **Deploy**: Vercel (`vercel.json` builds `artifacts/tm-tracker`)
+
+---
+
+## Installation
+
+### Prerequisites
+
+- Node.js 20+
+- pnpm
+
+### Local development
+
+```bash
+git clone https://github.com/0utLawzz/Brandex.git
+cd Brandex
+pnpm install --frozen-lockfile
+cp .env.example .env
+```
+
+Set browser-safe values in `.env`:
 
 ```dotenv
 VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY
 ```
 
-## Supabase setup
+```bash
+pnpm dev
+```
+
+See [INSTALL.md](INSTALL.md) for the complete installation and import guide.
+
+---
+
+## Supabase Setup
 
 1. Create a Supabase project.
-2. Run `supabase/migrations/202608280001_brandex_datasheet.sql` in the SQL editor, or apply it with the Supabase CLI.
-3. Create staff users in **Authentication > Users**. New users receive the `viewer` role.
-4. Promote approved users in the SQL editor:
+2. Apply migrations from `supabase/migrations/` (starting with `202608280001_brandex_datasheet.sql`).
+3. Create staff users in **Authentication → Users**. New users receive the `viewer` role.
+4. Promote approved users:
 
 ```sql
 update public.profiles
@@ -42,55 +127,89 @@ set role = 'admin'
 where user_id = (select id from auth.users where email = 'owner@example.com');
 ```
 
-Use `editor` for staff who may add and update records, `viewer` for read-only access, and `admin` for deletion and user administration. Disable public sign-ups; create or invite staff from the Supabase dashboard.
+Roles: `viewer` (read-only), `editor` (create/update), `admin` (delete + administration). Disable public sign-ups.
 
-## One-time Google Sheet import
+---
 
-Deploy the latest `google-apps-script/Code.gs`, then set the Apps Script property `BRANDEX_MIRROR_SECRET` to a long random value. Set these values only in the terminal session running the import:
+## Google Sheets Mirror
 
-```dotenv
-SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=YOUR_SERVICE_ROLE_KEY
-GOOGLE_APPS_SCRIPT_URL=https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec
-GOOGLE_APPS_SCRIPT_SECRET=THE_SAME_MIRROR_SECRET
+### One-time import
+
+Deploy `google-apps-script/Code.gs`, set `BRANDEX_MIRROR_SECRET`, then run (server secrets only in the terminal session):
+
+```bash
+pnpm import:sheet
 ```
 
-Run `pnpm import:sheet`. The importer is idempotent by record ID. Do not expose the service-role key in Vercel browser variables or commit it to git.
+The importer is idempotent by record ID.
 
-## Automatic Sheet mirror
+### Automatic sync
 
-Deploy `supabase/functions/sync-google-sheet` and configure these Edge Function secrets:
+Deploy the Edge Function `supabase/functions/sync-google-sheet` with secrets:
 
 - `GOOGLE_APPS_SCRIPT_URL`
 - `GOOGLE_APPS_SCRIPT_SECRET`
 - `SHEET_SYNC_CRON_SECRET`
 
-Invoke the function on a schedule with `Authorization: Bearer <SHEET_SYNC_CRON_SECRET>`. It processes up to 50 pending/failed outbox items per run and retries failed Sheet writes on the next run.
+Invoke on a schedule with `Authorization: Bearer <SHEET_SYNC_CRON_SECRET>`. It processes up to 50 pending/failed outbox items per run.
+
+---
+
+## Deployment
+
+**Vercel** — set only these frontend variables for Preview and Production:
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_PUBLISHABLE_KEY`
+
+Deploy from the repository root. Production URL: [https://brandexsheet.vercel.app](https://brandexsheet.vercel.app)
+
+Never place service-role keys or Apps Script secrets in `VITE_*` variables.
+
+---
+
+## Security Model
+
+| Control | Implementation |
+|---------|----------------|
+| Access control | Supabase Auth + Postgres RLS |
+| File access | Private bucket + short-lived signed URLs |
+| Secrets | Service role & Apps Script secrets stay server-side only |
+| Audit | All mutations logged in Postgres |
+| Delete behaviour | Soft-move to Sheet ARCHIVE tab |
+| Source of truth | Supabase; Sheet is mirror only |
+
+---
 
 ## Verification
 
 ```bash
 pnpm typecheck
+pnpm test
 pnpm build
 ```
 
-## Vercel deployment
+---
 
-Configure only these frontend variables for Preview and Production:
+## Suggested Improvements
 
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_PUBLISHABLE_KEY`
+| Priority | Item |
+|----------|------|
+| Medium | Expand unit/integration tests around the outbox and role gates |
+| Medium | Add structured logging / observability for the Edge Function |
+| Low | Consider rate-limiting or CAPTCHA on auth endpoints if exposed more widely |
+| Low | Document backup/restore procedures for the private storage bucket |
 
-Then deploy from the repository root. `vercel.json` builds `artifacts/tm-tracker` and serves its `dist` directory.
-
-## Security notes
-
-- Postgres RLS requires an authenticated staff account.
-- The storage bucket is private and images use short-lived signed URLs.
-- Google Apps Script legacy reads/writes are disabled; only secret-authenticated mirror operations remain.
-- Deleted records move from the Sheet `DATABASE` tab to `ARCHIVE` instead of being discarded.
-- The Sheet is a mirror, not the source of truth. Staff edits must be made in Brandex Datasheet.
+---
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
+
+---
+
+## Author
+
+**Nadeem (OutLawZ)** — Brandex Law Associates tooling  
+GitHub: [0utLawzz](https://github.com/0utLawzz)  
+Contact: net2outlawzz@gmail.com
