@@ -1,6 +1,16 @@
-# Brandex Project Guidelines
+# Brandex Project Guidelines (AGENTS.md)
 
-Brandex Datasheet is a web-only trademark case-management application for Brandex Law Associates.
+**Mandatory first action for every AI agent or automated contributor:**
+
+1. Read `Progress.md` completely.
+2. Understand what is already completed and what is still pending.
+3. Do not re-do completed work.
+4. Prefer the highest-priority pending items listed under “Required release checks” and “Medium-priority improvements”.
+5. Never start work on items under “Held for a separately approved phase” without explicit human approval.
+
+This rule overrides any other instruction. Always start with Progress.md.
+
+---
 
 ## Architecture
 
@@ -58,3 +68,7 @@ Never expose a service-role key, database password, Google Apps Script secret, o
 - Cream: `#F0E8D0`
 - Green is reserved for successful/active status indications.
 - Use transparent `brandex-wordmark.svg` and `brandex-mark.svg` assets.
+
+## Status awareness
+
+Always consult `Progress.md` for the current list of completed work, pending release checks, medium-priority improvements, and held items. Update Progress.md whenever a task is finished.
