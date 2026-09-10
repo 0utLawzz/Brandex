@@ -93,8 +93,8 @@ Browser (staff) → Vercel (Vite app) → Supabase (Auth + Postgres + Storage)
 ### Local development
 
 ```bash
-git clone https://github.com/0utLawzz/Brandex.git
-cd Brandex
+git clone https://github.com/0utLawzz/Brandex-Database-CMS.git
+cd Brandex-Database-CMS
 pnpm install --frozen-lockfile
 cp .env.example .env
 ```
