@@ -10,8 +10,8 @@
 ## Local application
 
 ```bash
-git clone https://github.com/0utLawzz/Brandex.git
-cd Brandex
+git clone https://github.com/0utLawzz/Brandex-Database-CMS.git
+cd Brandex-Database-CMS
 pnpm install --frozen-lockfile
 ```
 
