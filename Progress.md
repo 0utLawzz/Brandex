@@ -1,6 +1,6 @@
 # Brandex Datasheet Progress
 
-**Last updated: 11 September 2026 (UI layout pass complete — all remaining files restored)**
+**Last updated: 11 September 2026 (UI layout pass COMPLETE — Search cards + Record View restored and pushed)**
 
 This file is the single source of truth for project status.  
 **Any AI agent or contributor must read this file first** before making changes, suggesting work, or starting a new task.
@@ -54,11 +54,11 @@ This file is the single source of truth for project status.
 - [x] **Audit Logs**: user shown short (not full UUID); old/new values summarized (not full JSON blobs)
 - [x] **api.ts**: `listTrademarkPage` sorts by `filing_date` desc, then `updated_at` desc
 - [x] **RecordModal.tsx**: restored full regrouped form + AGENT CITY + ConflictError handling
+- [x] **Search result cards**: thumbnail, large application name, Class, TM No, Type on right, Case/Client below, large Stage / small Sub-stage
+- [x] **Record View**: image priority, Application Details emphasis, Status + Sub-status, Agent/City prominence, Stage 1–4 payment tick+date boxes under Office Notes, “CEO BRANDEX SIGNATURE/STAMP”
 
 ## Still pending (UI polish)
 
-- [ ] Search result cards: large app name, thumbnail, type on right, stage/substage sizing
-- [ ] Record View layout: image+name priority, payment tick boxes (Stage 1–4 + date), rename signature to “CEO BRANDEX SIGNATURE/STAMP”
 - [ ] Print Record: strict A4 fit aligned with Application View
 - [ ] Full admin CSV import with dry-run (held phase)
 
@@ -102,7 +102,7 @@ This file is the single source of truth for project status.
 
 ## Current active focus
 
-Finish remaining Search / Record View / Print layout polish when directed. Smoke test remains optional unless requested.
+Print Record A4 fit polish when directed. Smoke test remains optional unless requested.
 
 ## 2026-09-11 — Push status (COMPLETE)
 
@@ -110,3 +110,5 @@ Finish remaining Search / Record View / Print layout polish when directed. Smoke
 - [x] DatabasePage.tsx (column order, IMPORT, URL agent/appClass, newest-first footer)
 - [x] api.ts restored — `filing_date` desc + `updated_at` desc + ConflictError
 - [x] RecordModal.tsx restored — regrouped form, AGENT CITY, no Client Name UI, ConflictError + version
+- [x] SearchPage.tsx restored — thumbnail cards, large app name, Type right, stage sizing
+- [x] RecordView.tsx restored — image priority, payment Stage 1–4 boxes, CEO BRANDEX SIGNATURE/STAMP
