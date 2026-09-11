@@ -10,9 +10,10 @@ const PAGE_SIZE = 100;
 
 function shortUser(id: string) {
   if (!id || id === "system") return "system";
+  // Prefer display name already resolved by listAuditLogs; fall back to short form
   if (id.includes("@")) return id.split("@")[0];
-  if (id.length > 12) return id.slice(0, 8) + "…";
-  return id;
+  if (/^[0-9a-f-]{20,}$/i.test(id)) return "admin";
+  return id.length > 24 ? id.slice(0, 20) + "…" : id;
 }
 
 function summarizeValue(raw: string, other?: string): string {
