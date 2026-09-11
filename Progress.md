@@ -1,6 +1,6 @@
 # Brandex Datasheet Progress
 
-**Last updated: 12 September 2026 (Print A4 fit complete; form/journal registry matching design approved)**
+**Last updated: 12 September 2026 (Admin CSV import dry-run + form/journal registry tables pushed)**
 
 This file is the single source of truth for project status.  
 **Any AI agent or contributor must read this file first** before making changes, suggesting work, or starting a new task.
@@ -50,7 +50,7 @@ This file is the single source of truth for project status.
 - [x] **Add Record**: removed Client Name field; regrouped DATE/TYPE/CLIENT CODE/CASE NO → Case Info (Case Type, App Name, Class, TM No) → Stage/Sub-stage → Agent + Agent City → Notes & Image
 - [x] **Dashboard**: Filter by Agent + Class boxes; Recent Activity shows 10 entries
 - [x] **Assigned**: only Stage 2 + Sub-status Assigned
-- [x] **Database**: column order DATE / MODIFIED / TYPE / CLIENT CODE / CASE NO / TM/CPR / CLASS / APPLICATION / STATUS / SUB-STATUS / CLIENT / CITY / TM FORMS / JOURNAL; default sort by filing date newest first; IMPORT button (admin phase placeholder)
+- [x] **Database**: column order DATE / MODIFIED / TYPE / CLIENT CODE / CASE NO / TM/CPR / CLASS / APPLICATION / STATUS / SUB-STATUS / CLIENT / CITY / TM FORMS / JOURNAL; default sort by filing date newest first; IMPORT button (admin)
 - [x] **Audit Logs**: user shown short (not full UUID); old/new values summarized (not full JSON blobs)
 - [x] **api.ts**: `listTrademarkPage` sorts by `filing_date` desc, then `updated_at` desc
 - [x] **RecordModal.tsx**: restored full regrouped form + AGENT CITY + ConflictError handling
@@ -58,15 +58,18 @@ This file is the single source of truth for project status.
 - [x] **Record View**: image priority, Application Details emphasis, Status + Sub-status, Agent/City prominence, Stage 1–4 payment tick+date boxes under Office Notes, “CEO BRANDEX SIGNATURE/STAMP”
 - [x] **Print Record A4**: `id=record-view-body`, `print:hidden` chrome, `print-avoid-break` sections, compact print spacing, print header/footer, richer journal print block
 
-## Still pending
+## Admin CSV import + registry tables (Completed 12 September 2026)
 
-- [ ] Full admin CSV import with dry-run (held phase — can share tooling with form/journal registry import)
-- [ ] **Form + Journal registry matching** (design approved 12 Sep 2026 — implementation next when directed)
-  - Form registry CSV/table: serial, office, tm_number, class, type (tm5|tm6|tm11|tm16|tm56), status, date
-  - Journal registry CSV/table: Journal No, Journal Date, Application No (TM), Class, Applicant, Agent, Date of Filing, Generated Doc
-  - Match key = TM / Application number (normalized digits)
-  - On match: set trademarks.tm5…tm56 booleans (green/grey badges); populate journal_number, journal_date, journal_data
-  - Store registries in Supabase (not live Sheet lookups)
+- [x] Migration `202609120001_form_journal_registry.sql` — `form_registry` + `journal_registry` with RLS (staff read / admin write)
+- [x] `registryImport.ts` — parseFormCsv / parseJournalCsv, normalizeTmNumber, dryRun + commit (dedupe by TM+type+date)
+- [x] `RegistryImportModal.tsx` — kind toggle (Form / Journal), Choose CSV → Dry-run preview → Commit inserts
+- [x] Database page IMPORT button: admin-only opens modal; non-admin sees disabled/alert
+
+**Still needed for full matching pipeline**
+
+- [ ] Apply migration on Supabase production
+- [ ] Match engine: on import/save, set trademarks.tm5…tm56 from form_registry; populate journal_number / journal_date / journal_data from journal_registry
+- [ ] Green/grey TM form badges driven by registry match (already UI-ready via tmMatches)
 
 ## Required release checks
 
@@ -92,8 +95,7 @@ This file is the single source of truth for project status.
 
 ## Held for a separately approved phase
 
-- [ ] Validated admin-only CSV import with dry run
-- [ ] Related form sheets and journal workspace (registry tables + match on save)
+- [ ] Registry → trademark match-on-save / batch apply
 - [ ] Agent assignment timeline and workflow flags
 - [ ] Public trademark search endpoint
 
@@ -108,8 +110,12 @@ This file is the single source of truth for project status.
 
 ## Current active focus
 
-Form + Journal registry matching implementation when directed. Admin CSV import can share the same import pipeline. Smoke test remains optional unless requested.
+1. Run migration `202609120001_form_journal_registry.sql` on Supabase.
+2. Admin dry-run + commit CSV into form_registry / journal_registry from Database → IMPORT.
+3. Next: match engine to light TM flags + journal_data on trademarks.
 
-## 2026-09-12 — Print A4
+## 2026-09-12 — Admin CSV import (dry-run)
 
-- [x] RecordView.tsx: print-ready A4 layout (commit ad1ec2dc)
+- [x] form_registry + journal_registry tables + RLS
+- [x] registryImport.ts (parse / dry-run / commit)
+- [x] RegistryImportModal + Database IMPORT (admin)
