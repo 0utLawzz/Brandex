@@ -1,6 +1,6 @@
 # Brandex Datasheet Progress
 
-**Last updated: 11 September 2026 (UI layout pass COMPLETE — Search cards + Record View restored and pushed)**
+**Last updated: 12 September 2026 (Print A4 fit complete; form/journal registry matching design approved)**
 
 This file is the single source of truth for project status.  
 **Any AI agent or contributor must read this file first** before making changes, suggesting work, or starting a new task.
@@ -45,7 +45,7 @@ This file is the single source of truth for project status.
 - [x] Optimistic concurrency: `version` column + `ConflictError` in `updateTrademark`
 - [x] RecordModal passes `expectedVersion` and surfaces conflict toast to the editor
 
-## UI layout pass (Completed 11 September 2026)
+## UI layout pass (Completed 11–12 September 2026)
 
 - [x] **Add Record**: removed Client Name field; regrouped DATE/TYPE/CLIENT CODE/CASE NO → Case Info (Case Type, App Name, Class, TM No) → Stage/Sub-stage → Agent + Agent City → Notes & Image
 - [x] **Dashboard**: Filter by Agent + Class boxes; Recent Activity shows 10 entries
@@ -56,11 +56,17 @@ This file is the single source of truth for project status.
 - [x] **RecordModal.tsx**: restored full regrouped form + AGENT CITY + ConflictError handling
 - [x] **Search result cards**: thumbnail, large application name, Class, TM No, Type on right, Case/Client below, large Stage / small Sub-stage
 - [x] **Record View**: image priority, Application Details emphasis, Status + Sub-status, Agent/City prominence, Stage 1–4 payment tick+date boxes under Office Notes, “CEO BRANDEX SIGNATURE/STAMP”
+- [x] **Print Record A4**: `id=record-view-body`, `print:hidden` chrome, `print-avoid-break` sections, compact print spacing, print header/footer, richer journal print block
 
-## Still pending (UI polish)
+## Still pending
 
-- [ ] Print Record: strict A4 fit aligned with Application View
-- [ ] Full admin CSV import with dry-run (held phase)
+- [ ] Full admin CSV import with dry-run (held phase — can share tooling with form/journal registry import)
+- [ ] **Form + Journal registry matching** (design approved 12 Sep 2026 — implementation next when directed)
+  - Form registry CSV/table: serial, office, tm_number, class, type (tm5|tm6|tm11|tm16|tm56), status, date
+  - Journal registry CSV/table: Journal No, Journal Date, Application No (TM), Class, Applicant, Agent, Date of Filing, Generated Doc
+  - Match key = TM / Application number (normalized digits)
+  - On match: set trademarks.tm5…tm56 booleans (green/grey badges); populate journal_number, journal_date, journal_data
+  - Store registries in Supabase (not live Sheet lookups)
 
 ## Required release checks
 
@@ -87,7 +93,7 @@ This file is the single source of truth for project status.
 ## Held for a separately approved phase
 
 - [ ] Validated admin-only CSV import with dry run
-- [ ] Related form sheets and journal workspace
+- [ ] Related form sheets and journal workspace (registry tables + match on save)
 - [ ] Agent assignment timeline and workflow flags
 - [ ] Public trademark search endpoint
 
@@ -102,13 +108,8 @@ This file is the single source of truth for project status.
 
 ## Current active focus
 
-Print Record A4 fit polish when directed. Smoke test remains optional unless requested.
+Form + Journal registry matching implementation when directed. Admin CSV import can share the same import pipeline. Smoke test remains optional unless requested.
 
-## 2026-09-11 — Push status (COMPLETE)
+## 2026-09-12 — Print A4
 
-- [x] Dashboard.tsx (agent/class filters, Recent Activity 10, shortUser)
-- [x] DatabasePage.tsx (column order, IMPORT, URL agent/appClass, newest-first footer)
-- [x] api.ts restored — `filing_date` desc + `updated_at` desc + ConflictError
-- [x] RecordModal.tsx restored — regrouped form, AGENT CITY, no Client Name UI, ConflictError + version
-- [x] SearchPage.tsx restored — thumbnail cards, large app name, Type right, stage sizing
-- [x] RecordView.tsx restored — image priority, payment Stage 1–4 boxes, CEO BRANDEX SIGNATURE/STAMP
+- [x] RecordView.tsx: print-ready A4 layout (commit ad1ec2dc)
