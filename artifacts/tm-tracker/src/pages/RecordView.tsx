@@ -2,11 +2,11 @@ import { getRecord } from "@/lib/api";
 import type { TrademarkRecord, TmMatches, JournalRecord } from "@/lib/api";
 import { AppShell } from "@/components/layout/AppShell";
 import { formatDateShort, formatDate } from "@/lib/utils";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useParams, useLocation } from "wouter";
 import {
   ArrowLeft, Edit2, Printer, CheckCircle2, MinusCircle,
-  Image as ImageIcon, FileText, User, MapPin, Building2,
+  Image as ImageIcon, FileText, User, MapPin,
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { RecordModal } from "@/components/RecordModal";
@@ -64,12 +64,6 @@ export function RecordView() {
     enabled: Boolean(params.id),
   });
 
-  useEffect(() => {
-    if (record) {
-      // Could hydrate from notes or structured fields later
-    }
-  }, [record]);
-
   const handleEditSaved = () => {
     setEditOpen(false);
     queryClient.invalidateQueries({ queryKey: ["trademark", params.id] });
@@ -125,8 +119,8 @@ export function RecordView() {
   return (
     <AppShell>
       <div className="flex flex-col h-full bg-[#F0E8D0]">
-        {/* Top bar */}
-        <div className="shrink-0 px-4 py-3 bg-[#E8DFC7] border-b-2 border-[#0C0C0C] flex items-center gap-3 flex-wrap">
+        {/* Top bar — hidden on print */}
+        <div className="shrink-0 px-4 py-3 bg-[#E8DFC7] border-b-2 border-[#0C0C0C] flex items-center gap-3 flex-wrap print:hidden">
           <button
             onClick={() => window.history.back()}
             className="flex items-center gap-1.5 px-3 py-1.5 border-2 border-[#0C0C0C] bg-white font-mono text-xs font-bold uppercase hover:bg-[#0C0C0C] hover:text-white transition-colors"
@@ -152,18 +146,31 @@ export function RecordView() {
               onClick={() => window.print()}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-white border-2 border-[#0C0C0C] font-mono text-xs font-bold uppercase hover:bg-[#0C0C0C] hover:text-white"
             >
-              <Printer className="w-3.5 h-3.5" /> PRINT
+              <Printer className="w-3.5 h-3.5" /> PRINT A4
             </button>
           </div>
         </div>
 
-        {/* Scrollable body */}
-        <div className="flex-1 overflow-auto p-4 sm:p-6">
-          <div className="max-w-4xl mx-auto space-y-4">
+        {/* Scrollable / printable body */}
+        <div
+          id="record-view-body"
+          className="flex-1 overflow-auto p-4 sm:p-6 print:p-0 print:overflow-visible print:bg-white"
+        >
+          <div className="max-w-4xl mx-auto space-y-4 print:max-w-none print:space-y-2.5">
 
-            {/* Image + Name priority block */}
-            <div className="border-2 border-[#0C0C0C] bg-white shadow-[4px_4px_0_#0C0C0C] p-4 flex gap-4 items-start">
-              <div className="w-28 h-28 sm:w-36 sm:h-36 shrink-0 border-2 border-[#0C0C0C] bg-[#F0E8D0] flex items-center justify-center overflow-hidden">
+            {/* Print-only header */}
+            <div className="hidden print:block border-b-2 border-[#1E3E62] pb-2 mb-1">
+              <div className="font-serif text-xl uppercase tracking-widest text-[#0A1931] font-bold">
+                Brandex Law Associates — Trademark Record
+              </div>
+              <div className="font-mono text-[9px] text-[#3A506B] mt-0.5">
+                {record.caseNumber} · {record.clientCode} · {record.type} · Printed {new Date().toLocaleDateString()}
+              </div>
+            </div>
+
+            {/* Image + Name priority */}
+            <div className="print-avoid-break border-2 border-[#0C0C0C] bg-white shadow-[4px_4px_0_#0C0C0C] p-4 print:p-2 print:shadow-none flex gap-4 items-start">
+              <div className="w-28 h-28 sm:w-36 sm:h-36 print:w-[90px] print:h-[90px] shrink-0 border-2 border-[#0C0C0C] bg-[#F0E8D0] flex items-center justify-center overflow-hidden">
                 {record.image ? (
                   <img
                     src={record.image}
@@ -171,16 +178,16 @@ export function RecordView() {
                     className="w-full h-full object-contain"
                   />
                 ) : (
-                  <ImageIcon className="w-10 h-10 text-[#9d9488]" />
+                  <ImageIcon className="w-10 h-10 text-[#9d9488] print:w-6 print:h-6" />
                 )}
               </div>
-              <div className="flex-1 min-w-0 space-y-2">
-                <div className="font-serif text-2xl sm:text-3xl uppercase tracking-wide text-[#0A1931] font-bold leading-tight">
+              <div className="flex-1 min-w-0 space-y-2 print:space-y-1">
+                <div className="font-serif text-2xl sm:text-3xl print:text-xl uppercase tracking-wide text-[#0A1931] font-bold leading-tight">
                   {record.appName || "—"}
                 </div>
                 <div className="flex flex-wrap gap-2 items-center">
                   {record.stage && (
-                    <span className={`px-3 py-1 font-mono text-sm font-bold uppercase border-2 border-[#0C0C0C] ${STAGE_BADGE[record.stage] ?? "bg-[#E8DFC7]"}`}>
+                    <span className={`px-3 py-1 print:px-2 print:py-0.5 font-mono text-sm print:text-[10px] font-bold uppercase border-2 border-[#0C0C0C] ${STAGE_BADGE[record.stage] ?? "bg-[#E8DFC7]"}`}>
                       {record.stage}
                     </span>
                   )}
@@ -189,9 +196,9 @@ export function RecordView() {
                       {record.subStage}
                     </span>
                   )}
-                  <span className="font-serif text-2xl font-bold text-[#6C1C1F]">{record.type || "—"}</span>
+                  <span className="font-serif text-2xl print:text-lg font-bold text-[#6C1C1F]">{record.type || "—"}</span>
                 </div>
-                <div className="font-mono text-xs text-[#6d6658] flex flex-wrap gap-x-4 gap-y-1">
+                <div className="font-mono text-xs print:text-[10px] text-[#6d6658] flex flex-wrap gap-x-4 gap-y-1">
                   <span>TM: <strong className="text-[#0C0C0C]">{record.tmCprNo || "—"}</strong></span>
                   <span>CLASS: <strong className="text-[#0C0C0C]">{record.appClass || "—"}</strong></span>
                   <span>CASE: <strong className="text-[#0A6B52]">{record.caseNumber || "—"}</strong></span>
@@ -199,12 +206,12 @@ export function RecordView() {
               </div>
             </div>
 
-            {/* Application Details — larger / different color */}
-            <div className="border-2 border-[#0A1931] bg-[#0A1931] text-[#F0E8D0] shadow-[4px_4px_0_#0C0C0C] p-4">
-              <div className="text-[9px] font-bold uppercase tracking-widest text-[#C5B89A] mb-3">
+            {/* Application Details */}
+            <div className="print-avoid-break border-2 border-[#0A1931] bg-[#0A1931] text-[#F0E8D0] shadow-[4px_4px_0_#0C0C0C] p-4 print:p-2 print:shadow-none">
+              <div className="text-[9px] font-bold uppercase tracking-widest text-[#C5B89A] mb-3 print:mb-1.5">
                 Application Details
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 print:gap-2">
                 <Field label="Client Code" value={record.clientCode} />
                 <Field label="Case Number" value={record.caseNumber} />
                 <Field label="Filing Date" value={record.date ? formatDateShort(record.date) : undefined} />
@@ -215,28 +222,28 @@ export function RecordView() {
               </div>
             </div>
 
-            {/* Status & Sub-status duplicate emphasis */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="border-2 border-[#0C0C0C] bg-white p-3 shadow-[3px_3px_0_#0C0C0C]">
+            {/* Status & Sub-status */}
+            <div className="print-avoid-break grid grid-cols-1 sm:grid-cols-2 gap-3 print:gap-2">
+              <div className="border-2 border-[#0C0C0C] bg-white p-3 print:p-2 shadow-[3px_3px_0_#0C0C0C] print:shadow-none">
                 <div className="text-[8px] font-bold uppercase tracking-widest text-[#3A506B] mb-1">Status</div>
-                <div className={`inline-block px-3 py-1.5 font-mono text-base font-bold uppercase border-2 border-[#0C0C0C] ${STAGE_BADGE[record.stage] ?? "bg-[#E8DFC7]"}`}>
+                <div className={`inline-block px-3 py-1.5 print:px-2 print:py-0.5 font-mono text-base print:text-sm font-bold uppercase border-2 border-[#0C0C0C] ${STAGE_BADGE[record.stage] ?? "bg-[#E8DFC7]"}`}>
                   {record.stage || "—"}
                 </div>
               </div>
-              <div className="border-2 border-[#0C0C0C] bg-white p-3 shadow-[3px_3px_0_#0C0C0C]">
+              <div className="border-2 border-[#0C0C0C] bg-white p-3 print:p-2 shadow-[3px_3px_0_#0C0C0C] print:shadow-none">
                 <div className="text-[8px] font-bold uppercase tracking-widest text-[#3A506B] mb-1">Sub-Status</div>
-                <div className="font-mono text-base font-bold text-[#0A1931]">
+                <div className="font-mono text-base print:text-sm font-bold text-[#0A1931]">
                   {record.subStage || "—"}
                 </div>
               </div>
             </div>
 
-            {/* Agent detail — important */}
-            <div className="border-2 border-[#0C0C0C] bg-white p-4 shadow-[3px_3px_0_#0C0C0C]">
+            {/* Agent detail */}
+            <div className="print-avoid-break border-2 border-[#0C0C0C] bg-white p-4 print:p-2 shadow-[3px_3px_0_#0C0C0C] print:shadow-none">
               <div className="text-[8px] font-bold uppercase tracking-widest text-[#3A506B] mb-2 flex items-center gap-1.5">
                 <User className="w-3 h-3" /> Agent Detail
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 print:gap-2">
                 <div>
                   <div className="text-[8px] font-bold uppercase tracking-widest text-[#6d6658]">Agent</div>
                   <div className="font-mono text-sm font-bold text-[#0A1931]">{record.agent || "—"}</div>
@@ -250,8 +257,8 @@ export function RecordView() {
               </div>
             </div>
 
-            {/* TM Forms */}
-            <div className="border-2 border-[#0C0C0C] bg-white p-4 shadow-[3px_3px_0_#0C0C0C]">
+            {/* TM Forms — green when matched, grey when not */}
+            <div className="print-avoid-break border-2 border-[#0C0C0C] bg-white p-4 print:p-2 shadow-[3px_3px_0_#0C0C0C] print:shadow-none">
               <div className="text-[8px] font-bold uppercase tracking-widest text-[#3A506B] mb-2">Document Status</div>
               <div className="flex flex-wrap gap-1.5">
                 <TmFormBadge label="TM5" active={matches.TM5} />
@@ -262,19 +269,19 @@ export function RecordView() {
               </div>
             </div>
 
-            {/* Stage payment ticks — Stage 1–4 */}
-            <div className="border-2 border-[#0C0C0C] bg-white p-4 shadow-[3px_3px_0_#0C0C0C]">
+            {/* Stage payment ticks */}
+            <div className="print-avoid-break border-2 border-[#0C0C0C] bg-white p-4 print:p-2 shadow-[3px_3px_0_#0C0C0C] print:shadow-none">
               <div className="text-[8px] font-bold uppercase tracking-widest text-[#3A506B] mb-2">
                 Stage Payments
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 print:gap-2">
                 {(["STAGE 1", "STAGE 2", "STAGE 3", "STAGE 4"] as const).map((stage) => (
                   <div
                     key={stage}
-                    className={`border-2 p-3 ${payments[stage].paid ? "border-[#0A6B52] bg-[#0D9970]/10" : "border-[#0C0C0C]/30 bg-[#F0E8D0]"}`}
+                    className={`border-2 p-3 print:p-1.5 ${payments[stage].paid ? "border-[#0A6B52] bg-[#0D9970]/10" : "border-[#0C0C0C]/30 bg-[#F0E8D0]"}`}
                   >
-                    <div className="font-mono text-[10px] font-bold uppercase mb-2">{stage}</div>
-                    <label className="flex items-center gap-2 cursor-pointer mb-2">
+                    <div className="font-mono text-[10px] font-bold uppercase mb-2 print:mb-1">{stage}</div>
+                    <label className="flex items-center gap-2 cursor-pointer mb-2 print:mb-1">
                       <input
                         type="checkbox"
                         checked={payments[stage].paid}
@@ -290,7 +297,7 @@ export function RecordView() {
                       value={payments[stage].date}
                       onChange={(e) => setPaymentDate(stage, e.target.value)}
                       disabled={!payments[stage].paid}
-                      className="w-full h-8 px-2 border border-[#0C0C0C]/40 font-mono text-xs bg-white disabled:opacity-40"
+                      className="w-full h-8 print:h-6 px-2 border border-[#0C0C0C]/40 font-mono text-xs bg-white disabled:opacity-40"
                     />
                   </div>
                 ))}
@@ -298,60 +305,79 @@ export function RecordView() {
             </div>
 
             {/* Office Notes */}
-            <div className="border-2 border-[#0C0C0C] bg-white p-4 shadow-[3px_3px_0_#0C0C0C]">
+            <div className="print-avoid-break border-2 border-[#0C0C0C] bg-white p-4 print:p-2 shadow-[3px_3px_0_#0C0C0C] print:shadow-none">
               <div className="text-[8px] font-bold uppercase tracking-widest text-[#3A506B] mb-2 flex items-center gap-1.5">
                 <FileText className="w-3 h-3" /> Office Notes & Manual Proceeding Remarks
               </div>
-              <div className="font-mono text-sm text-[#0A1931] whitespace-pre-wrap min-h-[60px]">
+              <div className="font-mono text-sm print:text-xs text-[#0A1931] whitespace-pre-wrap min-h-[40px]">
                 {record.notes || "—"}
               </div>
             </div>
 
+            {/* Journal */}
+            {record.journal && (
+              <div className="print-avoid-break border-2 border-[#0A6B52] bg-[#0D9970]/5 p-4 print:p-2">
+                <div className="text-[8px] font-bold uppercase tracking-widest text-[#0A6B52] mb-2">Journal Record</div>
+                <div className="font-mono text-xs print:text-[10px] space-y-1 text-[#0A1931]">
+                  <div>Journal No: <strong>{String(record.journal["Journal No"] || "")}</strong></div>
+                  <div>Date: <strong>{record.journal["Journal Date"] ? formatDateShort(String(record.journal["Journal Date"])) : ""}</strong></div>
+                  {record.journal["Application No"] && (
+                    <div>Application No: <strong>{String(record.journal["Application No"])}</strong></div>
+                  )}
+                  {record.journal.Title && (
+                    <div>Title: <strong>{String(record.journal.Title)}</strong></div>
+                  )}
+                  {record.journal.Class && (
+                    <div>Class: <strong>{String(record.journal.Class)}</strong></div>
+                  )}
+                  {record.journal["Applicant Name and Address"] && (
+                    <div className="pt-1">
+                      <div className="text-[8px] uppercase tracking-widest text-[#3A506B]">Applicant</div>
+                      <div className="whitespace-pre-wrap leading-tight">{String(record.journal["Applicant Name and Address"])}</div>
+                    </div>
+                  )}
+                  {record.journal["Agent Name and Address"] && (
+                    <div className="pt-1">
+                      <div className="text-[8px] uppercase tracking-widest text-[#3A506B]">Agent</div>
+                      <div className="whitespace-pre-wrap leading-tight">{String(record.journal["Agent Name and Address"])}</div>
+                    </div>
+                  )}
+                  {record.journal["Date of Filing"] && (
+                    <div>Date of Filing: <strong>{formatDateShort(String(record.journal["Date of Filing"]))}</strong></div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Signature block */}
-            <div className="border-2 border-[#0C0C0C] bg-white p-4 shadow-[3px_3px_0_#0C0C0C]">
-              <div className="text-[8px] font-bold uppercase tracking-widest text-[#3A506B] mb-3">
+            <div className="print-avoid-break border-2 border-[#0C0C0C] bg-white p-4 print:p-2 shadow-[3px_3px_0_#0C0C0C] print:shadow-none">
+              <div className="text-[8px] font-bold uppercase tracking-widest text-[#3A506B] mb-3 print:mb-2">
                 3. CEO BRANDEX SIGNATURE/STAMP
               </div>
               <div className="flex flex-col sm:flex-row gap-6 items-end">
-                <div className="flex-1 border-b-2 border-[#0C0C0C] h-16" />
+                <div className="flex-1 border-b-2 border-[#0C0C0C] h-16 print:h-12" />
                 <div className="font-mono text-[10px] text-[#6d6658] uppercase tracking-wider">
                   Date: _______________
                 </div>
               </div>
             </div>
 
-            {/* Journal if present */}
-            {record.journal && (
-              <div className="border-2 border-[#0A6B52] bg-[#0D9970]/5 p-4">
-                <div className="text-[8px] font-bold uppercase tracking-widest text-[#0A6B52] mb-2">Journal Record</div>
-                <div className="font-mono text-xs space-y-1">
-                  <div>Journal No: <strong>{String(record.journal["Journal No"] || "")}</strong></div>
-                  <div>Date: <strong>{record.journal["Journal Date"] ? formatDateShort(String(record.journal["Journal Date"])) : ""}</strong></div>
-                </div>
-              </div>
-            )}
-
-            {/* Last modified */}
-            <div className="font-mono text-[10px] text-[#6d6658] text-right">
+            {/* Last modified — screen only */}
+            <div className="font-mono text-[10px] text-[#6d6658] text-right print:hidden">
               Last modified: {record.updatedAt ? formatDate(record.updatedAt) : "—"}
+            </div>
+
+            {/* Print footer */}
+            <div className="hidden print:block border-t border-[#1E3E62]/30 pt-1.5 mt-2 text-[#3A506B] font-mono text-[8px]">
+              Brandex Law Associates · Confidential · Page 1
             </div>
           </div>
         </div>
       </div>
 
-      {/* Print stylesheet target — simplified A4 layout */}
-      <style>{`
-        @media print {
-          body * { visibility: hidden; }
-          .print-area, .print-area * { visibility: visible; }
-          .print-area { position: absolute; left: 0; top: 0; width: 100%; }
-          @page { size: A4; margin: 12mm; }
-        }
-      `}</style>
-
       {editOpen && (
         <RecordModal
-          record={record}
+          recordId={record.id}
           onClose={() => setEditOpen(false)}
           onSaved={handleEditSaved}
         />
