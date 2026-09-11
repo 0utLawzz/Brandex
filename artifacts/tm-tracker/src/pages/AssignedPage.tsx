@@ -1,4 +1,4 @@
-import { listAgents, listTrademarkPage, STAGES, CITIES } from "@/lib/api";
+import { listAgents, listTrademarkPage, CITIES } from "@/lib/api";
 import type { TrademarkPage } from "@/lib/api";
 import { AppShell } from "@/components/layout/AppShell";
 import { formatDateShort } from "@/lib/utils";
@@ -18,13 +18,12 @@ const STAGE_BADGE: Record<string, string> = {
 };
 
 interface Filters {
-  agent:    string;
-  city:     string;
-  stage:    string;
+  agent: string;
+  city: string;
   appClass: string;
 }
 
-const EMPTY: Filters = { agent: "", city: "", stage: "", appClass: "" };
+const EMPTY: Filters = { agent: "", city: "", appClass: "" };
 
 function FilterSelect({
   label,
@@ -59,14 +58,16 @@ export function AssignedPage() {
   const [filters, setFilters] = useState<Filters>(EMPTY);
   const [page, setPage] = useState(1);
 
+  // Assigned page only shows STAGE 2 + Sub-status Assigned
   const { data, isLoading } = useQuery<TrademarkPage>({
     queryKey: ["assigned-page", page, filters],
-    queryFn:  () => listTrademarkPage({
+    queryFn: () => listTrademarkPage({
       page,
       pageSize: PAGE_SIZE,
+      stage: "STAGE 2",
+      subStage: "Assigned",
       agent: filters.agent || undefined,
       city: filters.city || undefined,
-      stage: filters.stage || undefined,
       appClass: filters.appClass || undefined,
     }),
     placeholderData: keepPreviousData,
@@ -88,36 +89,21 @@ export function AssignedPage() {
   return (
     <AppShell>
       <div className="flex flex-col h-full bg-white">
-        {/* Toolbar */}
         <div className="shrink-0 px-6 py-4 bg-[#E8DFC7] border-b-2 border-[#0C0C0C]">
           <div className="flex items-center gap-3 mb-4">
             <Users2 className="w-5 h-5 text-[#0A6B52]" />
             <h1 className="font-serif text-2xl uppercase tracking-widest text-[#0C0C0C] leading-none">ASSIGNED</h1>
+            <span className="ml-2 font-mono text-[10px] text-[#6d6658] uppercase tracking-widest">
+              STAGE 2 · SUB-STATUS: ASSIGNED
+            </span>
             <span className="ml-auto font-mono text-[10px] text-[#6d6658] font-bold uppercase tracking-widest">
               {isLoading ? "LOADING…" : `${total} RECORDS`}
             </span>
           </div>
 
-          {/* Filter Bar */}
           <div className="flex flex-wrap items-end gap-3">
-            <FilterSelect
-              label="AGENT"
-              value={filters.agent}
-              options={agents}
-              onChange={(v) => setFilter("agent", v)}
-            />
-            <FilterSelect
-              label="CITY"
-              value={filters.city}
-              options={CITIES}
-              onChange={(v) => setFilter("city", v)}
-            />
-            <FilterSelect
-              label="STATUS"
-              value={filters.stage}
-              options={STAGES}
-              onChange={(v) => setFilter("stage", v)}
-            />
+            <FilterSelect label="AGENT" value={filters.agent} options={agents} onChange={(v) => setFilter("agent", v)} />
+            <FilterSelect label="CITY" value={filters.city} options={CITIES} onChange={(v) => setFilter("city", v)} />
             <FilterSelect
               label="CLASS"
               value={filters.appClass}
@@ -135,7 +121,6 @@ export function AssignedPage() {
           </div>
         </div>
 
-        {/* Table */}
         <div className="flex-1 overflow-auto bg-white">
           <table className="w-full text-left font-mono text-xs whitespace-nowrap border-collapse">
             <thead className="bg-[#0C0C0C] text-[#F0E8D0] sticky top-0 z-10">
@@ -151,20 +136,18 @@ export function AssignedPage() {
               {isLoading ? (
                 <tr>
                   <td colSpan={10} className="px-6 py-12 text-center font-bold text-[#6d6658] animate-pulse">
-                    LOADING OPTIMIZED RECORD PAGE…
+                    LOADING ASSIGNED RECORDS…
                   </td>
                 </tr>
               ) : paged.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="px-6 py-16 text-center">
                     <div className="font-mono font-bold text-[#6d6658] uppercase tracking-widest mb-1">
-                      No records found.
+                      No assigned records found.
                     </div>
-                    {hasFilters && (
-                      <div className="font-mono text-xs text-[#9d9488]">
-                        Try changing your filters.
-                      </div>
-                    )}
+                    <div className="font-mono text-xs text-[#9d9488]">
+                      Only Stage 2 with Sub-status Assigned are listed here.
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -218,7 +201,6 @@ export function AssignedPage() {
           </table>
         </div>
 
-        {/* Pagination */}
         {totalPages > 1 && (
           <div className="shrink-0 flex items-center justify-between px-6 py-3 bg-[#E8DFC7] border-t-2 border-[#0C0C0C]">
             <span className="font-mono text-[10px] text-[#6d6658] font-bold uppercase tracking-widest">
