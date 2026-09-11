@@ -538,6 +538,15 @@ export function RecordModal({ recordId, isNew: forceNew, onClose, onSaved }: Rec
                           <Eye className="w-4 h-4" /> PREVIEW
                         </button>
                       )}
+                      {watchImage && (
+                        <button
+                          type="button"
+                          onClick={() => { form.setValue("image", ""); setImagePreview(""); }}
+                          className="inline-flex items-center gap-2 h-10 px-3 border-2 border-[#CC0000] text-[#CC0000] font-mono text-xs font-bold uppercase tracking-widest hover:bg-[#CC0000] hover:text-white"
+                        >
+                          CLEAR
+                        </button>
+                      )}
                     </div>
                     {(imagePreview || watchImage) && (
                       <div className="mt-3 flex items-start gap-3">
@@ -545,7 +554,8 @@ export function RecordModal({ recordId, isNew: forceNew, onClose, onSaved }: Rec
                           <img
                             src={imagePreview}
                             alt="Preview"
-                            className="w-24 h-24 object-contain border-2 border-[#0C0C0C] bg-white"
+                            className="w-24 h-24 object-contain border-2 border-[#0C0C0C] bg-white cursor-pointer"
+                            onClick={() => setPreviewModalOpen(true)}
                             onError={(e) => {
                               (e.target as HTMLImageElement).style.display = "none";
                             }}
@@ -555,7 +565,7 @@ export function RecordModal({ recordId, isNew: forceNew, onClose, onSaved }: Rec
                             <ImageIcon className="w-8 h-8 text-[#6d6658]" />
                           </div>
                         )}
-                        <div className="font-mono text-[10px] text-[#6d6658] break-all">
+                        <div className="font-mono text-[10px] text-[#6d6658] break-all pt-1">
                           {watchImage}
                         </div>
                       </div>
@@ -606,6 +616,29 @@ export function RecordModal({ recordId, isNew: forceNew, onClose, onSaved }: Rec
               </div>
             </div>
           </form>
+        )}
+
+        {/* Enlarged Image Preview Modal */}
+        {previewModalOpen && (imagePreview || watchImage) && (
+          <div
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4"
+            onClick={() => setPreviewModalOpen(false)}
+          >
+            <div className="relative max-w-3xl max-h-full" onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                onClick={() => setPreviewModalOpen(false)}
+                className="absolute -top-3 -right-3 z-10 w-8 h-8 bg-[#0C0C0C] text-white rounded-full flex items-center justify-center"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <img
+                src={imagePreview || watchImage}
+                alt="Enlarged preview"
+                className="max-w-full max-h-[85vh] object-contain border-4 border-[#0C0C0C] bg-white"
+              />
+            </div>
+          </div>
         )}
       </div>
     </div>
