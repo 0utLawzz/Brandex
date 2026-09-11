@@ -1,6 +1,6 @@
 # Brandex Datasheet Progress
 
-**Last updated: 11 September 2026 (UI layout pass — Add Record groups, Dashboard filters, Assigned scope, Logs compact, Database columns + date sort)**
+**Last updated: 11 September 2026 (UI layout pass complete — all remaining files restored)**
 
 This file is the single source of truth for project status.  
 **Any AI agent or contributor must read this file first** before making changes, suggesting work, or starting a new task.
@@ -52,6 +52,8 @@ This file is the single source of truth for project status.
 - [x] **Assigned**: only Stage 2 + Sub-status Assigned
 - [x] **Database**: column order DATE / MODIFIED / TYPE / CLIENT CODE / CASE NO / TM/CPR / CLASS / APPLICATION / STATUS / SUB-STATUS / CLIENT / CITY / TM FORMS / JOURNAL; default sort by filing date newest first; IMPORT button (admin phase placeholder)
 - [x] **Audit Logs**: user shown short (not full UUID); old/new values summarized (not full JSON blobs)
+- [x] **api.ts**: `listTrademarkPage` sorts by `filing_date` desc, then `updated_at` desc
+- [x] **RecordModal.tsx**: restored full regrouped form + AGENT CITY + ConflictError handling
 
 ## Still pending (UI polish)
 
@@ -102,9 +104,9 @@ This file is the single source of truth for project status.
 
 Finish remaining Search / Record View / Print layout polish when directed. Smoke test remains optional unless requested.
 
-## 2026-09-11 — Push status
+## 2026-09-11 — Push status (COMPLETE)
 
-- [x] Dashboard.tsx pushed (agent/class filters, Recent Activity 10, shortUser)
-- [x] DatabasePage.tsx pushed (column order, IMPORT, URL agent/appClass, newest-first footer)
-- [ ] api.ts — local ready with `filing_date` desc sort; remote still PLACEHOLDER from multi-file push mishap — **restore required**
-- [ ] RecordModal.tsx — local ready with regrouped form + AGENT CITY; remote still PLACEHOLDER — **restore required**
+- [x] Dashboard.tsx (agent/class filters, Recent Activity 10, shortUser)
+- [x] DatabasePage.tsx (column order, IMPORT, URL agent/appClass, newest-first footer)
+- [x] api.ts restored — `filing_date` desc + `updated_at` desc + ConflictError
+- [x] RecordModal.tsx restored — regrouped form, AGENT CITY, no Client Name UI, ConflictError + version
