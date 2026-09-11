@@ -5,10 +5,12 @@ import {
 import type { TrademarkListParams, TrademarkPage, TrademarkRecord, TmFormKey } from "@/lib/api";
 import { AppShell } from "@/components/layout/AppShell";
 import { RecordModal } from "@/components/RecordModal";
+import { RegistryImportModal } from "@/components/RegistryImportModal";
 import { formatDateShort } from "@/lib/utils";
+import { getStaffRole } from "@/lib/registryImport";
 import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
-import { ChevronLeft, ChevronRight, Database as DatabaseIcon, Download, Filter, Plus, Search, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Database as DatabaseIcon, Download, Filter, Plus, Search, Upload, X } from "lucide-react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 
 const PAGE_SIZE = 50;
@@ -63,8 +65,15 @@ export function DatabasePage() {
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [exporting, setExporting] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [staffRole, setStaffRole] = useState<"viewer" | "editor" | "admin" | null>(null);
 
   useEffect(() => { const timer = window.setTimeout(() => setDebouncedSearch(filters.search.trim()), 300); return () => window.clearTimeout(timer); }, [filters.search]);
+  useEffect(() => {
+    let cancelled = false;
+    getStaffRole().then((role) => { if (!cancelled) setStaffRole(role); }).catch(() => { if (!cancelled) setStaffRole(null); });
+    return () => { cancelled = true; };
+  }, []);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("new") === "1") setModalOpen(true);
@@ -118,7 +127,11 @@ export function DatabasePage() {
           </div>
           <button onClick={() => setShowFilters((value) => !value)} className={`flex items-center gap-2 px-3 h-10 border-2 border-[#0C0C0C] font-mono font-bold text-xs uppercase tracking-wider ${showFilters || hasFilters ? "bg-[#0C0C0C] text-[#F0E8D0]" : "bg-white"}`}><Filter className="w-4 h-4" /> FILTERS{hasFilters ? " ●" : ""}</button>
           <button onClick={handleExport} disabled={exporting || total === 0} className="flex items-center gap-2 px-3 h-10 bg-white border-2 border-[#6C1C1F] text-[#6C1C1F] font-mono font-bold text-xs uppercase tracking-wider disabled:opacity-40"><Download className="w-4 h-4" /> {exporting ? "EXPORTING…" : "EXPORT"}</button>
-          <button onClick={() => alert("CSV Import is admin-only and will be enabled in the next approved phase. Contact the project owner.")} className="flex items-center gap-2 px-3 h-10 bg-white border-2 border-[#0A6B52] text-[#0A6B52] font-mono font-bold text-xs uppercase tracking-wider">IMPORT</button>
+          {staffRole === "admin" ? (
+            <button onClick={() => setImportOpen(true)} className="flex items-center gap-2 px-3 h-10 bg-white border-2 border-[#0A6B52] text-[#0A6B52] font-mono font-bold text-xs uppercase tracking-wider hover:bg-[#0A6B52] hover:text-white"><Upload className="w-4 h-4" /> IMPORT</button>
+          ) : (
+            <button onClick={() => alert("CSV Import is admin-only.")} className="flex items-center gap-2 px-3 h-10 bg-white border-2 border-[#0A6B52] text-[#0A6B52] font-mono font-bold text-xs uppercase tracking-wider opacity-60" title="Admin only">IMPORT</button>
+          )}
           <button onClick={() => setModalOpen(true)} className="flex items-center gap-2 px-4 h-10 bg-[#6C1C1F] text-white border-2 border-[#6C1C1F] font-mono font-bold text-xs uppercase tracking-wider hover:brightness-110"><Plus className="w-4 h-4" /> ADD RECORD</button>
         </div>
 
@@ -174,6 +187,14 @@ export function DatabasePage() {
         </div>
       </div>
       {modalOpen && <RecordModal isNew onClose={closeModal} onSaved={handleSaved} />}
+      {importOpen && staffRole === "admin" && (
+        <RegistryImportModal
+          onClose={() => setImportOpen(false)}
+          onCommitted={() => {
+            queryClient.invalidateQueries({ queryKey: ["trademark-page"] });
+          }}
+        />
+      )}
     </AppShell>
   );
 }
