@@ -125,9 +125,9 @@ export function AssignedPage() {
           <table className="w-full text-left font-mono text-xs whitespace-nowrap border-collapse">
             <thead className="bg-[#0C0C0C] text-[#F0E8D0] sticky top-0 z-10">
               <tr>
-                {["CASE NUMBER", "CLIENT", "APPLICATION NAME", "TM/CPR NUMBER", "CLASS", "STATUS", "SUB-STATUS", "CITY", "AGENT", "DATE"].map((h) => (
-                  <th key={h} className="px-3 py-3 border-r border-[#1A1A1A] font-bold tracking-wider uppercase text-[10px] last:border-r-0">
-                    {h}
+                {["", "CASE NUMBER", "CLIENT", "APPLICATION NAME", "TM/CPR NUMBER", "CLASS", "STATUS", "SUB-STATUS", "CITY", "AGENT", "DATE"].map((h) => (
+                  <th key={h || "img"} className="px-3 py-3 border-r border-[#1A1A1A] font-bold tracking-wider uppercase text-[10px] last:border-r-0">
+                    {h || "IMG"}
                   </th>
                 ))}
               </tr>
@@ -135,13 +135,13 @@ export function AssignedPage() {
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={10} className="px-6 py-12 text-center font-bold text-[#6d6658] animate-pulse">
+                  <td colSpan={11} className="px-6 py-12 text-center font-bold text-[#6d6658] animate-pulse">
                     LOADING ASSIGNED RECORDS…
                   </td>
                 </tr>
               ) : paged.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-6 py-16 text-center">
+                  <td colSpan={11} className="px-6 py-16 text-center">
                     <div className="font-mono font-bold text-[#6d6658] uppercase tracking-widest mb-1">
                       No assigned records found.
                     </div>
@@ -159,6 +159,11 @@ export function AssignedPage() {
                       i % 2 === 0 ? "bg-[#F0E8D0]" : "bg-white"
                     } hover:bg-[#D9D0B7]`}
                   >
+                    <td className="px-2 py-1.5 border-r border-[#0C0C0C]/10">
+                      <div className="w-9 h-9 border border-[#0C0C0C]/30 bg-[#F0E8D0] overflow-hidden flex items-center justify-center">
+                        {r.image ? <img src={r.image} alt="" className="w-full h-full object-contain" /> : <span className="text-[8px] text-[#9d9488]">—</span>}
+                      </div>
+                    </td>
                     <td className="px-3 py-2 border-r border-[#0C0C0C]/10 font-bold text-[#0A6B52]">
                       {r.caseNumber || ""}
                     </td>
