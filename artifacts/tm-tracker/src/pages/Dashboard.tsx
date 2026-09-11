@@ -1,1 +1,257 @@
-PLACEHOLDER
+import { getStats, listAgents, listAuditLogs, CITIES } from "@/lib/api";
+import type { TrademarkStats, AuditLogEntry } from "@/lib/api";
+import { AppShell } from "@/components/layout/AppShell";
+import { Link } from "wouter";
+import { Plus, Search, Database, ScrollText, Clock, AlertCircle, Users2, Filter } from "lucide-react";
+import { format } from "date-fns";
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { formatDate } from "@/lib/utils";
+
+const STAGE_COLORS: Record<string, string> = {
+  "STAGE 1": "bg-[#0D9970] text-white",
+  "STAGE 2": "bg-[#B0740E] text-white",
+  "STAGE 3": "bg-[#6C1C1F] text-white",
+  "STAGE 4": "bg-[#0A6B52] text-white",
+  "STOPPED": "bg-[#CC0000] text-white",
+};
+
+function StatBox({ label, value, color }: { label: string; value: number | string; color?: string }) {
+  return (
+    <div className={`border-2 border-[#0C0C0C] bg-[#E8DFC7] p-3 flex flex-col gap-1 ${color ?? ""}`}>
+      <div className="font-mono text-[10px] font-bold uppercase tracking-widest opacity-80">{label}</div>
+      <div className="font-serif text-3xl leading-none">{value}</div>
+    </div>
+  );
+}
+
+function QuickAction({ href, icon: Icon, label, color }: { href: string; icon: React.ElementType; label: string; color: string }) {
+  return (
+    <Link
+      href={href}
+      className={`flex flex-col items-center justify-center gap-2 p-4 border-2 border-[#0C0C0C] font-mono font-bold text-xs uppercase tracking-widest transition-all hover:-translate-y-0.5 hover:shadow-[4px_4px_0_#0C0C0C] active:translate-y-0 active:shadow-none ${color}`}
+    >
+      <Icon className="w-6 h-6" />
+      {label}
+    </Link>
+  );
+}
+
+function shortUser(id: string) {
+  if (!id || id === "system") return "system";
+  if (id.includes("@")) return id.split("@")[0];
+  if (id.length > 12) return id.slice(0, 8) + "…";
+  return id;
+}
+
+export function Dashboard() {
+  const [agentFilter, setAgentFilter] = useState("");
+  const [classFilter, setClassFilter] = useState("");
+
+  const { data: stats, isLoading } = useQuery<TrademarkStats>({
+    queryKey: ["stats"],
+    queryFn: getStats,
+    staleTime: 60_000,
+  });
+
+  const { data: recentActivity = [], isLoading: isLoadingActivity } = useQuery<AuditLogEntry[]>({
+    queryKey: ["recent-activity"],
+    queryFn: () => listAuditLogs(10, 0),
+    staleTime: 30_000,
+  });
+
+  const { data: agents = [] } = useQuery({
+    queryKey: ["agents"],
+    queryFn: listAgents,
+    staleTime: 5 * 60_000,
+  });
+
+  const numericStages = ["STAGE 1", "STAGE 2", "STAGE 3", "STAGE 4"].map((stage) => {
+    const found = stats?.byNumericStage?.find((s) => s.stage === stage);
+    return { stage, count: found?.count ?? 0 };
+  });
+
+  const dbFilterHref = () => {
+    const params = new URLSearchParams();
+    if (agentFilter) params.set("agent", agentFilter);
+    if (classFilter) params.set("appClass", classFilter);
+    const q = params.toString();
+    return q ? `/database?${q}` : "/database";
+  };
+
+  return (
+    <AppShell>
+      <div className="flex-1 overflow-auto bg-[#F0E8D0] p-6">
+        <div className="max-w-6xl mx-auto space-y-6">
+          <div className="flex items-center justify-between border-b-2 border-[#0C0C0C] pb-4">
+            <div className="flex items-center gap-3">
+              <img
+                src="/brandex-wordmark.svg"
+                alt="Brandex Law Associates"
+                className="w-44 h-14 object-contain object-left"
+              />
+              <div>
+                <h1 className="font-serif text-3xl text-[#0C0C0C] uppercase tracking-wide leading-none">
+                  BRANDEX LAW ASSOCIATES
+                </h1>
+                <p className="font-mono text-[10px] text-[#6d6658] mt-1 uppercase tracking-widest font-bold">
+                  TRADEMARK REGISTRY · {format(new Date(), "EEEE, d MMMM yyyy")}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick filters */}
+          <div className="border-2 border-[#0C0C0C] bg-white p-4">
+            <div className="font-mono font-bold text-[10px] uppercase tracking-widest mb-3 flex items-center gap-2">
+              <Filter className="w-3.5 h-3.5" /> FILTER BY AGENT / CLASS
+            </div>
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="flex flex-col gap-1">
+                <label className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#6d6658]">AGENT</label>
+                <select
+                  value={agentFilter}
+                  onChange={(e) => setAgentFilter(e.target.value)}
+                  className="h-9 px-2 bg-[#F0E8D0] border-2 border-[#0C0C0C] font-mono text-xs min-w-[160px]"
+                >
+                  <option value="">ALL AGENTS</option>
+                  {agents.map((a) => <option key={a} value={a}>{a}</option>)}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#6d6658]">CLASS</label>
+                <select
+                  value={classFilter}
+                  onChange={(e) => setClassFilter(e.target.value)}
+                  className="h-9 px-2 bg-[#F0E8D0] border-2 border-[#0C0C0C] font-mono text-xs min-w-[120px]"
+                >
+                  <option value="">ALL CLASSES</option>
+                  {Array.from({ length: 45 }, (_, i) => String(i + 1)).map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+              <Link
+                href={dbFilterHref()}
+                className="h-9 px-4 flex items-center border-2 border-[#0C0C0C] bg-[#0C0C0C] text-[#F0E8D0] font-mono text-xs font-bold uppercase tracking-widest hover:bg-[#C94A00]"
+              >
+                APPLY FILTERS
+              </Link>
+            </div>
+          </div>
+
+          {isLoading ? (
+            <div className="font-mono font-bold animate-pulse text-[#6d6658]">LOADING DATA...</div>
+          ) : !stats ? (
+            <div className="font-mono font-bold flex items-center gap-2 text-[#CC0000]">
+              <AlertCircle className="w-5 h-5" /> FAILED TO LOAD SECURE DATABASE SUMMARY.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <div className="lg:col-span-8 space-y-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <StatBox label="TOTAL RECORDS" value={stats.total} />
+                  {numericStages.map((s) => (
+                    <div key={s.stage} className={`border-2 border-[#0C0C0C] p-3 flex flex-col gap-1 ${STAGE_COLORS[s.stage] ?? "bg-[#E8DFC7]"}`}>
+                      <div className="font-mono text-[10px] font-bold uppercase tracking-widest opacity-90">{s.stage}</div>
+                      <div className="font-serif text-3xl leading-none">{s.count}</div>
+                    </div>
+                  ))}
+                  <StatBox label="MODIFIED (7D)" value={stats.recentlyModified ?? 0} color="bg-white" />
+                </div>
+
+                <div className="border-2 border-[#0C0C0C] bg-white">
+                  <div className="px-4 py-2 border-b-2 border-[#0C0C0C] bg-[#E8DFC7] font-mono font-bold text-[10px] uppercase tracking-widest">TM DOCUMENT CONTROL</div>
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-px bg-[#0C0C0C]">
+                    {stats.byTmForm.map(({ form, count }) => (
+                      <Link key={form} href={`/database?tmForm=${form}`} className="bg-[#FFF9F0] p-3 hover:bg-[#B0740E]/15 transition-colors">
+                        <div className="font-mono text-[10px] font-bold text-[#6C1C1F]">{form}</div>
+                        <div className="font-serif text-3xl leading-none mt-1">{count}</div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="border-2 border-[#0C0C0C] bg-white">
+                    <div className="px-4 py-2 border-b-2 border-[#0C0C0C] bg-[#E8DFC7] font-mono font-bold text-[10px] uppercase tracking-widest">RECORDS BY STATUS</div>
+                    <div className="p-4 space-y-2 max-h-[220px] overflow-y-auto">
+                      {stats.byStage.length === 0 ? (
+                        <div className="font-mono text-xs text-[#6d6658]">NO DATA</div>
+                      ) : stats.byStage.sort((a, b) => b.count - a.count).map((s) => (
+                        <div key={s.stage} className="flex items-center justify-between gap-3 border-b border-[#0C0C0C]/10 pb-1 last:border-0 last:pb-0">
+                          <span className="font-mono text-[10px] font-bold text-[#6d6658] uppercase truncate">{s.stage}</span>
+                          <span className="font-mono font-bold text-xs shrink-0">{s.count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="border-2 border-[#0C0C0C] bg-white">
+                    <div className="px-4 py-2 border-b-2 border-[#0C0C0C] bg-[#E8DFC7] font-mono font-bold text-[10px] uppercase tracking-widest">RECORDS BY CITY</div>
+                    <div className="p-4 space-y-2 max-h-[220px] overflow-y-auto">
+                      {stats.byCity.length === 0 ? (
+                        <div className="font-mono text-xs text-[#6d6658]">NO DATA</div>
+                      ) : stats.byCity.sort((a, b) => b.count - a.count).map((c) => (
+                        <div key={c.city} className="flex items-center justify-between gap-3 border-b border-[#0C0C0C]/10 pb-1 last:border-0 last:pb-0">
+                          <span className="font-mono text-[10px] font-bold text-[#6d6658] uppercase truncate">{c.city || "UNSPECIFIED"}</span>
+                          <span className="font-mono font-bold text-xs shrink-0">{c.count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="lg:col-span-4 space-y-6">
+                <div className="grid grid-cols-2 gap-3">
+                  <QuickAction href="/database?new=1" icon={Plus}      label="ADD RECORD" color="bg-[#6C1C1F] text-white" />
+                  <QuickAction href="/search"         icon={Search}    label="SEARCH TM"  color="bg-[#E8DFC7] text-[#0C0C0C]" />
+                  <QuickAction href="/database"       icon={Database}  label="DATABASE"   color="bg-[#0A6B52] text-white" />
+                  <QuickAction href="/assigned"       icon={Users2}    label="ASSIGNED"   color="bg-[#B0740E] text-white" />
+                  <QuickAction href="/logs"           icon={ScrollText} label="AUDIT LOGS" color="bg-[#0C0C0C] text-[#F0E8D0]" />
+                </div>
+
+                <div className="border-2 border-[#0C0C0C] bg-white">
+                  <div className="px-4 py-2 border-b-2 border-[#0C0C0C] bg-[#E8DFC7] font-mono font-bold text-[10px] uppercase tracking-widest flex items-center gap-2">
+                    <Clock className="w-3.5 h-3.5" /> RECENT ACTIVITY (10)
+                  </div>
+                  <div>
+                    {isLoadingActivity ? (
+                      <div className="p-4 font-mono text-xs text-[#6d6658] animate-pulse">LOADING...</div>
+                    ) : recentActivity.length === 0 ? (
+                      <div className="p-4 font-mono text-xs text-[#6d6658]">NO RECENT ACTIVITY</div>
+                    ) : (
+                      <div className="divide-y divide-[#0C0C0C]/10">
+                        {recentActivity.map((log) => {
+                          const color = log.action === "CREATE" ? "text-[#0A6B52]" : log.action === "DELETE" ? "text-[#CC0000]" : "text-[#6C1C1F]";
+                          return (
+                            <div key={log.id} className="p-3 hover:bg-[#F0E8D0] transition-colors">
+                              <div className="flex items-center justify-between gap-2 mb-1">
+                                <span className={`font-mono text-[9px] font-bold uppercase ${color}`}>{log.action}</span>
+                                <span className="font-mono text-[9px] text-[#6d6658]">
+                                  {formatDate(log.changedAt)}
+                                </span>
+                              </div>
+                              <div className="font-mono text-xs font-bold text-[#0C0C0C] truncate">{log.record}</div>
+                              <div className="font-mono text-[10px] text-[#6d6658] truncate mt-0.5">
+                                by {shortUser(log.changedBy)}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  <Link href="/logs" className="block text-center border-t-2 border-[#0C0C0C] bg-[#F0E8D0] py-2 font-mono text-[10px] font-bold uppercase tracking-widest hover:bg-[#0C0C0C] hover:text-[#F0E8D0] transition-colors">
+                    VIEW ALL LOGS
+                  </Link>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </AppShell>
+  );
+}
