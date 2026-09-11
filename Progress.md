@@ -101,3 +101,10 @@ This file is the single source of truth for project status.
 ## Current active focus
 
 Finish remaining Search / Record View / Print layout polish when directed. Smoke test remains optional unless requested.
+
+## 2026-09-11 — Push status
+
+- [x] Dashboard.tsx pushed (agent/class filters, Recent Activity 10, shortUser)
+- [x] DatabasePage.tsx pushed (column order, IMPORT, URL agent/appClass, newest-first footer)
+- [ ] api.ts — local ready with `filing_date` desc sort; remote still PLACEHOLDER from multi-file push mishap — **restore required**
+- [ ] RecordModal.tsx — local ready with regrouped form + AGENT CITY; remote still PLACEHOLDER — **restore required**
