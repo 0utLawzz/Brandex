@@ -1,11 +1,10 @@
-import { getStats, listAgents, listAuditLogs, CITIES } from "@/lib/api";
+import { getStats, listAuditLogs } from "@/lib/api";
 import type { TrademarkStats, AuditLogEntry } from "@/lib/api";
 import { AppShell } from "@/components/layout/AppShell";
 import { Link } from "wouter";
-import { Plus, Search, Database, ScrollText, Clock, AlertCircle, Users2, Filter } from "lucide-react";
+import { Plus, Search, Database, ScrollText, Clock, AlertCircle, Users2 } from "lucide-react";
 import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
 import { formatDate } from "@/lib/utils";
 
 const STAGE_COLORS: Record<string, string> = {
@@ -40,14 +39,11 @@ function QuickAction({ href, icon: Icon, label, color }: { href: string; icon: R
 function shortUser(id: string) {
   if (!id || id === "system") return "system";
   if (id.includes("@")) return id.split("@")[0];
-  if (id.length > 12) return id.slice(0, 8) + "…";
-  return id;
+  if (/^[0-9a-f-]{20,}$/i.test(id)) return "admin";
+  return id.length > 24 ? id.slice(0, 20) + "…" : id;
 }
 
 export function Dashboard() {
-  const [agentFilter, setAgentFilter] = useState("");
-  const [classFilter, setClassFilter] = useState("");
-
   const { data: stats, isLoading } = useQuery<TrademarkStats>({
     queryKey: ["stats"],
     queryFn: getStats,
@@ -60,24 +56,10 @@ export function Dashboard() {
     staleTime: 30_000,
   });
 
-  const { data: agents = [] } = useQuery({
-    queryKey: ["agents"],
-    queryFn: listAgents,
-    staleTime: 5 * 60_000,
-  });
-
   const numericStages = ["STAGE 1", "STAGE 2", "STAGE 3", "STAGE 4"].map((stage) => {
     const found = stats?.byNumericStage?.find((s) => s.stage === stage);
     return { stage, count: found?.count ?? 0 };
   });
-
-  const dbFilterHref = () => {
-    const params = new URLSearchParams();
-    if (agentFilter) params.set("agent", agentFilter);
-    if (classFilter) params.set("appClass", classFilter);
-    const q = params.toString();
-    return q ? `/database?${q}` : "/database";
-  };
 
   return (
     <AppShell>
@@ -98,45 +80,6 @@ export function Dashboard() {
                   TRADEMARK REGISTRY · {format(new Date(), "EEEE, d MMMM yyyy")}
                 </p>
               </div>
-            </div>
-          </div>
-
-          {/* Quick filters */}
-          <div className="border-2 border-[#0C0C0C] bg-white p-4">
-            <div className="font-mono font-bold text-[10px] uppercase tracking-widest mb-3 flex items-center gap-2">
-              <Filter className="w-3.5 h-3.5" /> FILTER BY AGENT / CLASS
-            </div>
-            <div className="flex flex-wrap items-end gap-3">
-              <div className="flex flex-col gap-1">
-                <label className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#6d6658]">AGENT</label>
-                <select
-                  value={agentFilter}
-                  onChange={(e) => setAgentFilter(e.target.value)}
-                  className="h-9 px-2 bg-[#F0E8D0] border-2 border-[#0C0C0C] font-mono text-xs min-w-[160px]"
-                >
-                  <option value="">ALL AGENTS</option>
-                  {agents.map((a) => <option key={a} value={a}>{a}</option>)}
-                </select>
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#6d6658]">CLASS</label>
-                <select
-                  value={classFilter}
-                  onChange={(e) => setClassFilter(e.target.value)}
-                  className="h-9 px-2 bg-[#F0E8D0] border-2 border-[#0C0C0C] font-mono text-xs min-w-[120px]"
-                >
-                  <option value="">ALL CLASSES</option>
-                  {Array.from({ length: 45 }, (_, i) => String(i + 1)).map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
-              <Link
-                href={dbFilterHref()}
-                className="h-9 px-4 flex items-center border-2 border-[#0C0C0C] bg-[#0C0C0C] text-[#F0E8D0] font-mono text-xs font-bold uppercase tracking-widest hover:bg-[#C94A00]"
-              >
-                APPLY FILTERS
-              </Link>
             </div>
           </div>
 
