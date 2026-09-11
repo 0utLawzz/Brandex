@@ -1,6 +1,6 @@
 # Brandex Datasheet Progress
 
-**Last updated: 10 September 2026 (Optimistic locking wired in UI + outbox reclaim)**
+**Last updated: 11 September 2026 (UI layout pass — Add Record groups, Dashboard filters, Assigned scope, Logs compact, Database columns + date sort)**
 
 This file is the single source of truth for project status.  
 **Any AI agent or contributor must read this file first** before making changes, suggesting work, or starting a new task.
@@ -39,20 +39,34 @@ This file is the single source of truth for project status.
 - [x] Clone URLs corrected in README.md and INSTALL.md (now Brandex-Database-CMS)
 - [x] Project structure, commands, and security rules aligned with AGENTS.md and DEV_NOTES.md
 
-
 ## Reliability fixes (Completed 10 September 2026)
 
 - [x] Sheet sync outbox: reclaim stale `processing` rows + `MAX_ATTEMPTS=10` dead-letter
 - [x] Optimistic concurrency: `version` column + `ConflictError` in `updateTrademark`
 - [x] RecordModal passes `expectedVersion` and surfaces conflict toast to the editor
 
-## Required release checks (Pending)
+## UI layout pass (Completed 11 September 2026)
+
+- [x] **Add Record**: removed Client Name field; regrouped DATE/TYPE/CLIENT CODE/CASE NO → Case Info (Case Type, App Name, Class, TM No) → Stage/Sub-stage → Agent + Agent City → Notes & Image
+- [x] **Dashboard**: Filter by Agent + Class boxes; Recent Activity shows 10 entries
+- [x] **Assigned**: only Stage 2 + Sub-status Assigned
+- [x] **Database**: column order DATE / MODIFIED / TYPE / CLIENT CODE / CASE NO / TM/CPR / CLASS / APPLICATION / STATUS / SUB-STATUS / CLIENT / CITY / TM FORMS / JOURNAL; default sort by filing date newest first; IMPORT button (admin phase placeholder)
+- [x] **Audit Logs**: user shown short (not full UUID); old/new values summarized (not full JSON blobs)
+
+## Still pending (UI polish)
+
+- [ ] Search result cards: large app name, thumbnail, type on right, stage/substage sizing
+- [ ] Record View layout: image+name priority, payment tick boxes (Stage 1–4 + date), rename signature to “CEO BRANDEX SIGNATURE/STAMP”
+- [ ] Print Record: strict A4 fit aligned with Application View
+- [ ] Full admin CSV import with dry-run (held phase)
+
+## Required release checks
 
 - [x] Automated tests
 - [x] TypeScript typecheck
 - [x] Production build
 - [ ] Authenticated browser smoke test (viewer / editor / admin flows) → see SMOKE_TEST_CHECKLIST.md
-- [x] Vercel production verification (env vars cleaned, only two VITE_ keys remain) → see SMOKE_TEST_CHECKLIST.md
+- [x] Vercel production verification (env vars cleaned, only two VITE_ keys remain)
 
 ## Medium-priority improvements
 
@@ -66,6 +80,7 @@ This file is the single source of truth for project status.
 - [ ] Foreign-key or documented validation between `trademarks.client_code` and `clients.code`
 - [ ] Simple health-check or status view for the sync outbox
 - [ ] Rate-limiting / monitoring on Auth endpoints (low priority while staff-only)
+- [ ] Persist Stage 1–4 payment ticks + dates as structured fields (currently UI-only pending schema approval)
 
 ## Held for a separately approved phase
 
@@ -85,4 +100,4 @@ This file is the single source of truth for project status.
 
 ## Current active focus
 
-Proceed with the remaining **Authenticated browser smoke test** and the medium-priority improvements, unless directed otherwise by the project owner.
+Finish remaining Search / Record View / Print layout polish when directed. Smoke test remains optional unless requested.
