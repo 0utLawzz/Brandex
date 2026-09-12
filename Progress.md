@@ -1,6 +1,6 @@
 # Brandex Datasheet Progress
 
-**Last updated: 12 September 2026 (Admin CSV import + registry work already on remote; automated verification + Edge Function observability completed)**
+**Last updated: 12 September 2026 (CSV import header fix + light Record View refresh)**
 
 This file is the single source of truth for project status.  
 **Any AI agent or contributor must read this file first** before making changes, suggesting work, or starting a new task.
@@ -117,6 +117,14 @@ This file is the single source of truth for project status.
 - [x] Latest Vercel production deployment → READY on `main`, commit `45c7c046dd7b65b4f7a02bcf8790d42c044e7921`
 - [ ] Authenticated viewer/editor/admin flows → blocked because no test credentials were supplied and no authenticated browser session was available
 - [ ] Supabase/Vercel dashboard secret inventory → not independently confirmed through the available project APIs; no local `.env` file was present in the checkout
+
+## Work log (12 September 2026)
+
+- [x] Kept the application staff-only and admin-controlled; no public view was added.
+- [x] Fixed form-registry CSV parsing for descriptive headers such as `type (tm5/tm6/tm11/tm16/tm56)`.
+- [x] Improved blank form-type errors so invalid rows identify the missing value and accepted options.
+- [x] Added sample imports under `samples/`: valid form registry, invalid-row form registry, and journal registry.
+- [x] Refreshed Record View Application Details and Document Status with light cream panels, larger values, bold hierarchy, and responsive grids.
 
 ## Current active focus
 

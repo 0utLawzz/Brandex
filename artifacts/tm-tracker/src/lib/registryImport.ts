@@ -224,7 +224,16 @@ export function parseFormCsv(text: string): { rows: FormRegistryRow[]; errors: s
     const office = cell(line, map, "office", "ipo office", "branch");
     const tmNumber = cell(line, map, "tm number", "tm no", "tm/cpr number", "tm cpr number", "application no", "application number");
     const niceClass = cell(line, map, "class", "nice class", "app class");
-    const typeRaw = cell(line, map, "type", "form type", "form", "tm type");
+    const typeRaw = cell(
+      line,
+      map,
+      "type",
+      "type (tm5/tm6/tm11/tm16/tm56)",
+      "type tm5tm6tm11tm16tm56",
+      "form type",
+      "form",
+      "tm type",
+    );
     const status = cell(line, map, "status", "form status");
     // User: only date from column G — prefer explicit "date" header; fallback index 6 (0-based)
     let dateRaw = cell(line, map, "date", "form date", "filing date");
@@ -244,7 +253,9 @@ export function parseFormCsv(text: string): { rows: FormRegistryRow[]; errors: s
       continue;
     }
     if (!formType) {
-      errors.push(`Row ${sourceRow}: invalid type "${typeRaw}" (need tm5/tm6/tm11/tm16/tm56)`);
+      errors.push(
+        `Row ${sourceRow}: ${typeRaw ? `invalid type "${typeRaw}"` : "type is blank"} (use tm5, tm6, tm11, tm16, or tm56)`,
+      );
       continue;
     }
 

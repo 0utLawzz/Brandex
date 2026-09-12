@@ -22,9 +22,9 @@ const STAGE_BADGE: Record<string, string> = {
 function Field({ label, value, wide }: { label: string; value?: string | null; wide?: boolean }) {
   if (!value) return null;
   return (
-    <div className={wide ? "col-span-2" : ""}>
-      <div className="text-[8px] font-bold uppercase tracking-widest text-[#3A506B] mb-0.5">{label}</div>
-      <div className="font-mono text-sm text-[#0A1931] break-words">{value}</div>
+    <div className={`${wide ? "col-span-2" : ""} border-2 border-[#0C0C0C] bg-[#F0E8D0] p-3 shadow-[3px_3px_0_#0C0C0C]`}>
+      <div className="font-mono text-[9px] font-bold uppercase tracking-widest text-[#6C1C1F] mb-1">{label}</div>
+      <div className="font-sans text-base sm:text-lg font-bold text-[#0C0C0C] break-words">{value}</div>
     </div>
   );
 }
@@ -34,11 +34,11 @@ function TmFormBadge({ label, active }: { label: string; active: boolean }) {
     <span
       className={`inline-flex items-center gap-1 px-2 py-1 font-mono text-[10px] font-bold border-2 ${
         active
-          ? "border-[#0A6B52] text-[#0A6B52] bg-[#0D9970]/10"
-          : "border-[#0C0C0C]/20 text-[#9d9488] bg-[#F0E8D0]"
+          ? "border-[#0A6B52] text-[#0A6B52] bg-[#D8F2E8] shadow-[3px_3px_0_#0A6B52]"
+          : "border-[#0C0C0C]/35 text-[#6d6658] bg-[#E8DFC7]"
       }`}
     >
-      {active ? <CheckCircle2 className="w-3 h-3" /> : <MinusCircle className="w-3 h-3" />}
+      {active ? <CheckCircle2 className="w-4 h-4" /> : <MinusCircle className="w-4 h-4" />}
       {label}
     </span>
   );
@@ -207,11 +207,11 @@ export function RecordView() {
             </div>
 
             {/* Application Details */}
-            <div className="print-avoid-break border-2 border-[#0A1931] bg-[#0A1931] text-[#F0E8D0] shadow-[4px_4px_0_#0C0C0C] p-4 print:p-2 print:shadow-none">
-              <div className="text-[9px] font-bold uppercase tracking-widest text-[#C5B89A] mb-3 print:mb-1.5">
+            <div className="print-avoid-break border-3 border-[#0C0C0C] bg-[#E8DFC7] text-[#0C0C0C] shadow-[5px_5px_0_#0C0C0C] p-4 print:p-2 print:shadow-none">
+              <div className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#6C1C1F] mb-3 print:mb-1.5">
                 Application Details
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 print:gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 print:gap-2">
                 <Field label="Client Code" value={record.clientCode} />
                 <Field label="Case Number" value={record.caseNumber} />
                 <Field label="Filing Date" value={record.date ? formatDateShort(record.date) : undefined} />
@@ -258,9 +258,9 @@ export function RecordView() {
             </div>
 
             {/* TM Forms — green when matched, grey when not */}
-            <div className="print-avoid-break border-2 border-[#0C0C0C] bg-white p-4 print:p-2 shadow-[3px_3px_0_#0C0C0C] print:shadow-none">
-              <div className="text-[8px] font-bold uppercase tracking-widest text-[#3A506B] mb-2">Document Status</div>
-              <div className="flex flex-wrap gap-1.5">
+            <div className="print-avoid-break border-3 border-[#0C0C0C] bg-[#F0E8D0] p-4 print:p-2 shadow-[5px_5px_0_#0C0C0C] print:shadow-none">
+              <div className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#6C1C1F] mb-3">Document Status</div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
                 <TmFormBadge label="TM5" active={matches.TM5} />
                 <TmFormBadge label="TM6" active={matches.TM6} />
                 <TmFormBadge label="TM11" active={matches.TM11} />
