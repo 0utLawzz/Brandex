@@ -125,6 +125,10 @@ This file is the single source of truth for project status.
 - [x] Improved blank form-type errors so invalid rows identify the missing value and accepted options.
 - [x] Added sample imports under `samples/`: valid form registry, invalid-row form registry, and journal registry.
 - [x] Refreshed Record View Application Details and Document Status with light cream panels, larger values, bold hierarchy, and responsive grids.
+- [x] Database list now shows a signed thumbnail between DATE and MODIFIED and removes the CLIENT column.
+- [x] Imported form registry rows now merge into `TM5/TM6/TM11/TM16/TM56` status badges by normalized TM number.
+- [x] Assigned view now offers separate RECORD and ASSIGNMENT actions with queue/completed/pending summary from existing status fields.
+- [x] Audit log summaries now label CASE NO, CLIENT CODE, TM/CPR, TYPE, and related context explicitly.
 
 ## Current active focus
 

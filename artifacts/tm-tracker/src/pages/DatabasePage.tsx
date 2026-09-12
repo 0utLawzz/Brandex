@@ -31,7 +31,7 @@ const EMPTY_FILTERS: Filters = {
 
 const CSV_COLUMNS: Array<[string, (record: TrademarkRecord) => string]> = [
   ["DATE", (r) => r.date], ["TYPE", (r) => r.type], ["CLIENT CODE", (r) => r.clientCode],
-  ["CASE NUMBER", (r) => r.caseNumber], ["CLIENT NAME", (r) => r.clientName],
+  ["CASE NUMBER", (r) => r.caseNumber],
   ["APPLICATION NAME", (r) => r.appName], ["TM/CPR NUMBER", (r) => r.tmCprNo],
   ["CLASS", (r) => r.appClass], ["STATUS", (r) => r.stage], ["SUB STATUS", (r) => r.subStage],
   ["CASE TYPE", (r) => r.caseType], ["AGENT", (r) => r.agent], ["CITY", (r) => r.city],
@@ -154,7 +154,7 @@ export function DatabasePage() {
 
         <div className="flex-1 overflow-auto bg-white">
           <table className="w-full text-left font-mono text-xs whitespace-nowrap border-collapse">
-            <thead className="bg-[#0C0C0C] text-[#F0E8D0] sticky top-0 z-10"><tr>{["DATE", "MODIFIED", "TYPE", "CLIENT CODE", "CASE NO", "TM/CPR", "CLASS", "APPLICATION", "STATUS", "SUB-STATUS", "CLIENT", "CITY", "TM FORMS", "JOURNAL"].map((heading) => <th key={heading} className="px-3 py-3 border-r border-[#333] font-bold tracking-wider text-[10px] last:border-r-0">{heading}</th>)}</tr></thead>
+            <thead className="bg-[#0C0C0C] text-[#F0E8D0] sticky top-0 z-10"><tr>{["DATE", "IMAGE", "MODIFIED", "TYPE", "CLIENT CODE", "CASE NO", "TM/CPR", "CLASS", "APPLICATION", "STATUS", "SUB-STATUS", "CITY", "TM FORMS", "JOURNAL"].map((heading) => <th key={heading} className="px-3 py-3 border-r border-[#333] font-bold tracking-wider text-[10px] last:border-r-0">{heading}</th>)}</tr></thead>
             <tbody>
               {isLoading ? <tr><td colSpan={14} className="px-6 py-12 text-center font-bold text-[#6d6658] animate-pulse">LOADING OPTIMIZED RECORD PAGE…</td></tr>
               : error ? <tr><td colSpan={14} className="px-6 py-12 text-center font-bold text-[#CC0000]">FAILED TO LOAD RECORDS. PLEASE REFRESH.</td></tr>
@@ -162,20 +162,20 @@ export function DatabasePage() {
               : records.map((record, index) => {
                 const activeForms = TM_FORMS.filter((form) => record.tmMatches?.[form]);
                 return <tr key={record.id} onClick={() => navigate(`/record/${record.id}`)} className={`cursor-pointer border-b border-[#0C0C0C]/10 hover:bg-[#E5D8C8] ${index % 2 === 0 ? "bg-[#FFF9F0]" : "bg-white"}`}>
-                  <td className="px-3 py-2 border-r border-[#0C0C0C]/10 text-[#6d6658]">{formatDateShort(record.date)}</td>
-                  <td className="px-3 py-2 border-r border-[#0C0C0C]/10 text-[#6d6658] text-[10px]">{formatDateShort(record.updatedAt)}</td>
-                  <td className="px-3 py-2 border-r border-[#0C0C0C]/10 font-bold text-[#6C1C1F]">{record.type}</td>
-                  <td className="px-3 py-2 border-r border-[#0C0C0C]/10 font-bold">{record.clientCode}</td>
-                  <td className="px-3 py-2 border-r border-[#0C0C0C]/10 font-bold text-[#0A6B52]">{record.caseNumber}</td>
-                  <td className="px-3 py-2 border-r border-[#0C0C0C]/10 font-bold">{record.tmCprNo}</td>
-                  <td className="px-3 py-2 border-r border-[#0C0C0C]/10">{record.appClass}</td>
-                  <td className="px-3 py-2 border-r border-[#0C0C0C]/10 max-w-[200px] truncate font-bold">{record.appName}</td>
-                  <td className="px-3 py-2 border-r border-[#0C0C0C]/10"><span className={`inline-block px-1.5 py-0.5 text-[9px] font-bold border border-[#0C0C0C]/20 ${STAGE_BADGE[record.stage] ?? "bg-[#E8DFC7]"}`}>{record.stage}</span></td>
-                  <td className="px-3 py-2 border-r border-[#0C0C0C]/10 text-[#6d6658] max-w-[120px] truncate">{record.subStage}</td>
-                  <td className="px-3 py-2 border-r border-[#0C0C0C]/10 max-w-[140px] truncate">{record.clientName || "—"}</td>
-                  <td className="px-3 py-2 border-r border-[#0C0C0C]/10">{record.city}</td>
-                  <td className="px-3 py-2 border-r border-[#0C0C0C]/10"><div className="flex gap-1">{activeForms.length ? activeForms.map((form) => <span key={form} className="px-1.5 py-0.5 bg-[#B0740E]/15 border border-[#B0740E] text-[#6C1C1F] text-[9px] font-bold">{form}</span>) : <span className="text-[#9d9488]">—</span>}</div></td>
-                  <td className="px-3 py-2 text-[#6d6658]">{record.journalNumber || "—"}</td>
+                  <td className="px-3 py-2 border-r border-[#0C0C0C]/10 text-[#6d6658] uppercase">{formatDateShort(record.date)}</td>
+                  <td className="px-2 py-1 border-r border-[#0C0C0C]/10"><div className="w-9 h-9 border border-[#0C0C0C]/30 bg-[#F0E8D0] overflow-hidden flex items-center justify-center">{record.image ? <img src={record.image} alt="" className="w-full h-full object-contain" /> : <span className="text-[8px] text-[#9d9488]">—</span>}</div></td>
+                  <td className="px-3 py-2 border-r border-[#0C0C0C]/10 text-[#6d6658] text-[10px] uppercase">{formatDateShort(record.updatedAt)}</td>
+                  <td className="px-3 py-2 border-r border-[#0C0C0C]/10 font-bold text-[#6C1C1F] uppercase">{record.type}</td>
+                  <td className="px-3 py-2 border-r border-[#0C0C0C]/10 font-bold uppercase">{record.clientCode}</td>
+                  <td className="px-3 py-2 border-r border-[#0C0C0C]/10 font-bold text-[#0A6B52] uppercase">{record.caseNumber}</td>
+                  <td className="px-3 py-2 border-r border-[#0C0C0C]/10 font-bold uppercase">{record.tmCprNo}</td>
+                  <td className="px-3 py-2 border-r border-[#0C0C0C]/10 uppercase">{record.appClass}</td>
+                  <td className="px-3 py-2 border-r border-[#0C0C0C]/10 max-w-[200px] truncate font-bold uppercase">{record.appName}</td>
+                  <td className="px-3 py-2 border-r border-[#0C0C0C]/10"><span className={`inline-block px-1.5 py-0.5 text-[9px] font-bold border border-[#0C0C0C]/20 uppercase ${STAGE_BADGE[record.stage] ?? "bg-[#E8DFC7]"}`}>{record.stage}</span></td>
+                  <td className="px-3 py-2 border-r border-[#0C0C0C]/10 text-[#6d6658] max-w-[120px] truncate uppercase">{record.subStage}</td>
+                  <td className="px-3 py-2 border-r border-[#0C0C0C]/10 uppercase">{record.city}</td>
+                  <td className="px-3 py-2 border-r border-[#0C0C0C]/10"><div className="flex gap-1">{activeForms.length ? activeForms.map((form) => <span key={form} className="px-1.5 py-0.5 bg-[#B0740E]/15 border border-[#B0740E] text-[#6C1C1F] text-[9px] font-bold uppercase">{form}</span>) : <span className="text-[#9d9488]">—</span>}</div></td>
+                  <td className="px-3 py-2 text-[#6d6658] uppercase">{record.journalNumber || "—"}</td>
                 </tr>;
               })}
             </tbody>

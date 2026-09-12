@@ -4,7 +4,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { formatDateShort } from "@/lib/utils";
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { Users2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Users2, ChevronLeft, ChevronRight, ExternalLink, ClipboardCheck, X } from "lucide-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 const PAGE_SIZE = 50;
@@ -57,6 +57,7 @@ export function AssignedPage() {
   const [, navigate] = useLocation();
   const [filters, setFilters] = useState<Filters>(EMPTY);
   const [page, setPage] = useState(1);
+  const [assignmentRecord, setAssignmentRecord] = useState<TrademarkPage["records"][number] | null>(null);
 
   // Assigned page only shows STAGE 2 + Sub-status Assigned
   const { data, isLoading } = useQuery<TrademarkPage>({
@@ -74,6 +75,17 @@ export function AssignedPage() {
     staleTime: 60_000,
   });
   const { data: agents = [] } = useQuery({ queryKey: ["agents"], queryFn: listAgents, staleTime: 5 * 60_000 });
+  const completedQuery = useQuery({
+    queryKey: ["assigned-completed", filters],
+    queryFn: async () => {
+      const [stage3, stage4] = await Promise.all([
+        listTrademarkPage({ page: 1, pageSize: 1, stage: "STAGE 3", agent: filters.agent || undefined, city: filters.city || undefined, appClass: filters.appClass || undefined }),
+        listTrademarkPage({ page: 1, pageSize: 1, stage: "STAGE 4", agent: filters.agent || undefined, city: filters.city || undefined, appClass: filters.appClass || undefined }),
+      ]);
+      return stage3.total + stage4.total;
+    },
+    staleTime: 60_000,
+  });
   const paged = data?.records ?? [];
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -125,7 +137,7 @@ export function AssignedPage() {
           <table className="w-full text-left font-mono text-xs whitespace-nowrap border-collapse">
             <thead className="bg-[#0C0C0C] text-[#F0E8D0] sticky top-0 z-10">
               <tr>
-                {["", "CASE NUMBER", "CLIENT", "APPLICATION NAME", "TM/CPR NUMBER", "CLASS", "STATUS", "SUB-STATUS", "CITY", "AGENT", "DATE"].map((h) => (
+                {["", "CASE NUMBER", "CLIENT", "APPLICATION NAME", "TM/CPR NUMBER", "CLASS", "STATUS", "SUB-STATUS", "CITY", "AGENT", "DATE", "ACTIONS"].map((h) => (
                   <th key={h || "img"} className="px-3 py-3 border-r border-[#1A1A1A] font-bold tracking-wider uppercase text-[10px] last:border-r-0">
                     {h || "IMG"}
                   </th>
@@ -135,13 +147,13 @@ export function AssignedPage() {
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={11} className="px-6 py-12 text-center font-bold text-[#6d6658] animate-pulse">
+                  <td colSpan={12} className="px-6 py-12 text-center font-bold text-[#6d6658] animate-pulse">
                     LOADING ASSIGNED RECORDS…
                   </td>
                 </tr>
               ) : paged.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="px-6 py-16 text-center">
+                  <td colSpan={12} className="px-6 py-16 text-center">
                     <div className="font-mono font-bold text-[#6d6658] uppercase tracking-widest mb-1">
                       No assigned records found.
                     </div>
@@ -152,10 +164,9 @@ export function AssignedPage() {
                 </tr>
               ) : (
                 paged.map((r, i) => (
-                  <tr
-                    key={r.id}
-                    onClick={() => goToRecord(r.id)}
-                    className={`cursor-pointer border-b border-[#0C0C0C]/10 transition-colors ${
+                    <tr
+                      key={r.id}
+                      className={`cursor-pointer border-b border-[#0C0C0C]/10 transition-colors ${
                       i % 2 === 0 ? "bg-[#F0E8D0]" : "bg-white"
                     } hover:bg-[#D9D0B7]`}
                   >
@@ -199,6 +210,16 @@ export function AssignedPage() {
                     <td className="px-3 py-2 text-[#6d6658]">
                       {formatDateShort(r.date)}
                     </td>
+                    <td className="px-3 py-2">
+                      <div className="flex items-center gap-1.5">
+                        <button type="button" onClick={() => goToRecord(r.id)} className="inline-flex items-center gap-1 border-2 border-[#0C0C0C] bg-white px-2 py-1 font-mono text-[9px] font-bold uppercase hover:bg-[#0C0C0C] hover:text-white" title="Open complete record detail">
+                          <ExternalLink className="h-3 w-3" /> RECORD
+                        </button>
+                        <button type="button" onClick={() => setAssignmentRecord(r)} className="inline-flex items-center gap-1 border-2 border-[#0A6B52] bg-[#D8F2E8] px-2 py-1 font-mono text-[9px] font-bold uppercase text-[#0A6B52] hover:bg-[#0A6B52] hover:text-white" title="Open assignment acceptance summary">
+                          <ClipboardCheck className="h-3 w-3" /> ASSIGNMENT
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))
               )}
@@ -227,6 +248,33 @@ export function AssignedPage() {
                 NEXT <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>
+          </div>
+        )}
+        {assignmentRecord && (
+          <div className="fixed inset-0 z-40 flex items-center justify-center bg-[#0C0C0C]/55 p-4" onClick={() => setAssignmentRecord(null)}>
+            <section className="w-full max-w-2xl border-3 border-[#0C0C0C] bg-[#F0E8D0] p-5 shadow-[8px_8px_0_#0C0C0C]" onClick={(event) => event.stopPropagation()}>
+              <div className="flex items-start gap-3 border-b-2 border-[#0C0C0C] pb-3">
+                <div className="min-w-0 flex-1">
+                  <div className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#6C1C1F]">AGENT ASSIGNMENT / ACCEPTANCE SUMMARY</div>
+                  <h2 className="mt-1 font-serif text-3xl uppercase leading-none text-[#0C0C0C]">{assignmentRecord.appName || "UNTITLED CASE"}</h2>
+                  <div className="mt-2 font-mono text-xs font-bold uppercase">CLIENT CODE: {assignmentRecord.clientCode || "—"} · CASE NO: {assignmentRecord.caseNumber || "—"} · TM NO: {assignmentRecord.tmCprNo || "—"}</div>
+                </div>
+                <button type="button" onClick={() => setAssignmentRecord(null)} className="border-2 border-[#0C0C0C] bg-white p-1 hover:bg-[#0C0C0C] hover:text-white" aria-label="Close assignment summary"><X className="h-4 w-4" /></button>
+              </div>
+              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="border-2 border-[#0C0C0C] bg-white p-3 shadow-[3px_3px_0_#0C0C0C]"><div className="font-mono text-[9px] font-bold uppercase text-[#6d6658]">ASSIGNED QUEUE</div><div className="mt-1 font-serif text-3xl">{total}</div></div>
+                <div className="border-2 border-[#0C0C0C] bg-[#D8F2E8] p-3 shadow-[3px_3px_0_#0A6B52]"><div className="font-mono text-[9px] font-bold uppercase text-[#0A6B52]">COMPLETED STAGE 3/4</div><div className="mt-1 font-serif text-3xl text-[#0A6B52]">{completedQuery.data ?? "—"}</div></div>
+                <div className="border-2 border-[#0C0C0C] bg-[#FFF0D0] p-3 shadow-[3px_3px_0_#C94A00]"><div className="font-mono text-[9px] font-bold uppercase text-[#6C1C1F]">PENDING IN ASSIGNED QUEUE</div><div className="mt-1 font-serif text-3xl text-[#6C1C1F]">{total}</div></div>
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-3 border-2 border-[#0C0C0C] bg-white p-3 font-mono text-xs uppercase sm:grid-cols-4">
+                <div><span className="block text-[9px] font-bold text-[#6d6658]">AGENT</span><strong>{assignmentRecord.agent || "—"}</strong></div>
+                <div><span className="block text-[9px] font-bold text-[#6d6658]">CITY</span><strong>{assignmentRecord.city || "—"}</strong></div>
+                <div><span className="block text-[9px] font-bold text-[#6d6658]">STATUS</span><strong>{assignmentRecord.stage || "—"}</strong></div>
+                <div><span className="block text-[9px] font-bold text-[#6d6658]">SUB-STATUS</span><strong>{assignmentRecord.subStage || "—"}</strong></div>
+              </div>
+              <p className="mt-4 border-l-4 border-[#C94A00] bg-[#FFF0D0] p-3 font-mono text-[10px] uppercase leading-relaxed">Acceptance history is not stored as a separate event relation yet. This view reports the current assignment queue from the trusted trademark status fields; the record button opens the complete case detail.</p>
+              <div className="mt-4 flex justify-end gap-2"><button type="button" onClick={() => goToRecord(assignmentRecord.id)} className="inline-flex items-center gap-2 border-2 border-[#6C1C1F] bg-[#6C1C1F] px-3 py-2 font-mono text-xs font-bold uppercase text-white"><ExternalLink className="h-4 w-4" /> OPEN RECORD</button></div>
+            </section>
           </div>
         )}
       </div>

@@ -41,6 +41,7 @@ function createQuery(response: unknown = { data: [], error: null, count: 0 }) {
     lte: vi.fn(() => query),
     eq: vi.fn(() => query),
     ilike: vi.fn(() => query),
+    in: vi.fn(() => query),
     not: vi.fn(() => query),
     insert: vi.fn(() => query),
     update: vi.fn(() => query),
@@ -86,6 +87,10 @@ const baseSupabaseRow = {
 beforeEach(() => {
   vi.clearAllMocks();
   supabaseMock.auth.getUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
+  supabaseMock.storage.from.mockReturnValue({
+    createSignedUrls: vi.fn().mockResolvedValue({ data: [] }),
+    createSignedUrl: vi.fn().mockResolvedValue({ data: { signedUrl: "https://signed.example/upload.png" } }),
+  });
 });
 
 describe("Brandex data mapping", () => {
@@ -140,7 +145,7 @@ describe("Brandex data mapping", () => {
 });
 
 describe("Brandex Supabase access patterns", () => {
-  it("loads paginated list rows without fetching private detail fields or signing images", async () => {
+  it("loads paginated list rows without fetching private detail fields", async () => {
     const query = createQuery({ data: [baseSupabaseRow], error: null, count: 1 });
     supabaseMock.from.mockReturnValue(query);
 
@@ -148,13 +153,13 @@ describe("Brandex Supabase access patterns", () => {
 
     expect(supabaseMock.from).toHaveBeenCalledWith("trademarks");
     expect(query.select).toHaveBeenCalledWith(expect.not.stringContaining("notes"), { count: "exact" });
-    expect(query.select).toHaveBeenCalledWith(expect.not.stringContaining("logo_path"), { count: "exact" });
+    expect(query.select).toHaveBeenCalledWith(expect.stringContaining("logo_path"), { count: "exact" });
     expect(query.order).toHaveBeenNthCalledWith(1, "type", { ascending: true });
     expect(query.order).toHaveBeenNthCalledWith(2, "client_code", { ascending: true });
     expect(query.order).toHaveBeenNthCalledWith(3, "case_number", { ascending: true });
     expect(query.range).toHaveBeenCalledWith(50, 99);
     expect(query.or).toHaveBeenCalledWith(expect.stringContaining("case_number.ilike.%CASE 9%"));
-    expect(supabaseMock.storage.from).not.toHaveBeenCalled();
+    expect(supabaseMock.storage.from).toHaveBeenCalledWith("trademark-files");
     expect(page.records[0]).toMatchObject({ id: "BX-1", caseNumber: "CASE-9", image: "" });
   });
 

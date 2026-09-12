@@ -123,6 +123,13 @@
   body {
     @apply font-sans antialiased bg-background text-foreground;
   }
+
+  /* Office data is entered and scanned in uppercase; credentials remain untouched. */
+  input:not([type="email"]):not([type="password"]),
+  textarea,
+  select {
+    text-transform: uppercase;
+  }
 }
 
 .nb-border {

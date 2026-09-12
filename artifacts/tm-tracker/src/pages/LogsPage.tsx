@@ -29,14 +29,27 @@ function summarizeValue(raw: string, other?: string): string {
       try { otherObj = JSON.parse(other); } catch { /* ignore */ }
     }
     const keys = ["application_name", "status", "sub_status", "case_number", "client_code", "tm_cpr_number", "nice_class", "agent", "city", "notes", "type"];
+    const labels: Record<string, string> = {
+      application_name: "APPLICATION",
+      status: "STATUS",
+      sub_status: "SUB-STATUS",
+      case_number: "CASE NO",
+      client_code: "CLIENT CODE",
+      tm_cpr_number: "TM/CPR",
+      nice_class: "CLASS",
+      agent: "AGENT",
+      city: "CITY",
+      notes: "NOTES",
+      type: "TYPE",
+    };
     const parts: string[] = [];
     for (const k of keys) {
       if (!(k in obj)) continue;
       const v = obj[k];
       if (otherObj && otherObj[k] !== v) {
-        parts.push(`${k}=${v ?? "null"}`);
+        parts.push(`${labels[k]}=${v ?? "NULL"}`);
       } else if (!otherObj) {
-        parts.push(`${k}=${v ?? "null"}`);
+        parts.push(`${labels[k]}=${v ?? "NULL"}`);
       }
     }
     if (parts.length === 0) {
@@ -129,7 +142,7 @@ export function LogsPage() {
                       <td className="px-4 py-3 border-r border-[#0C0C0C]/10">
                         <span className={`inline-block px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider border border-[#0C0C0C]/20 ${action.color}`}>{action.label}</span>
                       </td>
-                      <td className="px-4 py-3 border-r border-[#0C0C0C]/10 font-bold max-w-[180px] truncate">{log.record || ""}</td>
+                      <td className="px-4 py-3 border-r border-[#0C0C0C]/10 font-bold max-w-[220px] truncate uppercase">{log.record || ""}</td>
                       <td className="px-4 py-3 max-w-[420px]">
                         {log.action === "UPDATE" && oldSummary && (
                           <div className="text-[#CC0000] text-[10px] truncate mb-0.5">was: {oldSummary}</div>

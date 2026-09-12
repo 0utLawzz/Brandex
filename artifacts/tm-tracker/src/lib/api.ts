@@ -311,7 +311,7 @@ function rowToRecord(row: SupabaseTrademarkRow, signedImage = ""): TrademarkReco
 }
 
 async function mapRows(rows: SupabaseTrademarkRow[], signImages = false): Promise<TrademarkRecord[]> {
-  if (!signImages) return rows.map((row) => rowToRecord(row));
+  if (!signImages) return mergeRegistryMatches(rows.map((row) => rowToRecord(row)));
   const paths = rows.map((row) => row.logo_path).filter((path): path is string => Boolean(path));
   const signedByPath = new Map<string, string>();
   if (paths.length) {
@@ -320,14 +320,54 @@ async function mapRows(rows: SupabaseTrademarkRow[], signImages = false): Promis
       if (item.signedUrl) signedByPath.set(paths[index], item.signedUrl);
     });
   }
-  return rows.map((row) => rowToRecord(row, row.logo_path ? signedByPath.get(row.logo_path) ?? "" : ""));
+  return mergeRegistryMatches(rows.map((row) => rowToRecord(row, row.logo_path ? signedByPath.get(row.logo_path) ?? "" : "")));
+}
+
+async function mergeRegistryMatches(records: TrademarkRecord[]): Promise<TrademarkRecord[]> {
+  const numbers = [...new Set(records.map((record) => record.tmCprNo.replace(/\D/g, "")).filter(Boolean))];
+  if (!numbers.length) return records;
+
+  const { data, error } = await supabase
+    .from("form_registry")
+    .select("tm_number_norm, form_type")
+    .in("tm_number_norm", numbers);
+  if (error) return records;
+
+  const byNumber = new Map<string, Set<string>>();
+  const rows = Array.isArray(data) ? data : [];
+  for (const row of rows) {
+    const key = String(row.tm_number_norm ?? "");
+    if (!byNumber.has(key)) byNumber.set(key, new Set());
+    byNumber.get(key)?.add(String(row.form_type ?? "").toUpperCase());
+  }
+
+  return records.map((record) => {
+    const found = byNumber.get(record.tmCprNo.replace(/\D/g, ""));
+    if (!found?.size) return record;
+    const tmMatches: TmMatches = {
+      TM5: Boolean(record.tmMatches?.TM5 || found.has("TM5")),
+      TM6: Boolean(record.tmMatches?.TM6 || found.has("TM6")),
+      TM11: Boolean(record.tmMatches?.TM11 || found.has("TM11")),
+      TM16: Boolean(record.tmMatches?.TM16 || found.has("TM16")),
+      TM56: Boolean(record.tmMatches?.TM56 || found.has("TM56")),
+    };
+    return {
+      ...record,
+      tmMatches,
+      tm5: tmMatches.TM5 ? "YES" : record.tm5,
+      tm6: tmMatches.TM6 ? "YES" : record.tm6,
+      tm11: tmMatches.TM11 ? "YES" : record.tm11,
+      tm16: tmMatches.TM16 ? "YES" : record.tm16,
+      tm56: tmMatches.TM56 ? "YES" : record.tm56,
+    };
+  });
 }
 
 const TRADEMARK_LIST_COLUMNS = [
   "id", "filing_date", "type", "client_code", "client_name", "case_number",
   "application_name", "tm_cpr_number", "nice_class", "status", "sub_status",
   "case_type", "agent", "city", "tm5", "tm6", "tm11", "tm16", "tm56",
-  "journal_number", "journal_date", "updated_at", "version",
+  "journal_number", "journal_date", "logo_path", "legacy_image_url", "updated_at", "version",
 ].join(",");
 
 export function inputToRow(input: TrademarkInput) {
@@ -403,7 +443,7 @@ export async function listTrademarkPage(params: TrademarkListParams = {}): Promi
   const { data, error, count } = await query;
   throwIfError(error);
   return {
-    records: await mapRows((data ?? []) as unknown as SupabaseTrademarkRow[]),
+    records: await mapRows((data ?? []) as unknown as SupabaseTrademarkRow[], true),
     total: count ?? 0,
     page,
     pageSize,
