@@ -1,6 +1,6 @@
 # Brandex Datasheet Progress
 
-**Last updated: 12 September 2026 (Admin CSV import dry-run + form/journal registry tables pushed)**
+**Last updated: 12 September 2026 (Admin CSV import + registry work already on remote; automated verification + Edge Function observability completed)**
 
 This file is the single source of truth for project status.  
 **Any AI agent or contributor must read this file first** before making changes, suggesting work, or starting a new task.
@@ -77,12 +77,12 @@ This file is the single source of truth for project status.
 - [x] TypeScript typecheck
 - [x] Production build
 - [ ] Authenticated browser smoke test (viewer / editor / admin flows) → see SMOKE_TEST_CHECKLIST.md
-- [x] Vercel production verification (env vars cleaned, only two VITE_ keys remain)
+- [ ] Vercel production verification (deployment and runtime entry point verified; dashboard environment-variable inventory not exposed in the available project API) → see SMOKE_TEST_CHECKLIST.md
 
 ## Medium-priority improvements
 
-- [ ] Expand unit and integration tests around the outbox processor and role gates
-- [ ] Add structured logging / observability to the Edge Function (`supabase/functions/sync-google-sheet`)
+- [ ] Expand unit and integration tests around the outbox processor and role gates (API boundary coverage expanded; Edge Function/RLS integration coverage still pending)
+- [x] Add structured logging / observability to the Edge Function (`supabase/functions/sync-google-sheet`)
 - [x] Document backup and restore procedures for the private storage bucket (`trademark-files`) → see STORAGE_BACKUP.md
 
 ## Additional recommendations (Pending – evaluate before implementing)
@@ -107,6 +107,16 @@ This file is the single source of truth for project status.
 2. Update the checkboxes and “Last updated” date when a task is finished.
 3. Keep the “Pending” sections accurate so the next agent or developer knows the exact state.
 4. Do not start work on items marked “Held for a separately approved phase” without explicit approval.
+
+## Verification run (12 September 2026)
+
+- [x] `pnpm test` → 1 file, 8 tests passed
+- [x] `pnpm typecheck` → passed
+- [x] `pnpm build` → passed; Vite production bundle generated successfully
+- [x] Production URL reachable → login/AuthGate rendered at https://brandexsheet.vercel.app with no browser console errors observed
+- [x] Latest Vercel production deployment → READY on `main`, commit `45c7c046dd7b65b4f7a02bcf8790d42c044e7921`
+- [ ] Authenticated viewer/editor/admin flows → blocked because no test credentials were supplied and no authenticated browser session was available
+- [ ] Supabase/Vercel dashboard secret inventory → not independently confirmed through the available project APIs; no local `.env` file was present in the checkout
 
 ## Current active focus
 
